@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Kairon Dashboard
 
 Internal company dashboard built with React + Vite, backed by **Supabase** (Postgres + Auth).
@@ -37,3 +38,7 @@ The app will be available at http://localhost:5173.
 | `npm run build` | Production build |
 | `npm run preview` | Preview the production build locally |
 | `npm run lint` | Run ESLint |
+=======
+# Dashboard_Kairon_Company
+Dashboard da Kairon Company
+>>>>>>> origin/main
