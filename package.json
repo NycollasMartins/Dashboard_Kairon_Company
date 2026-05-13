@@ -9,7 +9,7 @@
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
-    "preview": "vite preview"
+    "start": "vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
