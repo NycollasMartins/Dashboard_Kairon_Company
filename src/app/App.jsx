@@ -1,0 +1,58 @@
+import { Toaster } from '@/components/ui/toaster';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
+import { queryClientInstance } from '@/shared/lib/query-client';
+import ProtectedRoute from '@/shared/components/ProtectedRoute';
+import LoginPage from '@/features/auth/pages/LoginPage';
+import DashboardLayout from '@/features/dashboard/pages/DashboardLayout';
+import VisaoGeralPage from '@/features/dashboard/pages/VisaoGeralPage';
+import AdministrativoPage from '@/features/administrativo/pages/AdministrativoPage';
+import ClientesPageWrapper from '@/features/clientes/pages/ClientesPageWrapper';
+import MinhasTarefasPage from '@/features/tarefas/pages/MinhasTarefasPage';
+import SquadsPage from '@/features/squads/pages/SquadsPage';
+import PageNotFound from '@/shared/components/PageNotFound';
+
+function AppContent() {
+  const { isLoadingAuth, isAuthenticated } = useAuth();
+
+  if (isLoadingAuth) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
+      />
+      <Route element={<ProtectedRoute />}>
+        <Route element={<DashboardLayout />}>
+          <Route index element={<VisaoGeralPage />} />
+          <Route path="administrativo" element={<AdministrativoPage />} />
+          <Route path="clientes/*" element={<ClientesPageWrapper />} />
+          <Route path="tarefas" element={<MinhasTarefasPage />} />
+          <Route path="squads" element={<SquadsPage />} />
+        </Route>
+      </Route>
+      <Route path="*" element={<PageNotFound />} />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AuthProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <AppContent />
+          <Toaster />
+        </QueryClientProvider>
+      </AuthProvider>
+    </Router>
+  );
+}

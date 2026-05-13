@@ -1,0 +1,41 @@
+{
+  "name": "Projeto",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome do projeto"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o do projeto"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "pausado",
+        "concluido"
+      ],
+      "default": "ativo",
+      "description": "Status do projeto"
+    },
+    "cliente_id": {
+      "type": "string",
+      "description": "ID do cliente vinculado"
+    },
+    "cliente_nome": {
+      "type": "string",
+      "description": "Nome do cliente vinculado"
+    },
+    "prazo": {
+      "type": "string",
+      "format": "date",
+      "description": "Data limite do projeto"
+    }
+  },
+  "required": [
+    "nome",
+    "cliente_id"
+  ]
+}

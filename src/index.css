@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 5%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 1 81% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 1 68% 38%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 13%;
+    --muted-foreground: 0 0% 50%;
+    --accent: 1 48% 17%;
+    --accent-foreground: 1 78% 72%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 14%;
+    --input: 0 0% 11%;
+    --ring: 1 81% 56%;
+    --radius: 1rem;
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 80%;
+    --sidebar-primary: 1 81% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 0 0% 11%;
+    --sidebar-ring: 1 81% 56%;
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.07);
+    --glow-orange: rgba(234, 57, 53, 0.35);
+    --glow-orange-soft: rgba(234, 57, 53, 0.15);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-inter;
+    background: radial-gradient(ellipse at 20% 20%, rgba(234, 57, 53, 0.10) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(234, 57, 53, 0.05) 0%, transparent 50%),
+                hsl(var(--background));
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.3);
+    border-radius: 2px;
+  }
+}
+
+.glass-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-sidebar {
+  background: rgba(13, 13, 13, 0.85);
+  border-right: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.glow-orange {
+  box-shadow: 0 0 20px var(--glow-orange), 0 0 40px rgba(234, 57, 53, 0.1);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #EA3935, #f0706c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
