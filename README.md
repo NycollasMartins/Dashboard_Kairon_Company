@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Kairon Dashboard
 
 Internal company dashboard built with React + Vite, backed by **Supabase** (Postgres + Auth).
@@ -36,9 +35,18 @@ The app will be available at http://localhost:5173.
 | Command | Description |
 |---------|-------------|
 | `npm run build` | Production build |
-| `npm run preview` | Preview the production build locally |
+| `npm run start` | Preview the production build locally |
 | `npm run lint` | Run ESLint |
-=======
-# Dashboard_Kairon_Company
-Dashboard da Kairon Company
->>>>>>> origin/main
+
+## Deploy (EasyPanel)
+
+The repository ships with a multi-stage `Dockerfile` that builds the app and serves the static `dist/` through Nginx.
+
+Set the following **Build Args / Environment Variables** in EasyPanel (they are baked into the bundle at build time):
+
+```
+VITE_SUPABASE_URL=https://<your-project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<your-anon-public-key>
+```
+
+Expose port `80`.
