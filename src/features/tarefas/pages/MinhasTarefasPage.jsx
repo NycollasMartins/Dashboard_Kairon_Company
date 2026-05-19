@@ -14,6 +14,8 @@ import {
   Building2,
   AlignLeft,
   Sparkles,
+  Trash2,
+  ListChecks,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,15 +59,16 @@ function FieldLabel({ icon: Icon, children, required }) {
   );
 }
 
-function TarefaForm({ onClose, onSave, clientes, responsavelId, isSubmitting }) {
+function TarefaForm({ onClose, onSave, onDelete, clientes, responsavelId, isSubmitting, tarefa }) {
+  const isEdit = !!tarefa;
   const [form, setForm] = useState({
-    titulo: '',
-    descricao: '',
-    status: 'pendente',
-    prioridade: 'media',
-    prazo: '',
-    cliente_id: '',
-    responsavel_id: responsavelId || '',
+    titulo: tarefa?.titulo ?? '',
+    descricao: tarefa?.descricao ?? '',
+    status: tarefa?.status ?? 'pendente',
+    prioridade: tarefa?.prioridade ?? 'media',
+    prazo: tarefa?.prazo ?? '',
+    cliente_id: tarefa?.cliente_id ?? '',
+    responsavel_id: tarefa?.responsavel_id ?? responsavelId ?? '',
   });
   const [submitted, setSubmitted] = useState(false);
   const tituloRef = useRef(null);
@@ -112,11 +115,15 @@ function TarefaForm({ onClose, onSave, clientes, responsavelId, isSubmitting }) 
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/5">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[#EA3935]/10 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-[#EA3935]" />
+              {isEdit ? <ListChecks className="w-4 h-4 text-[#EA3935]" /> : <Sparkles className="w-4 h-4 text-[#EA3935]" />}
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white leading-tight">Nova Tarefa</h3>
-              <p className="text-[11px] text-muted-foreground">Organize sua próxima ação em segundos</p>
+              <h3 className="text-sm font-semibold text-white leading-tight">
+                {isEdit ? 'Editar Tarefa' : 'Nova Tarefa'}
+              </h3>
+              <p className="text-[11px] text-muted-foreground">
+                {isEdit ? 'Atualize os detalhes desta tarefa' : 'Organize sua próxima ação em segundos'}
+              </p>
             </div>
           </div>
           <button
@@ -161,6 +168,30 @@ function TarefaForm({ onClose, onSave, clientes, responsavelId, isSubmitting }) 
               {form.descricao.length}/{DESCRICAO_MAX}
             </p>
           </div>
+
+          {isEdit && (
+            <div>
+              <FieldLabel icon={ListChecks}>Status</FieldLabel>
+              <Select
+                value={form.status}
+                onValueChange={(v) => setForm({ ...form, status: v })}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {columns.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <span className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${c.accent}`} />
+                        <span className={c.color}>{c.label}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -221,6 +252,19 @@ function TarefaForm({ onClose, onSave, clientes, responsavelId, isSubmitting }) 
         </div>
 
         <div className="flex items-center gap-3 px-6 pb-5 pt-1">
+          {isEdit && onDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Excluir esta tarefa? Esta ação não pode ser desfeita.')) {
+                  onDelete(tarefa.id);
+                }
+              }}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-400 transition-colors px-2 h-10"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Excluir
+            </button>
+          )}
           <Button
             type="button"
             onClick={onClose}
@@ -236,11 +280,11 @@ function TarefaForm({ onClose, onSave, clientes, responsavelId, isSubmitting }) 
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Criando...
+                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> {isEdit ? 'Salvando...' : 'Criando...'}
               </>
             ) : (
               <>
-                <Check className="w-4 h-4 mr-1.5" /> Criar tarefa
+                <Check className="w-4 h-4 mr-1.5" /> {isEdit ? 'Salvar alterações' : 'Criar tarefa'}
               </>
             )}
           </Button>
@@ -250,7 +294,7 @@ function TarefaForm({ onClose, onSave, clientes, responsavelId, isSubmitting }) 
   );
 }
 
-function TarefaCard({ tarefa, index }) {
+function TarefaCard({ tarefa, index, onOpen }) {
   const cfg = prioridadeConfig[tarefa.prioridade] || prioridadeConfig.media;
   return (
     <Draggable draggableId={tarefa.id} index={index}>
@@ -258,11 +302,16 @@ function TarefaCard({ tarefa, index }) {
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className={`glass-card border border-white/5 rounded-xl p-3.5 mb-2.5 cursor-grab transition-all duration-200
+          onClick={() => onOpen(tarefa)}
+          className={`glass-card border border-white/5 rounded-xl p-3.5 mb-2.5 cursor-pointer transition-all duration-200
             ${snapshot.isDragging ? 'border-purple-500/40 shadow-lg shadow-purple-500/10 rotate-1' : 'hover:border-white/10'}`}
         >
           <div className="flex items-start gap-2 mb-2">
-            <div {...provided.dragHandleProps} className="text-muted-foreground hover:text-white mt-0.5 shrink-0">
+            <div
+              {...provided.dragHandleProps}
+              onClick={(e) => e.stopPropagation()}
+              className="text-muted-foreground hover:text-white mt-0.5 shrink-0 cursor-grab"
+            >
               <Grip className="w-3.5 h-3.5" />
             </div>
             <p className="text-sm text-white font-medium flex-1 leading-snug">{tarefa.titulo}</p>
@@ -291,6 +340,7 @@ function TarefaCard({ tarefa, index }) {
 
 export default function MinhasTarefasPage() {
   const [showForm, setShowForm] = useState(false);
+  const [editandoTarefa, setEditandoTarefa] = useState(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -323,11 +373,33 @@ export default function MinhasTarefasPage() {
 
   const atualizar = useMutation({
     mutationFn: ({ id, data }) => tarefasApi.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.tarefas.all }),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.tarefas.all });
+      if (editandoTarefa && variables?.id === editandoTarefa.id) {
+        setEditandoTarefa(null);
+        toast({ title: 'Tarefa atualizada.' });
+      }
+    },
     onError: (err) => {
       toast({
         variant: 'destructive',
         title: 'Não foi possível atualizar a tarefa',
+        description: err?.message ?? 'Tente novamente em instantes.',
+      });
+    },
+  });
+
+  const deletar = useMutation({
+    mutationFn: tarefasApi.delete,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.tarefas.all });
+      setEditandoTarefa(null);
+      toast({ title: 'Tarefa removida.' });
+    },
+    onError: (err) => {
+      toast({
+        variant: 'destructive',
+        title: 'Não foi possível remover a tarefa',
         description: err?.message ?? 'Tente novamente em instantes.',
       });
     },
@@ -371,7 +443,9 @@ export default function MinhasTarefasPage() {
                       {...provided.droppableProps}
                       className={`min-h-[120px] rounded-xl transition-colors ${snapshot.isDraggingOver ? 'bg-white/5' : ''}`}
                     >
-                      {colTarefas.map((t, i) => <TarefaCard key={t.id} tarefa={t} index={i} />)}
+                      {colTarefas.map((t, i) => (
+                        <TarefaCard key={t.id} tarefa={t} index={i} onOpen={setEditandoTarefa} />
+                      ))}
                       {provided.placeholder}
                     </div>
                   )}
@@ -389,6 +463,18 @@ export default function MinhasTarefasPage() {
           clientes={clientes}
           responsavelId={user?.id}
           isSubmitting={criar.isPending}
+        />
+      )}
+
+      {editandoTarefa && (
+        <TarefaForm
+          tarefa={editandoTarefa}
+          onClose={() => setEditandoTarefa(null)}
+          onSave={(f) => atualizar.mutate({ id: editandoTarefa.id, data: f })}
+          onDelete={(id) => deletar.mutate(id)}
+          clientes={clientes}
+          responsavelId={user?.id}
+          isSubmitting={atualizar.isPending}
         />
       )}
     </div>

@@ -134,7 +134,7 @@ function TarefaForm({ onClose, onSave, clienteId, projetoId, tarefa, squadMembro
   );
 }
 
-function TarefaCard({ tarefa, index, onEdit, onDelete }) {
+function TarefaCard({ tarefa, index, onOpen, onEdit, onDelete }) {
   const cfg = prioridadeConfig[tarefa.prioridade] || prioridadeConfig.media;
   const responsavel = tarefa.responsavel;
 
@@ -144,23 +144,28 @@ function TarefaCard({ tarefa, index, onEdit, onDelete }) {
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className={`glass-card border border-white/5 rounded-xl p-3.5 mb-2.5 transition-all duration-200 group
+          onClick={() => onOpen(tarefa)}
+          className={`glass-card border border-white/5 rounded-xl p-3.5 mb-2.5 transition-all duration-200 group cursor-pointer
             ${snapshot.isDragging ? 'border-[#EA3935]/40 shadow-lg shadow-red-500/10 rotate-1' : 'hover:border-white/10'}`}
         >
           <div className="flex items-start gap-2 mb-2">
-            <div {...provided.dragHandleProps} className="text-muted-foreground hover:text-white mt-0.5 shrink-0 cursor-grab">
+            <div
+              {...provided.dragHandleProps}
+              onClick={(e) => e.stopPropagation()}
+              className="text-muted-foreground hover:text-white mt-0.5 shrink-0 cursor-grab"
+            >
               <Grip className="w-3.5 h-3.5" />
             </div>
             <p className="text-sm text-white font-medium flex-1 leading-snug">{tarefa.titulo}</p>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
               <button
-                onClick={() => onEdit(tarefa)}
+                onClick={(e) => { e.stopPropagation(); onEdit(tarefa); }}
                 className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
               >
                 <Edit2 className="w-3 h-3" />
               </button>
               <button
-                onClick={() => onDelete(tarefa.id)}
+                onClick={(e) => { e.stopPropagation(); onDelete(tarefa.id); }}
                 className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
               >
                 <Trash2 className="w-3 h-3" />
@@ -301,6 +306,7 @@ export default function ProjetoKanban({ projeto, clienteNome, squadMembros = [],
                           key={t.id}
                           tarefa={t}
                           index={i}
+                          onOpen={setEditandoTarefa}
                           onEdit={setEditandoTarefa}
                           onDelete={(id) => deletar.mutate(id)}
                         />

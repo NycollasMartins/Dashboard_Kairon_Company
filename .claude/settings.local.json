@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --no-install eslint src/features/tarefas/pages/MinhasTarefasPage.jsx src/features/projetos/components/ProjetoKanban.jsx)",
+      "Bash(npm run *)"
+    ]
+  }
+}
