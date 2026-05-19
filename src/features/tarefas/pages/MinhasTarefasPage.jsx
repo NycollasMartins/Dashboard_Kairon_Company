@@ -249,24 +249,34 @@ function TarefaForm({ onClose, onSave, onDelete, clientes, responsavelId, isSubm
             </div>
           </div>
 
-          {clientes.length > 0 && (
-            <div>
-              <FieldLabel icon={Building2}>Cliente (opcional)</FieldLabel>
-              <Select value={form.cliente_id || 'none'} onValueChange={handleClienteChange}>
-                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
-                  <SelectValue placeholder="Vincular a um cliente" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a2e] border-white/10">
-                  <SelectItem value="none">Sem cliente</SelectItem>
-                  {clientes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          {(() => {
+            const clienteAtualInativo = clientes.find(
+              (c) => c.id === form.cliente_id && c.status === 'inativo'
+            );
+            const clientesSelecionaveis = clientes.filter(
+              (c) => c.status !== 'inativo' || c.id === clienteAtualInativo?.id
+            );
+            if (clientesSelecionaveis.length === 0) return null;
+            return (
+              <div>
+                <FieldLabel icon={Building2}>Cliente (opcional)</FieldLabel>
+                <Select value={form.cliente_id || 'none'} onValueChange={handleClienteChange}>
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                    <SelectValue placeholder="Vincular a um cliente" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a2e] border-white/10">
+                    <SelectItem value="none">Sem cliente</SelectItem>
+                    {clientesSelecionaveis.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.nome}
+                        {c.status === 'inativo' ? ' (arquivado)' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            );
+          })()}
 
           {form.cliente_id && (
             <div>
@@ -458,6 +468,8 @@ export default function MinhasTarefasPage() {
     atualizar.mutate({ id: draggableId, data: { status: destination.droppableId } });
   };
 
+  const tarefasVisiveis = tarefas.filter((t) => t.clientes?.status !== 'inativo');
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -473,7 +485,7 @@ export default function MinhasTarefasPage() {
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {columns.map((col) => {
-            const colTarefas = tarefas.filter((t) => t.status === col.id);
+            const colTarefas = tarefasVisiveis.filter((t) => t.status === col.id);
             return (
               <div key={col.id} className={`glass-card rounded-2xl border ${col.border} p-4`}>
                 <div className="flex items-center justify-between mb-4">

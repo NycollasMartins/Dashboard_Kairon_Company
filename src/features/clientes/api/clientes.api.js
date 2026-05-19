@@ -24,6 +24,12 @@ export const clientesApi = {
   update: (id, data) =>
     supabase.from(TABLE).update(data).eq('id', id).select(LIST_SELECT).single().then(unwrap),
 
-  delete: (id) =>
-    supabase.from(TABLE).delete().eq('id', id).then(unwrap),
+  archive: (id) =>
+    supabase
+      .from(TABLE)
+      .update({ status: 'inativo' })
+      .eq('id', id)
+      .select(LIST_SELECT)
+      .single()
+      .then(unwrap),
 };

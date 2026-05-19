@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Plus, Search, Edit2, Trash2, Phone, Mail, Building2, ChevronRight } from 'lucide-react';
+import { Plus, Search, Edit2, Archive, Phone, Mail, Building2, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
+import ConfirmArchiveDialog from '@/shared/ui/ConfirmArchiveDialog';
 import ClienteForm from '@/features/clientes/components/ClienteForm';
 import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { tarefasApi } from '@/features/tarefas/api/tarefas.api';
@@ -21,7 +22,8 @@ export default function ClientesPage({ onVerCliente }) {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editando, setEditando] = useState(null);
-  const [filtroStatus, setFiltroStatus] = useState('todos');
+  const [arquivando, setArquivando] = useState(null);
+  const [filtroStatus, setFiltroStatus] = useState('ativos');
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -53,11 +55,20 @@ export default function ClientesPage({ onVerCliente }) {
     },
   });
 
-  const deletar = useMutation({
-    mutationFn: clientesApi.delete,
+  const arquivar = useMutation({
+    mutationFn: clientesApi.archive,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.clientes.all });
-      toast({ title: 'Cliente removido.' });
+      qc.invalidateQueries({ queryKey: queryKeys.tarefas.all });
+      setArquivando(null);
+      toast({ title: 'Cliente arquivado.' });
+    },
+    onError: (err) => {
+      toast({
+        variant: 'destructive',
+        title: 'Não foi possível arquivar o cliente',
+        description: err?.message ?? 'Tente novamente em instantes.',
+      });
     },
   });
 
@@ -70,7 +81,10 @@ export default function ClientesPage({ onVerCliente }) {
     const matchSearch =
       c.nome?.toLowerCase().includes(search.toLowerCase()) ||
       c.empresa?.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filtroStatus === 'todos' || c.status === filtroStatus;
+    const matchStatus =
+      filtroStatus === 'todos' ||
+      (filtroStatus === 'ativos' && c.status !== 'inativo') ||
+      c.status === filtroStatus;
     return matchSearch && matchStatus;
   });
 
@@ -95,6 +109,7 @@ export default function ClientesPage({ onVerCliente }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="bg-[#1a1a2e] border-white/10">
+            <SelectItem value="ativos">Ativos</SelectItem>
             <SelectItem value="todos">Todos</SelectItem>
             <SelectItem value="lead">Lead</SelectItem>
             <SelectItem value="qualificado">Qualificado</SelectItem>
@@ -175,12 +190,15 @@ export default function ClientesPage({ onVerCliente }) {
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
-                  <button
-                    onClick={() => deletar.mutate(c.id)}
-                    className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {c.status !== 'inativo' && (
+                    <button
+                      onClick={() => setArquivando(c)}
+                      title="Arquivar cliente"
+                      className="p-1.5 rounded-lg hover:bg-amber-500/10 text-muted-foreground hover:text-amber-300 transition-colors"
+                    >
+                      <Archive className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   {onVerCliente && (
                     <button
                       onClick={() => onVerCliente(c.id)}
@@ -201,6 +219,16 @@ export default function ClientesPage({ onVerCliente }) {
           cliente={editando}
           onClose={() => { setShowForm(false); setEditando(null); }}
           onSave={handleSave}
+        />
+      )}
+
+      {arquivando && (
+        <ConfirmArchiveDialog
+          title={`Arquivar ${arquivando.nome}?`}
+          description="O cliente fica oculto da lista e suas tarefas somem do Kanban. O histórico é preservado e você pode reativar a qualquer momento mudando o status para Ativo."
+          onConfirm={() => arquivar.mutate(arquivando.id)}
+          onCancel={() => setArquivando(null)}
+          isLoading={arquivar.isPending}
         />
       )}
     </div>

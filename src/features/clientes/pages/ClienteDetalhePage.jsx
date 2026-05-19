@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Edit2, Trash2, Mail, Phone, Building2,
-  Users, Package, FileText, AlertTriangle, Upload, FolderOpen, User,
+  ArrowLeft, Edit2, Archive, Mail, Phone, Building2,
+  Users, Package, FileText, Upload, FolderOpen, User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import ConfirmArchiveDialog from '@/shared/ui/ConfirmArchiveDialog';
 import ClienteForm from '@/features/clientes/components/ClienteForm';
 import ProjetosLista from '@/features/projetos/components/ProjetosLista';
 import { clientesApi } from '@/features/clientes/api/clientes.api';
@@ -25,37 +26,6 @@ const tabs = [
   { id: 'equipe', label: 'Equipe Responsável' },
   { id: 'arquivos', label: 'Arquivos' },
 ];
-
-function ConfirmDialog({ onConfirm, onCancel }) {
-  return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onCancel} />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="relative glass-card border border-red-500/20 rounded-2xl p-6 w-full max-w-sm z-10"
-      >
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-red-400" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-white">Deletar cliente?</p>
-            <p className="text-xs text-muted-foreground">Esta ação não pode ser desfeita.</p>
-          </div>
-        </div>
-        <div className="flex gap-3 mt-5">
-          <Button onClick={onCancel} variant="outline" className="flex-1 border-white/10 text-muted-foreground hover:text-white">
-            Cancelar
-          </Button>
-          <Button onClick={onConfirm} className="flex-1 bg-red-500 hover:bg-red-600 border-0 text-white">
-            <Trash2 className="w-4 h-4 mr-1.5" /> Deletar
-          </Button>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
 
 function TabDadosGerais({ cliente }) {
   const squad = cliente.squads;
@@ -199,7 +169,7 @@ function TabArquivos() {
 export default function ClienteDetalhePage({ clienteId, onBack }) {
   const [activeTab, setActiveTab] = useState('dados');
   const [showEdit, setShowEdit] = useState(false);
-  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [showConfirmArchive, setShowConfirmArchive] = useState(false);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -219,12 +189,22 @@ export default function ClienteDetalhePage({ clienteId, onBack }) {
     },
   });
 
-  const deletar = useMutation({
-    mutationFn: () => clientesApi.delete(clienteId),
+  const arquivar = useMutation({
+    mutationFn: () => clientesApi.archive(clienteId),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.clientes.detail(clienteId) });
       qc.invalidateQueries({ queryKey: queryKeys.clientes.all });
-      toast({ title: 'Cliente removido.' });
+      qc.invalidateQueries({ queryKey: queryKeys.tarefas.all });
+      setShowConfirmArchive(false);
+      toast({ title: 'Cliente arquivado.' });
       onBack();
+    },
+    onError: (err) => {
+      toast({
+        variant: 'destructive',
+        title: 'Não foi possível arquivar o cliente',
+        description: err?.message ?? 'Tente novamente em instantes.',
+      });
     },
   });
 
@@ -284,12 +264,14 @@ export default function ClienteDetalhePage({ clienteId, onBack }) {
           >
             <Edit2 className="w-3.5 h-3.5" /> Editar
           </Button>
-          <Button
-            onClick={() => setShowConfirmDelete(true)}
-            className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 h-9 px-3 text-xs gap-1.5"
-          >
-            <Trash2 className="w-3.5 h-3.5" /> Deletar
-          </Button>
+          {cliente.status !== 'inativo' && (
+            <Button
+              onClick={() => setShowConfirmArchive(true)}
+              className="bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-300 h-9 px-3 text-xs gap-1.5"
+            >
+              <Archive className="w-3.5 h-3.5" /> Arquivar
+            </Button>
+          )}
         </div>
       </div>
 
@@ -322,10 +304,13 @@ export default function ClienteDetalhePage({ clienteId, onBack }) {
           onSave={(form) => atualizar.mutate(form)}
         />
       )}
-      {showConfirmDelete && (
-        <ConfirmDialog
-          onConfirm={() => deletar.mutate()}
-          onCancel={() => setShowConfirmDelete(false)}
+      {showConfirmArchive && (
+        <ConfirmArchiveDialog
+          title={`Arquivar ${cliente.nome}?`}
+          description="O cliente fica oculto da lista e suas tarefas somem do Kanban. O histórico é preservado e você pode reativar a qualquer momento mudando o status para Ativo."
+          onConfirm={() => arquivar.mutate()}
+          onCancel={() => setShowConfirmArchive(false)}
+          isLoading={arquivar.isPending}
         />
       )}
     </div>

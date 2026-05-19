@@ -33,7 +33,7 @@ function sanitizeTarefaRow(input) {
   return result;
 }
 
-const TAREFA_SELECT = '*, clientes(nome), responsavel:profiles(id,full_name,email)';
+const TAREFA_SELECT = '*, clientes(nome,status), responsavel:profiles(id,full_name,email)';
 
 export const tarefasApi = {
   list: () =>
