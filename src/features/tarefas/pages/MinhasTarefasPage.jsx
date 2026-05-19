@@ -132,6 +132,7 @@ function FieldLabel({ icon: Icon, children, required }) {
 
 function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis = [], responsavelId, isSubmitting, tarefa = null }) {
   const isEdit = !!tarefa;
+  const projetoEscolhidoManualmenteRef = useRef(isEdit);
   const [form, setForm] = useState({
     titulo: tarefa?.titulo ?? '',
     descricao: tarefa?.descricao ?? '',
@@ -163,11 +164,27 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  useEffect(() => {
+    if (!form.cliente_id || form.projeto_id || projetoEscolhidoManualmenteRef.current) return;
+
+    const backlog = projetosCliente.find(
+      (projeto) => projeto.nome?.trim().toLowerCase() === 'backlog'
+    );
+    if (!backlog) return;
+
+    setForm((f) => (
+      f.projeto_id || f.cliente_id !== form.cliente_id
+        ? f
+        : { ...f, projeto_id: backlog.id }
+    ));
+  }, [form.cliente_id, form.projeto_id, projetosCliente]);
+
   const tituloTrim = form.titulo.trim();
   const tituloInvalid = submitted && !tituloTrim;
   const canSubmit = tituloTrim.length > 0 && !isSubmitting;
 
   const handleClienteChange = (id) => {
+    projetoEscolhidoManualmenteRef.current = false;
     setForm((f) => ({
       ...f,
       cliente_id: id === 'none' ? '' : id,
@@ -176,6 +193,8 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
   };
 
   const handleProjetoChange = (id) => {
+    projetoEscolhidoManualmenteRef.current = true;
+    if (!isEdit && id === 'none') return;
     setForm((f) => ({ ...f, projeto_id: id === 'none' ? '' : id }));
   };
 
@@ -395,9 +414,9 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
 
           {form.cliente_id && (
             <div>
-              <FieldLabel icon={FolderKanban}>Projeto (opcional)</FieldLabel>
+              <FieldLabel icon={FolderKanban}>{isEdit ? 'Projeto (opcional)' : 'Projeto'}</FieldLabel>
               <Select
-                value={form.projeto_id || 'none'}
+                value={isEdit ? (form.projeto_id || 'none') : (form.projeto_id || undefined)}
                 onValueChange={handleProjetoChange}
                 disabled={projetosCliente.length === 0}
               >
@@ -411,7 +430,7 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
                   />
                 </SelectTrigger>
                 <SelectContent className="bg-[#1a1a2e] border-white/10">
-                  <SelectItem value="none">Sem projeto</SelectItem>
+                  {isEdit && <SelectItem value="none">Sem projeto</SelectItem>}
                   {projetosCliente.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.nome}
