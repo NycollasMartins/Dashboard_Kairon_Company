@@ -26,6 +26,8 @@ const prioridadeConfig = {
   urgente: { label: 'Urgente', color: 'text-red-400' },
 };
 
+const todayStr = () => new Date().toISOString().split('T')[0];
+
 const projetoStatusConfig = {
   ativo: { label: 'Ativo', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
   pausado: { label: 'Pausado', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20' },
@@ -40,7 +42,7 @@ function TarefaForm({ onClose, onSave, clienteId, projetoId, tarefa, squadMembro
     descricao: tarefa?.descricao ?? '',
     status: tarefa?.status ?? 'pendente',
     prioridade: tarefa?.prioridade ?? 'media',
-    prazo: tarefa?.prazo ?? '',
+    prazo: tarefa?.prazo ?? todayStr(),
     responsavel_id: tarefa?.responsavel_id ?? '',
     cliente_id: clienteId,
     projeto_id: tarefa?.projeto_id ?? projetoId,
@@ -149,7 +151,7 @@ function TarefaForm({ onClose, onSave, clienteId, projetoId, tarefa, squadMembro
                 const titulo = form.titulo.trim();
                 if (!titulo) return;
                 const { responsavel: _r, clientes: _c, ...rest } = form;
-                onSave({ ...rest, titulo });
+                onSave({ ...rest, titulo, prazo: form.prazo || todayStr() });
               }}
               className="flex-1 bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >

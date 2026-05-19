@@ -138,7 +138,7 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
     descricao: tarefa?.descricao ?? '',
     status: tarefa?.status ?? 'pendente',
     prioridade: tarefa?.prioridade ?? 'media',
-    prazo: tarefa?.prazo ?? '',
+    prazo: tarefa?.prazo ?? todayStr(),
     cliente_id: tarefa?.cliente_id ?? '',
     projeto_id: tarefa?.projeto_id ?? '',
     responsavel_id: tarefa?.responsavel_id ?? responsavelId ?? '',
@@ -202,7 +202,7 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
     e?.preventDefault?.();
     setSubmitted(true);
     if (!canSubmit) return;
-    onSave({ ...form, titulo: tituloTrim });
+    onSave({ ...form, titulo: tituloTrim, prazo: form.prazo || todayStr() });
   };
 
   const prioridade = prioridadeConfig[form.prioridade] ?? prioridadeConfig.media;
@@ -231,14 +231,31 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
-            aria-label="Fechar"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            {isEdit && onDelete && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Excluir esta tarefa? Esta ação não pode ser desfeita.')) {
+                    onDelete(tarefa.id);
+                  }
+                }}
+                className="flex items-center gap-1.5 p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors text-xs"
+                aria-label="Excluir tarefa"
+              >
+                <Trash2 className="w-4 h-4" />
+                Excluir
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
+              aria-label="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -443,19 +460,6 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
         </div>
 
         <div className="flex items-center gap-3 px-6 pb-5 pt-1">
-          {isEdit && onDelete && (
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm('Excluir esta tarefa? Esta ação não pode ser desfeita.')) {
-                  onDelete(tarefa.id);
-                }
-              }}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-400 transition-colors px-2 h-10"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Excluir
-            </button>
-          )}
           <Button
             type="button"
             onClick={onClose}
