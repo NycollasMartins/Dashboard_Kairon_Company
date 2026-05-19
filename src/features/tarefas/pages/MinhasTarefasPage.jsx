@@ -9,7 +9,6 @@ import {
   Check,
   Calendar,
   Flag,
-  Grip,
   Loader2,
   Building2,
   AlignLeft,
@@ -23,7 +22,6 @@ import {
   Users,
   ChevronDown,
   AlertTriangle,
-  CalendarClock,
   CheckCircle2,
   Filter,
 } from 'lucide-react';
@@ -106,17 +104,15 @@ function initialsOf(name = '') {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function Avatar({ name, size = 24 }) {
+function Avatar({ name, size = 24, muted = false }) {
   const color = tagColorFor(name);
+  const style = muted
+    ? { width: size, height: size, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.65)' }
+    : { width: size, height: size, background: color.bg, color: color.fg };
   return (
     <span
       className="inline-flex items-center justify-center rounded-full text-[10px] font-semibold shrink-0"
-      style={{
-        width: size,
-        height: size,
-        background: color.bg,
-        color: color.fg,
-      }}
+      style={style}
       title={name}
     >
       {initialsOf(name)}
@@ -474,28 +470,19 @@ function PrazoBadge({ prazo, status }) {
   if (!prazo) return null;
   const concluida = status === 'concluida';
   const today = todayStr();
-  let tone = 'text-muted-foreground';
-  let bg = 'bg-white/5';
-  let icon = <Calendar className="w-3 h-3" />;
-  if (!concluida) {
-    if (prazo < today) {
-      tone = 'text-red-300';
-      bg = 'bg-red-500/10';
-      icon = <AlertTriangle className="w-3 h-3" />;
-    } else if (prazo === today) {
-      tone = 'text-amber-300';
-      bg = 'bg-amber-500/10';
-      icon = <CalendarClock className="w-3 h-3" />;
-    }
-  }
+  const atrasada = !concluida && prazo < today;
   const formatted = (() => {
     const [y, m, d] = prazo.split('-');
     if (!y) return prazo;
     return `${d}/${m}`;
   })();
   return (
-    <span className={`flex items-center gap-1 text-[10.5px] px-1.5 py-0.5 rounded-md ${bg} ${tone}`}>
-      {icon}
+    <span
+      className={`flex items-center gap-1 text-[10.5px] ${
+        atrasada ? 'text-red-400/80' : 'text-muted-foreground/70'
+      }`}
+    >
+      {atrasada ? <AlertTriangle className="w-3 h-3" /> : <Calendar className="w-3 h-3" />}
       {formatted}
     </span>
   );
@@ -516,41 +503,34 @@ function TarefaCard({ tarefa, index, onOpen }) {
             {...provided.draggableProps}
             {...provided.dragHandleProps}
             onClick={() => onOpen(tarefa)}
-            className={`group glass-card border border-white/5 rounded-xl p-3.5 mb-2.5 cursor-grab active:cursor-grabbing transition-colors duration-200 select-none
-              ${snapshot.isDragging ? 'border-[#EA3935]/40 shadow-lg shadow-[#EA3935]/10' : 'hover:border-white/15'}`}
+            className={`group glass-card border border-white/5 rounded-xl p-3 mb-2 cursor-grab active:cursor-grabbing transition-colors duration-200 select-none
+              ${snapshot.isDragging ? 'border-white/20 shadow-lg shadow-black/20' : 'hover:border-white/10'}`}
           >
             {(clienteNome || projetoNome) && (
-              <div className="flex items-center gap-1.5 mb-1.5 text-[10px] text-muted-foreground">
-                {clienteNome && (
-                  <span className="font-medium" style={{ color: tagColorFor(clienteNome).fg }}>
-                    {clienteNome}
-                  </span>
-                )}
+              <div className="flex items-center gap-1.5 mb-1.5 text-[10px] text-muted-foreground/70">
+                {clienteNome && <span className="truncate">{clienteNome}</span>}
                 {clienteNome && projetoNome && <span className="opacity-40">·</span>}
                 {projetoNome && <span className="truncate">{projetoNome}</span>}
               </div>
             )}
 
-            <div className="flex items-start gap-2 mb-2">
-              <div className="text-muted-foreground/50 mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Grip className="w-3 h-3" />
-              </div>
-              <p className="text-sm text-white font-medium flex-1 leading-snug line-clamp-2">{tarefa.titulo}</p>
-            </div>
+            <p className="text-sm text-white/95 font-medium leading-snug line-clamp-2 mb-2.5">
+              {tarefa.titulo}
+            </p>
 
             {tarefa.descricao && (
-              <p className="text-xs text-muted-foreground/80 mb-2.5 ml-5 line-clamp-2">{tarefa.descricao}</p>
+              <p className="text-xs text-muted-foreground/60 mb-2.5 line-clamp-2">{tarefa.descricao}</p>
             )}
 
-            <div className="flex items-center justify-between gap-2 ml-5">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className={`flex items-center gap-1 text-[10.5px] px-1.5 py-0.5 rounded-md bg-white/5 ${cfg.color}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                  {cfg.label}
-                </span>
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.04]">
+              <span className={`flex items-center gap-1.5 text-[10.5px] font-medium ${cfg.color}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                {cfg.label}
+              </span>
+              <div className="flex items-center gap-2">
                 <PrazoBadge prazo={tarefa.prazo} status={tarefa.status} />
+                {responsavelNome && <Avatar name={responsavelNome} size={20} muted />}
               </div>
-              {responsavelNome && <Avatar name={responsavelNome} size={22} />}
             </div>
           </div>
         );
