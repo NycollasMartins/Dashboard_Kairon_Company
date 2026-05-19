@@ -24,8 +24,6 @@ import {
   ChevronDown,
   AlertTriangle,
   CalendarClock,
-  CalendarRange,
-  CalendarOff,
   CheckCircle2,
   Filter,
 } from 'lucide-react';
@@ -85,14 +83,6 @@ const TITULO_MAX = 120;
 const DESCRICAO_MAX = 500;
 
 const todayStr = () => new Date().toISOString().split('T')[0];
-
-const endOfWeekStr = () => {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = (7 - day) % 7;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().split('T')[0];
-};
 
 const tagColorFor = (key) => {
   const palette = [
@@ -570,29 +560,6 @@ function TarefaCard({ tarefa, index, onOpen }) {
   );
 }
 
-function FilterChip({ active, onClick, icon: Icon, leading, children, count, accent }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center gap-1.5 text-xs px-2.5 h-7 rounded-lg border transition-colors ${
-        active
-          ? accent || 'border-[#EA3935]/40 bg-[#EA3935]/10 text-white'
-          : 'border-white/10 bg-white/5 text-muted-foreground hover:text-white hover:bg-white/10'
-      }`}
-    >
-      {leading}
-      {Icon && <Icon className="w-3.5 h-3.5" />}
-      <span className="font-medium">{children}</span>
-      {typeof count === 'number' && (
-        <span className={`text-[10px] font-bold px-1 rounded ${active ? 'bg-white/15 text-white' : 'bg-white/10 text-muted-foreground'}`}>
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
-
 function MultiSelectPopover({ icon: Icon, label, items, selected, onChange, getKey, getLabel, renderItem }) {
   const [open, setOpen] = useState(false);
   const count = selected.size;
@@ -706,13 +673,19 @@ export default function MinhasTarefasPage() {
   const qc = useQueryClient();
 
   const [busca, setBusca] = useState('');
-  const [apenasMinhas, setApenasMinhas] = useState(true);
-  const [quickFilter, setQuickFilter] = useState(null);
   const [sort, setSort] = useState('recentes');
   const [filtroResponsaveis, setFiltroResponsaveis] = useState(() => new Set());
   const [filtroClientes, setFiltroClientes] = useState(() => new Set());
   const [filtroProjetos, setFiltroProjetos] = useState(() => new Set());
   const [filtroPrioridades, setFiltroPrioridades] = useState(() => new Set());
+
+  const initRespFilterRef = useRef(false);
+  useEffect(() => {
+    if (!initRespFilterRef.current && user?.id) {
+      setFiltroResponsaveis(new Set([user.id]));
+      initRespFilterRef.current = true;
+    }
+  }, [user?.id]);
 
   const { data: tarefas = [] } = useQuery({
     queryKey: queryKeys.tarefas.all,
@@ -845,34 +818,13 @@ export default function MinhasTarefasPage() {
     return projetos.filter((p) => ids.has(p.id));
   }, [tarefasDoSquad, projetos]);
 
-  const today = todayStr();
-  const weekEnd = endOfWeekStr();
-
-  const counts = useMemo(() => ({
-    minhas: tarefasDoSquad.filter((t) => t.responsavel_id === user?.id).length,
-    atrasadas: tarefasDoSquad.filter((t) => t.prazo && t.prazo < today && t.status !== 'concluida').length,
-    hoje: tarefasDoSquad.filter((t) => t.prazo === today && t.status !== 'concluida').length,
-    semana: tarefasDoSquad.filter((t) => t.prazo && t.prazo >= today && t.prazo <= weekEnd && t.status !== 'concluida').length,
-    semPrazo: tarefasDoSquad.filter((t) => !t.prazo && t.status !== 'concluida').length,
-  }), [tarefasDoSquad, user?.id, today, weekEnd]);
-
   const tarefasFiltradas = useMemo(() => {
     const buscaLower = busca.trim().toLowerCase();
     return tarefasDoSquad.filter((t) => {
-      if (apenasMinhas && t.responsavel_id !== user?.id) return false;
       if (filtroResponsaveis.size > 0 && !filtroResponsaveis.has(t.responsavel_id)) return false;
       if (filtroClientes.size > 0 && !filtroClientes.has(t.cliente_id)) return false;
       if (filtroProjetos.size > 0 && !filtroProjetos.has(t.projeto_id)) return false;
       if (filtroPrioridades.size > 0 && !filtroPrioridades.has(t.prioridade)) return false;
-      if (quickFilter === 'atrasadas') {
-        if (!(t.prazo && t.prazo < today && t.status !== 'concluida')) return false;
-      } else if (quickFilter === 'hoje') {
-        if (!(t.prazo === today && t.status !== 'concluida')) return false;
-      } else if (quickFilter === 'semana') {
-        if (!(t.prazo && t.prazo >= today && t.prazo <= weekEnd && t.status !== 'concluida')) return false;
-      } else if (quickFilter === 'sem-prazo') {
-        if (!(!t.prazo && t.status !== 'concluida')) return false;
-      }
       if (buscaLower) {
         const haystack = `${t.titulo || ''} ${t.descricao || ''} ${t.clientes?.nome || ''} ${t.projetos?.nome || ''} ${t.responsavel?.full_name || ''}`.toLowerCase();
         if (!haystack.includes(buscaLower)) return false;
@@ -881,16 +833,11 @@ export default function MinhasTarefasPage() {
     });
   }, [
     tarefasDoSquad,
-    apenasMinhas,
     filtroResponsaveis,
     filtroClientes,
     filtroProjetos,
     filtroPrioridades,
-    quickFilter,
     busca,
-    user?.id,
-    today,
-    weekEnd,
   ]);
 
   const tarefasOrdenadas = useMemo(() => applySort(tarefasFiltradas, sort), [tarefasFiltradas, sort]);
@@ -906,14 +853,10 @@ export default function MinhasTarefasPage() {
     filtroClientes.size > 0 ||
     filtroProjetos.size > 0 ||
     filtroPrioridades.size > 0 ||
-    !!quickFilter ||
     !!busca ||
-    !apenasMinhas ||
     sort !== 'recentes';
 
   const limparFiltros = () => {
-    setApenasMinhas(true);
-    setQuickFilter(null);
     setFiltroResponsaveis(new Set());
     setFiltroClientes(new Set());
     setFiltroProjetos(new Set());
@@ -939,7 +882,6 @@ export default function MinhasTarefasPage() {
           <h2 className="text-xl font-semibold text-white tracking-tight">Tarefas</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             {tarefasOrdenadas.length} de {totalEscopo} tarefa{totalEscopo === 1 ? '' : 's'} visíveis
-            {apenasMinhas && <span className="text-[#EA3935]/90"> · vendo apenas as suas</span>}
           </p>
         </div>
 
@@ -988,55 +930,7 @@ export default function MinhasTarefasPage() {
       </div>
 
       <div className="glass-card border border-white/5 rounded-2xl p-3 flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <FilterChip
-            active={apenasMinhas}
-            onClick={() => setApenasMinhas((v) => !v)}
-            leading={<Avatar name={user?.full_name || user?.email || 'Você'} size={16} />}
-            count={counts.minhas}
-            accent="border-[#EA3935]/40 bg-[#EA3935]/15 text-white"
-          >
-            Minhas tarefas
-          </FilterChip>
-          <span className="mx-1 h-5 w-px bg-white/10" />
-          <FilterChip
-            active={quickFilter === 'atrasadas'}
-            onClick={() => setQuickFilter(quickFilter === 'atrasadas' ? null : 'atrasadas')}
-            icon={AlertTriangle}
-            count={counts.atrasadas}
-            accent="border-red-500/40 bg-red-500/10 text-red-200"
-          >
-            Atrasadas
-          </FilterChip>
-          <FilterChip
-            active={quickFilter === 'hoje'}
-            onClick={() => setQuickFilter(quickFilter === 'hoje' ? null : 'hoje')}
-            icon={CalendarClock}
-            count={counts.hoje}
-            accent="border-amber-500/40 bg-amber-500/10 text-amber-200"
-          >
-            Hoje
-          </FilterChip>
-          <FilterChip
-            active={quickFilter === 'semana'}
-            onClick={() => setQuickFilter(quickFilter === 'semana' ? null : 'semana')}
-            icon={CalendarRange}
-            count={counts.semana}
-            accent="border-blue-500/40 bg-blue-500/10 text-blue-200"
-          >
-            Esta semana
-          </FilterChip>
-          <FilterChip
-            active={quickFilter === 'sem-prazo'}
-            onClick={() => setQuickFilter(quickFilter === 'sem-prazo' ? null : 'sem-prazo')}
-            icon={CalendarOff}
-            count={counts.semPrazo}
-          >
-            Sem prazo
-          </FilterChip>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/5">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground uppercase tracking-wide font-semibold pr-1">
             <SlidersHorizontal className="w-3 h-3" />
             Filtros
