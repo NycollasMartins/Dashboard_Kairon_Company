@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { motion } from 'framer-motion';
@@ -298,42 +299,42 @@ function TarefaCard({ tarefa, index, onOpen }) {
   const cfg = prioridadeConfig[tarefa.prioridade] || prioridadeConfig.media;
   return (
     <Draggable draggableId={tarefa.id} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          onClick={() => onOpen(tarefa)}
-          className={`glass-card border border-white/5 rounded-xl p-3.5 mb-2.5 cursor-pointer transition-all duration-200
-            ${snapshot.isDragging ? 'border-purple-500/40 shadow-lg shadow-purple-500/10 rotate-1' : 'hover:border-white/10'}`}
-        >
-          <div className="flex items-start gap-2 mb-2">
-            <div
-              {...provided.dragHandleProps}
-              onClick={(e) => e.stopPropagation()}
-              className="text-muted-foreground hover:text-white mt-0.5 shrink-0 cursor-grab"
-            >
-              <Grip className="w-3.5 h-3.5" />
+      {(provided, snapshot) => {
+        const child = (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+            onClick={() => onOpen(tarefa)}
+            className={`glass-card border border-white/5 rounded-xl p-3.5 mb-2.5 cursor-grab active:cursor-grabbing transition-colors duration-200 select-none
+              ${snapshot.isDragging ? 'border-purple-500/40 shadow-lg shadow-purple-500/10' : 'hover:border-white/10'}`}
+          >
+            <div className="flex items-start gap-2 mb-2">
+              <div className="text-muted-foreground mt-0.5 shrink-0">
+                <Grip className="w-3.5 h-3.5" />
+              </div>
+              <p className="text-sm text-white font-medium flex-1 leading-snug">{tarefa.titulo}</p>
             </div>
-            <p className="text-sm text-white font-medium flex-1 leading-snug">{tarefa.titulo}</p>
-          </div>
-          {tarefa.descricao && <p className="text-xs text-muted-foreground mb-2 ml-5 line-clamp-2">{tarefa.descricao}</p>}
-          <div className="flex items-center gap-2 flex-wrap ml-5">
-            <span className={`flex items-center gap-1 text-xs ${cfg.color}`}>
-              <Flag className="w-3 h-3" />{cfg.label}
-            </span>
-            {tarefa.prazo && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Calendar className="w-3 h-3" />{tarefa.prazo}
+            {tarefa.descricao && <p className="text-xs text-muted-foreground mb-2 ml-5 line-clamp-2">{tarefa.descricao}</p>}
+            <div className="flex items-center gap-2 flex-wrap ml-5">
+              <span className={`flex items-center gap-1 text-xs ${cfg.color}`}>
+                <Flag className="w-3 h-3" />{cfg.label}
               </span>
-            )}
-            {tarefa.clientes?.nome && (
-              <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md" style={{ color: '#EA3935', background: 'rgba(234, 57, 53,0.12)' }}>
-                <User className="w-3 h-3" />{tarefa.clientes.nome}
-              </span>
-            )}
+              {tarefa.prazo && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Calendar className="w-3 h-3" />{tarefa.prazo}
+                </span>
+              )}
+              {tarefa.clientes?.nome && (
+                <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md" style={{ color: '#EA3935', background: 'rgba(234, 57, 53,0.12)' }}>
+                  <User className="w-3 h-3" />{tarefa.clientes.nome}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+        return snapshot.isDragging ? createPortal(child, document.body) : child;
+      }}
     </Draggable>
   );
 }

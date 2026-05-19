@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { motion } from 'framer-motion';
@@ -140,57 +141,57 @@ function TarefaCard({ tarefa, index, onOpen, onEdit, onDelete }) {
 
   return (
     <Draggable draggableId={tarefa.id} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          onClick={() => onOpen(tarefa)}
-          className={`glass-card border border-white/5 rounded-xl p-3.5 mb-2.5 transition-all duration-200 group cursor-pointer
-            ${snapshot.isDragging ? 'border-[#EA3935]/40 shadow-lg shadow-red-500/10 rotate-1' : 'hover:border-white/10'}`}
-        >
-          <div className="flex items-start gap-2 mb-2">
-            <div
-              {...provided.dragHandleProps}
-              onClick={(e) => e.stopPropagation()}
-              className="text-muted-foreground hover:text-white mt-0.5 shrink-0 cursor-grab"
-            >
-              <Grip className="w-3.5 h-3.5" />
+      {(provided, snapshot) => {
+        const child = (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+            onClick={() => onOpen(tarefa)}
+            className={`glass-card border border-white/5 rounded-xl p-3.5 mb-2.5 transition-colors duration-200 group cursor-grab active:cursor-grabbing select-none
+              ${snapshot.isDragging ? 'border-[#EA3935]/40 shadow-lg shadow-red-500/10' : 'hover:border-white/10'}`}
+          >
+            <div className="flex items-start gap-2 mb-2">
+              <div className="text-muted-foreground mt-0.5 shrink-0">
+                <Grip className="w-3.5 h-3.5" />
+              </div>
+              <p className="text-sm text-white font-medium flex-1 leading-snug">{tarefa.titulo}</p>
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEdit(tarefa); }}
+                  className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
+                >
+                  <Edit2 className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(tarefa.id); }}
+                  className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
             </div>
-            <p className="text-sm text-white font-medium flex-1 leading-snug">{tarefa.titulo}</p>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-              <button
-                onClick={(e) => { e.stopPropagation(); onEdit(tarefa); }}
-                className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
-              >
-                <Edit2 className="w-3 h-3" />
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onDelete(tarefa.id); }}
-                className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
+            {tarefa.descricao && <p className="text-xs text-muted-foreground mb-2 ml-5 line-clamp-2">{tarefa.descricao}</p>}
+            <div className="flex items-center gap-2 flex-wrap ml-5">
+              <span className={`flex items-center gap-1 text-xs ${cfg.color}`}>
+                <Flag className="w-3 h-3" />{cfg.label}
+              </span>
+              {tarefa.prazo && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Calendar className="w-3 h-3" />{tarefa.prazo}
+                </span>
+              )}
+              {responsavel && (
+                <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md bg-white/5 text-muted-foreground">
+                  <User className="w-3 h-3 shrink-0" />
+                  {responsavel.full_name || responsavel.email}
+                </span>
+              )}
             </div>
           </div>
-          {tarefa.descricao && <p className="text-xs text-muted-foreground mb-2 ml-5 line-clamp-2">{tarefa.descricao}</p>}
-          <div className="flex items-center gap-2 flex-wrap ml-5">
-            <span className={`flex items-center gap-1 text-xs ${cfg.color}`}>
-              <Flag className="w-3 h-3" />{cfg.label}
-            </span>
-            {tarefa.prazo && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Calendar className="w-3 h-3" />{tarefa.prazo}
-              </span>
-            )}
-            {responsavel && (
-              <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md bg-white/5 text-muted-foreground">
-                <User className="w-3 h-3 shrink-0" />
-                {responsavel.full_name || responsavel.email}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+        );
+        return snapshot.isDragging ? createPortal(child, document.body) : child;
+      }}
     </Draggable>
   );
 }
