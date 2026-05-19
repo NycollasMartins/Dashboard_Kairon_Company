@@ -47,9 +47,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      hydrateUser(session);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => hydrateUser(session))
+      .catch(() => hydrateUser(null));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       hydrateUser(session);

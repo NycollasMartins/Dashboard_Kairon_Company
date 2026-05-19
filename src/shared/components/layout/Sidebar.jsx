@@ -14,7 +14,7 @@ const getNavItems = (isAdmin) => [
     label: 'Operacional', icon: Briefcase,
     children: [
       { to: '/clientes', label: 'Clientes', icon: Users },
-      { to: '/tarefas', label: 'Minhas Tarefas', icon: CheckSquare },
+      { to: '/tarefas', label: 'Tarefas', icon: CheckSquare },
       ...(isAdmin ? [{ to: '/squads', label: 'Squads', icon: Layers }] : []),
     ],
   },
