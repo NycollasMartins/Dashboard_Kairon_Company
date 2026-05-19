@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Shield, Briefcase, Users, CheckSquare,
-  ChevronDown, Zap, X, Layers, LogOut,
+  ChevronDown, X, Layers, LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
@@ -37,15 +37,14 @@ export default function Sidebar({ isAdmin = false, mobileOpen, setMobileOpen }) 
   const SidebarContent = () => (
     <div className="flex flex-col h-full py-6 px-4">
       <div className="flex items-center gap-3 mb-10 px-2">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center glow-orange"
-          style={{ background: 'linear-gradient(135deg, #EA3935, #C12D29)' }}
-        >
-          <Zap className="w-5 h-5 text-white" />
-        </div>
+        <img
+          src="/lp_kairon_company.png"
+          alt="Kairon Company"
+          className="w-9 h-9 rounded-xl object-contain shrink-0"
+        />
         <div>
-          <p className="text-sm font-bold text-white">Marketing</p>
-          <p className="text-xs" style={{ color: '#EA3935' }}>Operations</p>
+          <p className="text-sm font-bold text-white">Kairon Company</p>
+          <p className="text-xs text-muted-foreground">Operações & Comercial</p>
         </div>
       </div>
 
