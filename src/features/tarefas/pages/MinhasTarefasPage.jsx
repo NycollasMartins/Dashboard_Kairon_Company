@@ -144,7 +144,7 @@ function FieldLabel({ icon: Icon, children, required }) {
   );
 }
 
-function TarefaForm({ onClose, onSave, onDelete, clientes, responsavelId, isSubmitting, tarefa }) {
+function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis = [], responsavelId, isSubmitting, tarefa = null }) {
   const isEdit = !!tarefa;
   const [form, setForm] = useState({
     titulo: tarefa?.titulo ?? '',
@@ -292,6 +292,53 @@ function TarefaForm({ onClose, onSave, onDelete, clientes, responsavelId, isSubm
               </Select>
             </div>
           )}
+
+          {(() => {
+            const responsavelAtualForaDoSquad =
+              form.responsavel_id &&
+              !responsaveis.some((r) => r.id === form.responsavel_id)
+                ? tarefa?.responsavel
+                : null;
+            const opcoes = responsavelAtualForaDoSquad
+              ? [
+                  {
+                    id: form.responsavel_id,
+                    full_name:
+                      responsavelAtualForaDoSquad.full_name ||
+                      responsavelAtualForaDoSquad.email ||
+                      'Responsável atual',
+                  },
+                  ...responsaveis,
+                ]
+              : responsaveis;
+            if (opcoes.length === 0) return null;
+            return (
+              <div>
+                <FieldLabel icon={Users}>Responsável</FieldLabel>
+                <Select
+                  value={form.responsavel_id || 'none'}
+                  onValueChange={(v) =>
+                    setForm({ ...form, responsavel_id: v === 'none' ? '' : v })
+                  }
+                >
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                    <SelectValue placeholder="Selecione o responsável" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a2e] border-white/10">
+                    <SelectItem value="none">Sem responsável</SelectItem>
+                    {opcoes.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        <span className="flex items-center gap-2">
+                          <Avatar name={u.full_name} size={18} />
+                          <span className="truncate">{u.full_name}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            );
+          })()}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -1166,6 +1213,7 @@ export default function MinhasTarefasPage() {
           onClose={() => setShowForm(false)}
           onSave={(f) => criar.mutate(f)}
           clientes={clientes}
+          responsaveis={responsaveisDoSquad}
           responsavelId={user?.id}
           isSubmitting={criar.isPending}
         />
@@ -1178,6 +1226,7 @@ export default function MinhasTarefasPage() {
           onSave={(f) => atualizar.mutate({ id: editandoTarefa.id, data: f })}
           onDelete={(id) => deletar.mutate(id)}
           clientes={clientes}
+          responsaveis={responsaveisDoSquad}
           responsavelId={user?.id}
           isSubmitting={atualizar.isPending}
         />
