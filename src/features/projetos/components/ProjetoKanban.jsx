@@ -3,12 +3,13 @@ import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { motion } from 'framer-motion';
-import { Plus, X, Check, Calendar, Flag, Grip, ArrowLeft, Trash2, Edit2, User } from 'lucide-react';
+import { Plus, X, Check, Calendar, Flag, Grip, ArrowLeft, Trash2, Edit2, User, FolderKanban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { tarefasApi } from '@/features/tarefas/api/tarefas.api';
+import { projetosApi } from '@/features/projetos/api/projetos.api';
 import { queryKeys } from '@/entities/query-keys';
 
 const columns = [
@@ -42,7 +43,13 @@ function TarefaForm({ onClose, onSave, clienteId, projetoId, tarefa, squadMembro
     prazo: tarefa?.prazo ?? '',
     responsavel_id: tarefa?.responsavel_id ?? '',
     cliente_id: clienteId,
-    projeto_id: projetoId,
+    projeto_id: tarefa?.projeto_id ?? projetoId,
+  });
+
+  const { data: projetosCliente = [] } = useQuery({
+    queryKey: queryKeys.projetos.byCliente(clienteId),
+    queryFn: () => projetosApi.byCliente(clienteId),
+    enabled: !!clienteId,
   });
 
   return (
@@ -97,6 +104,26 @@ function TarefaForm({ onClose, onSave, clienteId, projetoId, tarefa, squadMembro
                 <SelectItem value="concluida">Concluída</SelectItem>
               </SelectContent>
             </Select>
+          )}
+          {projetosCliente.length > 1 && (
+            <div className="flex items-center gap-2">
+              <FolderKanban className="w-4 h-4 text-muted-foreground shrink-0" />
+              <Select
+                value={form.projeto_id || projetoId}
+                onValueChange={(v) => setForm({ ...form, projeto_id: v })}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                  <SelectValue placeholder="Projeto" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {projetosCliente.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
           <Select
             value={form.responsavel_id || 'none'}
@@ -227,7 +254,7 @@ export default function ProjetoKanban({ projeto, clienteNome, squadMembros = [],
   const atualizar = useMutation({
     mutationFn: ({ id, data }) => tarefasApi.update(id, data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.tarefas.byProjeto(projeto.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.tarefas.all });
       setEditandoTarefa(null);
     },
     onError: (err) => {

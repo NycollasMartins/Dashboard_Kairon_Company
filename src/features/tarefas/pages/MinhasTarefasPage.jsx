@@ -17,6 +17,7 @@ import {
   Sparkles,
   Trash2,
   ListChecks,
+  FolderKanban,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { tarefasApi } from '@/features/tarefas/api/tarefas.api';
 import { clientesApi } from '@/features/clientes/api/clientes.api';
+import { projetosApi } from '@/features/projetos/api/projetos.api';
 import { queryKeys } from '@/entities/query-keys';
 
 const columns = [
@@ -69,7 +71,14 @@ function TarefaForm({ onClose, onSave, onDelete, clientes, responsavelId, isSubm
     prioridade: tarefa?.prioridade ?? 'media',
     prazo: tarefa?.prazo ?? '',
     cliente_id: tarefa?.cliente_id ?? '',
+    projeto_id: tarefa?.projeto_id ?? '',
     responsavel_id: tarefa?.responsavel_id ?? responsavelId ?? '',
+  });
+
+  const { data: projetosCliente = [] } = useQuery({
+    queryKey: queryKeys.projetos.byCliente(form.cliente_id),
+    queryFn: () => projetosApi.byCliente(form.cliente_id),
+    enabled: !!form.cliente_id,
   });
   const [submitted, setSubmitted] = useState(false);
   const tituloRef = useRef(null);
@@ -91,7 +100,15 @@ function TarefaForm({ onClose, onSave, onDelete, clientes, responsavelId, isSubm
   const canSubmit = tituloTrim.length > 0 && !isSubmitting;
 
   const handleClienteChange = (id) => {
-    setForm((f) => ({ ...f, cliente_id: id === 'none' ? '' : id }));
+    setForm((f) => ({
+      ...f,
+      cliente_id: id === 'none' ? '' : id,
+      projeto_id: '',
+    }));
+  };
+
+  const handleProjetoChange = (id) => {
+    setForm((f) => ({ ...f, projeto_id: id === 'none' ? '' : id }));
   };
 
   const handleSubmit = (e) => {
@@ -244,6 +261,35 @@ function TarefaForm({ onClose, onSave, onDelete, clientes, responsavelId, isSubm
                   {clientes.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {form.cliente_id && (
+            <div>
+              <FieldLabel icon={FolderKanban}>Projeto (opcional)</FieldLabel>
+              <Select
+                value={form.projeto_id || 'none'}
+                onValueChange={handleProjetoChange}
+                disabled={projetosCliente.length === 0}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                  <SelectValue
+                    placeholder={
+                      projetosCliente.length === 0
+                        ? 'Este cliente ainda não tem projetos'
+                        : 'Vincular a um projeto'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  <SelectItem value="none">Sem projeto</SelectItem>
+                  {projetosCliente.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nome}
                     </SelectItem>
                   ))}
                 </SelectContent>
