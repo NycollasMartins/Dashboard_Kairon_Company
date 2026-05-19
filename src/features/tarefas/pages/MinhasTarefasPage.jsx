@@ -231,31 +231,21 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {isEdit && onDelete && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm('Excluir esta tarefa? Esta ação não pode ser desfeita.')) {
-                    onDelete(tarefa.id);
-                  }
-                }}
-                className="flex items-center gap-1.5 p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors text-xs"
-                aria-label="Excluir tarefa"
-              >
-                <Trash2 className="w-4 h-4" />
-                Excluir
-              </button>
-            )}
+          {isEdit && onDelete && (
             <button
               type="button"
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
-              aria-label="Fechar"
+              onClick={() => {
+                if (window.confirm('Excluir esta tarefa? Esta ação não pode ser desfeita.')) {
+                  onDelete(tarefa.id);
+                }
+              }}
+              className="flex items-center gap-1.5 p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors text-xs shrink-0"
+              aria-label="Excluir tarefa"
             >
-              <X className="w-4 h-4" />
+              <Trash2 className="w-4 h-4" />
+              Excluir
             </button>
-          </div>
+          )}
         </div>
 
         <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
