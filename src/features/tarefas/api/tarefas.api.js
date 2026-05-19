@@ -23,17 +23,14 @@ function sanitizeTarefaRow(input) {
   const emptyToNull = (v) =>
     v == null || (typeof v === 'string' && v.trim() === '') ? null : v;
 
-  const titulo =
-    typeof data.titulo === 'string' ? data.titulo.trim() : data.titulo;
+  const result = { ...data };
+  if (typeof result.titulo === 'string') result.titulo = result.titulo.trim();
+  if ('prazo' in data) result.prazo = emptyToNull(data.prazo);
+  if ('cliente_id' in data) result.cliente_id = emptyToNull(data.cliente_id);
+  if ('projeto_id' in data) result.projeto_id = emptyToNull(data.projeto_id);
+  if ('responsavel_id' in data) result.responsavel_id = emptyToNull(data.responsavel_id);
 
-  return {
-    ...data,
-    titulo,
-    prazo: emptyToNull(data.prazo),
-    cliente_id: emptyToNull(data.cliente_id),
-    projeto_id: emptyToNull(data.projeto_id),
-    responsavel_id: emptyToNull(data.responsavel_id),
-  };
+  return result;
 }
 
 const TAREFA_SELECT = '*, clientes(nome), responsavel:profiles(id,full_name,email)';
