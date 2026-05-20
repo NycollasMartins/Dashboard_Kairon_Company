@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { usersApi } from '@/features/administrativo/api/users.api';
 import { queryKeys } from '@/entities/query-keys';
+import { useAuth } from '@/features/auth/context/AuthContext';
 
 const roleConfig = {
   admin: { label: 'Admin', icon: Crown, color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20', desc: 'Acesso total ao sistema' },
@@ -19,6 +20,8 @@ export default function AdministrativoPage() {
   const [novoRole, setNovoRole] = useState('');
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { user: currentUser } = useAuth();
+  const isAdmin = currentUser?.role === 'admin';
 
   const { data: usuarios = [] } = useQuery({
     queryKey: queryKeys.usuarios.all,
@@ -42,6 +45,7 @@ export default function AdministrativoPage() {
   };
 
   const handleEditar = (u) => {
+    if (!isAdmin) return;
     setEditandoId(u.id);
     setNovoRole(u.role || 'sdr');
   };
@@ -103,7 +107,7 @@ export default function AdministrativoPage() {
                       <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                     </div>
 
-                    {isEditando ? (
+                    {isEditando && isAdmin ? (
                       <div className="flex items-center gap-2">
                         <Select value={novoRole} onValueChange={setNovoRole}>
                           <SelectTrigger className="bg-white/5 border-white/10 text-white h-8 text-xs w-32">
@@ -125,11 +129,11 @@ export default function AdministrativoPage() {
                       </div>
                     ) : (
                       <div
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border cursor-pointer ${cfg.bg} ${cfg.color}`}
-                        onClick={() => handleEditar(u)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${cfg.bg} ${cfg.color} ${isAdmin ? 'cursor-pointer' : 'cursor-default'}`}
+                        onClick={isAdmin ? () => handleEditar(u) : undefined}
                       >
                         <Icon className="w-3 h-3" /> {cfg.label}
-                        <Edit2 className="w-2.5 h-2.5 ml-1 opacity-60" />
+                        {isAdmin && <Edit2 className="w-2.5 h-2.5 ml-1 opacity-60" />}
                       </div>
                     )}
                   </motion.div>
