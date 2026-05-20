@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Edit2, Archive, Mail, Phone, Building2,
   Users, Package, FileText, Upload, FolderOpen, User,
+  FileBadge, MapPin, CalendarDays, UserCheck, TrendingUp,
+  Briefcase,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -14,11 +16,50 @@ import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { queryKeys } from '@/entities/query-keys';
 
 const statusConfig = {
-  lead: { label: 'Lead', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
-  qualificado: { label: 'Qualificado', color: 'text-[#EA3935]', bg: 'bg-red-500/10 border-red-500/20' },
-  ativo: { label: 'Ativo', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
-  inativo: { label: 'Inativo', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' },
+  lead: { label: 'Lead', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20', dot: 'bg-blue-400' },
+  qualificado: { label: 'Qualificado', color: 'text-[#EA3935]', bg: 'bg-red-500/10 border-red-500/20', dot: 'bg-[#EA3935]' },
+  ativo: { label: 'Ativo', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
+  inativo: { label: 'Inativo', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20', dot: 'bg-red-400' },
 };
+
+function formatMesAno(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    const mes = d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+    const ano = d.getFullYear();
+    return `${mes.charAt(0).toUpperCase() + mes.slice(1)} ${ano}`;
+  } catch {
+    return '—';
+  }
+}
+
+function formatBRL(valor) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(valor || 0);
+}
+
+function StatCard({ label, value, footer, accent }) {
+  return (
+    <div className="glass-card rounded-2xl border border-white/5 p-5 space-y-2">
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+        {label}
+      </p>
+      <p className="text-2xl font-bold text-white font-mono tracking-tight">
+        {value}
+      </p>
+      {footer && (
+        <div className={`text-[11px] flex items-center gap-1.5 ${accent || 'text-muted-foreground'}`}>
+          {footer}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const tabs = [
   { id: 'dados', label: 'Dados Gerais' },
@@ -229,49 +270,143 @@ export default function ClienteDetalhePage({ clienteId, onBack }) {
 
   const cfg = statusConfig[cliente.status] || statusConfig.lead;
   const squadMembros = cliente.squads?.squad_membros ?? [];
+  const tier = cliente.tier ?? null;
+  const cnpj = cliente.cnpj ?? null;
+  const cidade = cliente.cidade ?? null;
+  const uf = cliente.uf ?? null;
+  const localizacao = [cidade, uf].filter(Boolean).join(', ');
+  const clienteDesde = formatMesAno(cliente.created_at);
+
+  const mrr = cliente.mrr ?? 0;
+  const mrrDelta = cliente.mrr_delta ?? 0;
+  const contratoTotal = cliente.contrato_total ?? 0;
+  const contratoMeses = cliente.contrato_meses ?? 0;
+  const projetosAtivos = cliente.projetos_ativos ?? 0;
+  const projetosEmDev = cliente.projetos_em_dev ?? 0;
+  const renovacaoDias = cliente.renovacao_dias ?? 0;
+  const renovacaoData = cliente.renovacao_data ?? null;
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="p-2 rounded-xl hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-base shrink-0"
-              style={{ background: 'rgba(234, 57, 53,0.25)' }}
-            >
-              {cliente.nome?.[0]?.toUpperCase() || '?'}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-semibold text-white">{cliente.nome}</h2>
-                <span className={`text-xs px-2 py-0.5 rounded-lg border font-medium ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
-              </div>
-              {cliente.empresa && <p className="text-xs text-muted-foreground">{cliente.empresa}</p>}
-            </div>
-          </div>
-        </div>
+      <div className="flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-muted-foreground hover:text-white transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </button>
         <div className="flex items-center gap-2">
           <Button
             onClick={() => setShowEdit(true)}
             variant="outline"
-            className="border-white/10 text-muted-foreground hover:text-white h-9 px-3 text-xs gap-1.5"
+            className="border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white h-10 px-4 text-sm gap-2"
           >
-            <Edit2 className="w-3.5 h-3.5" /> Editar
+            <Edit2 className="w-4 h-4" /> Editar
           </Button>
           {cliente.status !== 'inativo' && (
             <Button
               onClick={() => setShowConfirmArchive(true)}
-              className="bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-300 h-9 px-3 text-xs gap-1.5"
+              className="bg-[#EA3935]/15 hover:bg-[#EA3935]/25 border border-[#EA3935]/30 text-[#EA3935] h-10 px-4 text-sm gap-2"
             >
-              <Archive className="w-3.5 h-3.5" /> Arquivar
+              <Archive className="w-4 h-4" /> Deletar
             </Button>
           )}
+        </div>
+      </div>
+
+      <div className="space-y-5">
+        <div className="flex items-start gap-5">
+          <div
+            className="w-20 h-20 rounded-2xl flex items-center justify-center text-[#EA3935] font-bold text-3xl shrink-0 border border-[#EA3935]/20"
+            style={{ background: 'rgba(234, 57, 53, 0.18)' }}
+          >
+            {cliente.nome?.[0]?.toUpperCase() || '?'}
+          </div>
+          <div className="flex-1 min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-3xl font-bold text-white truncate">{cliente.nome}</h2>
+              <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${cfg.bg} ${cfg.color}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                {cfg.label}
+              </span>
+              {tier && (
+                <span className="inline-flex items-center text-xs px-2.5 py-1 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-300 font-medium">
+                  Tier {tier}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <FileBadge className="w-4 h-4" />
+                <span>CNPJ</span>
+                <span className="text-white font-medium">{cnpj || '—'}</span>
+              </div>
+              {localizacao && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  <span className="text-white font-medium">{localizacao}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-4 h-4" />
+                <span>Cliente desde</span>
+                <span className="text-white font-medium">{clienteDesde}</span>
+              </div>
+            </div>
+            {cliente.responsavel && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <UserCheck className="w-4 h-4" />
+                <span>Conta gerenciada por</span>
+                <span className="text-white font-medium">{cliente.responsavel.full_name}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-1 rounded-2xl border border-white/5 bg-white/[0.02]">
+          <StatCard
+            label="MRR"
+            value={formatBRL(mrr)}
+            accent={mrrDelta > 0 ? 'text-emerald-400' : mrrDelta < 0 ? 'text-red-400' : 'text-muted-foreground'}
+            footer={
+              <>
+                {mrrDelta !== 0 && <TrendingUp className="w-3 h-3" />}
+                {mrrDelta > 0 ? `+${mrrDelta}% vs. mês anterior` : mrrDelta < 0 ? `${mrrDelta}% vs. mês anterior` : 'Sem variação'}
+              </>
+            }
+          />
+          <StatCard
+            label="Contrato Total"
+            value={formatBRL(contratoTotal)}
+            accent={null}
+            footer={<>Período {contratoMeses || 0} meses</>}
+          />
+          <StatCard
+            label="Projetos Ativos"
+            value={String(projetosAtivos).padStart(2, '0')}
+            accent={null}
+            footer={
+              <>
+                <Briefcase className="w-3 h-3" />
+                {projetosEmDev} em desenvolvimento
+              </>
+            }
+          />
+          <StatCard
+            label="Renovação em"
+            value={
+              <>
+                {renovacaoDias} <span className="text-base font-normal text-muted-foreground">dias</span>
+              </>
+            }
+            accent="text-amber-300"
+            footer={
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                {renovacaoData ? `${renovacaoData} — renovação automática` : 'Renovação automática'}
+              </>
+            }
+          />
         </div>
       </div>
 
