@@ -80,6 +80,22 @@ const sortOptions = [
 const TITULO_MAX = 120;
 const DESCRICAO_MAX = 500;
 
+const FILTERS_STORAGE_PREFIX = 'minhas-tarefas:filtros:v1';
+const filtersStorageKey = (userId) => `${FILTERS_STORAGE_PREFIX}:${userId ?? 'anon'}`;
+
+const loadStoredFilters = (userId) => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(filtersStorageKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
 const todayStr = () => new Date().toISOString().split('T')[0];
 
 const tagColorFor = (key) => {
@@ -671,14 +687,55 @@ export default function MinhasTarefasPage() {
   const [filtroClientes, setFiltroClientes] = useState(() => new Set());
   const [filtroProjetos, setFiltroProjetos] = useState(() => new Set());
   const [filtroPrioridades, setFiltroPrioridades] = useState(() => new Set());
+  const [filtrosHidratados, setFiltrosHidratados] = useState(false);
 
   const initRespFilterRef = useRef(false);
   useEffect(() => {
-    if (!initRespFilterRef.current && user?.id) {
+    if (initRespFilterRef.current || !user?.id) return;
+    initRespFilterRef.current = true;
+
+    const stored = loadStoredFilters(user.id);
+    if (stored) {
+      if (typeof stored.busca === 'string') setBusca(stored.busca);
+      if (typeof stored.sort === 'string') setSort(stored.sort);
+      if (Array.isArray(stored.filtroResponsaveis)) setFiltroResponsaveis(new Set(stored.filtroResponsaveis));
+      else setFiltroResponsaveis(new Set([user.id]));
+      if (Array.isArray(stored.filtroClientes)) setFiltroClientes(new Set(stored.filtroClientes));
+      if (Array.isArray(stored.filtroProjetos)) setFiltroProjetos(new Set(stored.filtroProjetos));
+      if (Array.isArray(stored.filtroPrioridades)) setFiltroPrioridades(new Set(stored.filtroPrioridades));
+    } else {
       setFiltroResponsaveis(new Set([user.id]));
-      initRespFilterRef.current = true;
     }
+    setFiltrosHidratados(true);
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!filtrosHidratados || !user?.id || typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(
+        filtersStorageKey(user.id),
+        JSON.stringify({
+          busca,
+          sort,
+          filtroResponsaveis: Array.from(filtroResponsaveis),
+          filtroClientes: Array.from(filtroClientes),
+          filtroProjetos: Array.from(filtroProjetos),
+          filtroPrioridades: Array.from(filtroPrioridades),
+        })
+      );
+    } catch {
+      // storage indisponível — ignora
+    }
+  }, [
+    filtrosHidratados,
+    user?.id,
+    busca,
+    sort,
+    filtroResponsaveis,
+    filtroClientes,
+    filtroProjetos,
+    filtroPrioridades,
+  ]);
 
   const { data: tarefas = [] } = useQuery({
     queryKey: queryKeys.tarefas.all,
