@@ -3,13 +3,16 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Shield, Briefcase, Users, CheckSquare,
-  ChevronDown, X, Layers, LogOut,
+  ChevronDown, X, Layers, LogOut, Target,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
-const getNavItems = (isAdmin) => [
+const getNavItems = (isAdmin, isAdminOrCloser) => [
   { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
   { to: '/administrativo', label: 'Administrativo', icon: Shield },
+  ...(isAdminOrCloser
+    ? [{ to: '/comercial', label: 'Comercial (CRM)', icon: Target }]
+    : []),
   {
     label: 'Operacional', icon: Briefcase,
     children: [
@@ -23,9 +26,9 @@ const getNavItems = (isAdmin) => [
 const activeStyle = { background: 'rgba(234, 57, 53,0.15)', borderColor: 'rgba(234, 57, 53,0.3)' };
 const activeDot = { background: '#EA3935' };
 
-export default function Sidebar({ isAdmin = false, mobileOpen, setMobileOpen }) {
+export default function Sidebar({ isAdmin = false, isAdminOrCloser = false, mobileOpen, setMobileOpen }) {
   const [operacionalOpen, setOperacionalOpen] = useState(true);
-  const navItems = getNavItems(isAdmin);
+  const navItems = getNavItems(isAdmin, isAdminOrCloser);
   const { logout } = useAuth();
   const navigate = useNavigate();
 

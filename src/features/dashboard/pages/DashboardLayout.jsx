@@ -13,10 +13,16 @@ export default function DashboardLayout() {
   }
 
   const isAdmin = user?.role === 'admin';
+  const isAdminOrCloser = isAdmin || user?.role === 'closer';
 
   return (
     <div className="min-h-screen bg-background font-inter">
-      <Sidebar isAdmin={isAdmin} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+      <Sidebar
+        isAdmin={isAdmin}
+        isAdminOrCloser={isAdminOrCloser}
+        mobileOpen={mobileOpen}
+        setMobileOpen={setMobileOpen}
+      />
 
       <div className="md:ml-60 min-h-screen flex flex-col">
         <Header onMenuClick={() => setMobileOpen(true)} />

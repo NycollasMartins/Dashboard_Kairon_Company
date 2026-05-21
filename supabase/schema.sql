@@ -360,6 +360,119 @@ CREATE POLICY "tarefas: admin delete"
   USING (private.is_admin());
 
 -- ==================================================================
+-- LEADS  (capturados via Landing Page + Kanban comercial)
+-- ==================================================================
+
+CREATE TABLE IF NOT EXISTS public.leads (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome               text NOT NULL,
+  empresa            text,
+  email              text,
+  telefone           text,
+  momento_empresa    text,
+  objetivo_principal text,
+  status             text NOT NULL DEFAULT 'pendente'
+                       CHECK (status IN ('pendente', 'follow_up', 'reuniao_marcada')),
+  origem             text NOT NULL DEFAULT 'landing_page',
+  notas              text,
+  responsavel_id     uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+  cliente_id         uuid REFERENCES public.clientes(id) ON DELETE SET NULL,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_leads_status      ON public.leads (status);
+CREATE INDEX IF NOT EXISTS idx_leads_responsavel ON public.leads (responsavel_id);
+
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+
+-- Trigger genérica de updated_at (reutilizável)
+CREATE OR REPLACE FUNCTION public.touch_updated_at()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS leads_touch_updated_at ON public.leads;
+CREATE TRIGGER leads_touch_updated_at
+  BEFORE UPDATE ON public.leads
+  FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+
+-- Helper: true se o usuário atual é admin ou closer
+CREATE OR REPLACE FUNCTION private.is_admin_or_closer()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role IN ('admin', 'closer')
+  )
+$$;
+
+-- RLS: apenas admin e closer enxergam/alteram leads
+CREATE POLICY "leads: closer/admin select"
+  ON public.leads FOR SELECT
+  USING (private.is_admin_or_closer());
+
+CREATE POLICY "leads: closer/admin update"
+  ON public.leads FOR UPDATE
+  USING (private.is_admin_or_closer())
+  WITH CHECK (private.is_admin_or_closer());
+
+CREATE POLICY "leads: admin delete"
+  ON public.leads FOR DELETE
+  USING (private.is_admin());
+
+-- Sem policy de INSERT: inserts vêm exclusivamente via
+-- public.create_lead_from_webhook (SECURITY DEFINER).
+
+-- RPC pública chamada pelo webhook da Landing Page.
+-- Bypassa RLS via SECURITY DEFINER. Concedida à role 'anon'.
+CREATE OR REPLACE FUNCTION public.create_lead_from_webhook(
+  p_nome               text,
+  p_empresa            text DEFAULT NULL,
+  p_email              text DEFAULT NULL,
+  p_telefone           text DEFAULT NULL,
+  p_momento_empresa    text DEFAULT NULL,
+  p_objetivo_principal text DEFAULT NULL,
+  p_origem             text DEFAULT 'landing_page'
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  new_id uuid;
+BEGIN
+  IF p_nome IS NULL OR length(trim(p_nome)) = 0 THEN
+    RAISE EXCEPTION 'nome is required';
+  END IF;
+
+  INSERT INTO public.leads (
+    nome, empresa, email, telefone,
+    momento_empresa, objetivo_principal, origem, status
+  ) VALUES (
+    trim(p_nome),
+    NULLIF(trim(coalesce(p_empresa, '')), ''),
+    NULLIF(trim(coalesce(p_email, '')), ''),
+    NULLIF(trim(coalesce(p_telefone, '')), ''),
+    NULLIF(trim(coalesce(p_momento_empresa, '')), ''),
+    NULLIF(trim(coalesce(p_objetivo_principal, '')), ''),
+    coalesce(p_origem, 'landing_page'),
+    'pendente'
+  )
+  RETURNING id INTO new_id;
+
+  RETURN new_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.create_lead_from_webhook(
+  text, text, text, text, text, text, text
+) TO anon, authenticated;
+
+-- ==================================================================
 -- PROMOTE FIRST ADMIN
 -- After your first sign-up, run the command below (replace the email):
 --

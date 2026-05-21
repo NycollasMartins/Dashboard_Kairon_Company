@@ -18,4 +18,7 @@ export const queryKeys = {
   usuarios: {
     all: ['usuarios'],
   },
+  leads: {
+    all: ['leads'],
+  },
 };

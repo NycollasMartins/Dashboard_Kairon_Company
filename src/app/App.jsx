@@ -11,6 +11,7 @@ import AdministrativoPage from '@/features/administrativo/pages/AdministrativoPa
 import ClientesPageWrapper from '@/features/clientes/pages/ClientesPageWrapper';
 import MinhasTarefasPage from '@/features/tarefas/pages/MinhasTarefasPage';
 import SquadsPage from '@/features/squads/pages/SquadsPage';
+import ComercialPage from '@/features/comercial/pages/ComercialPage';
 import PageNotFound from '@/shared/components/PageNotFound';
 
 function AppContent() {
@@ -37,6 +38,7 @@ function AppContent() {
           <Route path="clientes/*" element={<ClientesPageWrapper />} />
           <Route path="tarefas" element={<MinhasTarefasPage />} />
           <Route path="squads" element={<SquadsPage />} />
+          <Route path="comercial" element={<ComercialPage />} />
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />
