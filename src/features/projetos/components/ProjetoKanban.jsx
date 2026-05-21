@@ -3,13 +3,17 @@ import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { motion } from 'framer-motion';
-import { Plus, X, Check, Calendar, Flag, Grip, ArrowLeft, Trash2, Edit2, User, FolderKanban } from 'lucide-react';
+import {
+  Plus, X, Check, Calendar, Flag, Grip, ArrowLeft, Trash2, Edit2, User,
+  FolderKanban, CalendarDays, ListChecks, Briefcase,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { tarefasApi } from '@/features/tarefas/api/tarefas.api';
 import { projetosApi } from '@/features/projetos/api/projetos.api';
+import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { queryKeys } from '@/entities/query-keys';
 
 const columns = [
@@ -29,10 +33,57 @@ const prioridadeConfig = {
 const todayStr = () => new Date().toISOString().split('T')[0];
 
 const projetoStatusConfig = {
-  ativo: { label: 'Ativo', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
-  pausado: { label: 'Pausado', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20' },
-  concluido: { label: 'Concluído', color: 'text-slate-400', bg: 'bg-slate-500/10 border-slate-500/20' },
+  ativo: {
+    label: 'Em desenvolvimento',
+    pill: 'bg-blue-500/10 border-blue-500/20 text-blue-300',
+    avatarBg: 'bg-blue-500/15 text-blue-300 border-blue-500/20',
+    bar: 'bg-blue-400',
+  },
+  pausado: {
+    label: 'Em revisão',
+    pill: 'bg-amber-500/10 border-amber-500/20 text-amber-300',
+    avatarBg: 'bg-amber-500/15 text-amber-300 border-amber-500/20',
+    bar: 'bg-amber-400',
+  },
+  concluido: {
+    label: 'Concluído',
+    pill: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300',
+    avatarBg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/20',
+    bar: 'bg-emerald-400',
+  },
 };
+
+function projetoInitials(nome) {
+  if (!nome) return '?';
+  const words = nome.trim().split(/\s+/);
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return nome.slice(0, 2).toUpperCase();
+}
+
+function formatPrazoLong(iso) {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+  } catch {
+    return null;
+  }
+}
+
+function diasAteData(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const diffMs = d.getTime() - hoje.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}
 
 function TarefaForm({ onClose, onSave, clienteId, projetoId, tarefa, squadMembros }) {
   const membros = squadMembros?.map((sm) => sm.profiles).filter(Boolean) ?? [];
@@ -225,11 +276,31 @@ function TarefaCard({ tarefa, index, onOpen, onEdit, onDelete }) {
   );
 }
 
-export default function ProjetoKanban({ projeto, clienteNome, squadMembros = [], onBack }) {
+function StatCard({ icon: Icon, label, value, accent }) {
+  return (
+    <div className="glass-card rounded-2xl border border-white/5 p-4 space-y-1.5">
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em] flex items-center gap-1.5">
+        {Icon && <Icon className="w-3 h-3" />}
+        {label}
+      </p>
+      <p className={`text-xl font-bold tracking-tight ${accent || 'text-white'}`}>{value}</p>
+    </div>
+  );
+}
+
+export default function ProjetoKanban({ projeto, onBack }) {
   const [showForm, setShowForm] = useState(false);
   const [editandoTarefa, setEditandoTarefa] = useState(null);
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  const { data: cliente } = useQuery({
+    queryKey: queryKeys.clientes.detail(projeto.cliente_id),
+    queryFn: () => clientesApi.get(projeto.cliente_id),
+    enabled: !!projeto.cliente_id,
+  });
+
+  const squadMembros = cliente?.squads?.squad_membros ?? [];
 
   const { data: tarefas = [] } = useQuery({
     queryKey: queryKeys.tarefas.byProjeto(projeto.id),
@@ -290,23 +361,100 @@ export default function ProjetoKanban({ projeto, clienteNome, squadMembros = [],
   };
 
   const cfg = projetoStatusConfig[projeto.status] || projetoStatusConfig.ativo;
+  const concluidas = tarefas.filter((t) => t.status === 'concluida').length;
+  const total = tarefas.length;
+  const progresso = total > 0 ? Math.round((concluidas / total) * 100) : (projeto.status === 'concluido' ? 100 : 0);
+
+  const prazoFormatado = formatPrazoLong(projeto.prazo);
+  const diasRestantes = diasAteData(projeto.prazo);
+  let prazoFooter = null;
+  let prazoAccent = 'text-white';
+  if (projeto.status === 'concluido') {
+    prazoFooter = 'Projeto concluído';
+    prazoAccent = 'text-emerald-300';
+  } else if (diasRestantes != null) {
+    if (diasRestantes < 0) {
+      prazoFooter = `${Math.abs(diasRestantes)} dia${Math.abs(diasRestantes) === 1 ? '' : 's'} em atraso`;
+      prazoAccent = 'text-red-400';
+    } else if (diasRestantes === 0) {
+      prazoFooter = 'Entrega hoje';
+      prazoAccent = 'text-amber-300';
+    } else {
+      prazoFooter = `Em ${diasRestantes} dia${diasRestantes === 1 ? '' : 's'}`;
+      prazoAccent = diasRestantes <= 7 ? 'text-amber-300' : 'text-white';
+    }
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="p-2 rounded-xl hover:bg-white/10 text-muted-foreground hover:text-white transition-colors">
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-muted-foreground hover:text-white transition-colors"
+        >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-white">{projeto.nome}</h3>
-            <span className={`text-xs px-2 py-0.5 rounded-lg border font-medium ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
-          </div>
-          {projeto.descricao && <p className="text-xs text-muted-foreground mt-0.5">{projeto.descricao}</p>}
-        </div>
-        <Button onClick={() => setShowForm(true)} className="bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white text-xs h-8 px-3">
-          <Plus className="w-3.5 h-3.5 mr-1" /> Nova Tarefa
+        <Button
+          onClick={() => setShowForm(true)}
+          className="bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white h-10 px-4 text-sm gap-2"
+        >
+          <Plus className="w-4 h-4" /> Nova Tarefa
         </Button>
+      </div>
+
+      <div className="space-y-5">
+        <div className="flex items-start gap-5">
+          <div className={`w-16 h-16 rounded-2xl border flex items-center justify-center text-xl font-bold shrink-0 ${cfg.avatarBg}`}>
+            {projetoInitials(projeto.nome)}
+          </div>
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-3xl font-bold text-white truncate">{projeto.nome}</h2>
+              <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${cfg.pill}`}>
+                {cfg.label}
+              </span>
+            </div>
+            {projeto.descricao && (
+              <p className="text-sm text-muted-foreground leading-relaxed">{projeto.descricao}</p>
+            )}
+            {cliente?.nome && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Briefcase className="w-4 h-4" />
+                <span>Cliente</span>
+                <span className="text-white font-medium">{cliente.nome}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-1 rounded-2xl border border-white/5 bg-white/[0.02]">
+          <StatCard
+            icon={CalendarDays}
+            label="Prazo de Entrega"
+            value={prazoFormatado || '—'}
+            accent={prazoAccent}
+          />
+          <StatCard
+            icon={Calendar}
+            label="Status do Prazo"
+            value={prazoFooter || '—'}
+            accent={prazoAccent}
+          />
+          <StatCard
+            icon={ListChecks}
+            label="Tarefas"
+            value={`${concluidas} / ${total}`}
+          />
+          <div className="glass-card rounded-2xl border border-white/5 p-4 space-y-2">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+              Progresso
+            </p>
+            <p className="text-xl font-bold text-white tracking-tight">{progresso}%</p>
+            <div className="h-1 rounded-full bg-white/5 overflow-hidden">
+              <div className={`h-full rounded-full transition-all ${cfg.bar}`} style={{ width: `${progresso}%` }} />
+            </div>
+          </div>
+        </div>
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>

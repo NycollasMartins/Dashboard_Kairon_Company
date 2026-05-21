@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Filter,
   ArrowUpRight,
+  ArrowUpDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -61,6 +62,7 @@ export default function ClientesPage({ onVerCliente }) {
   const [editando, setEditando] = useState(null);
   const [arquivando, setArquivando] = useState(null);
   const [filtroStatus, setFiltroStatus] = useState('ativos');
+  const [ordenacao, setOrdenacao] = useState('nome-asc');
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -121,17 +123,31 @@ export default function ClientesPage({ onVerCliente }) {
     return { total, ativos, leads };
   }, [clientes]);
 
-  const filtered = clientes.filter((c) => {
-    const matchSearch =
-      c.nome?.toLowerCase().includes(search.toLowerCase()) ||
-      c.empresa?.toLowerCase().includes(search.toLowerCase()) ||
-      c.email?.toLowerCase().includes(search.toLowerCase());
-    const matchStatus =
-      filtroStatus === 'todos' ||
-      (filtroStatus === 'ativos' && c.status !== 'inativo') ||
-      c.status === filtroStatus;
-    return matchSearch && matchStatus;
-  });
+  const filtered = clientes
+    .filter((c) => {
+      const matchSearch =
+        c.nome?.toLowerCase().includes(search.toLowerCase()) ||
+        c.empresa?.toLowerCase().includes(search.toLowerCase()) ||
+        c.email?.toLowerCase().includes(search.toLowerCase());
+      const matchStatus =
+        filtroStatus === 'todos' ||
+        (filtroStatus === 'ativos' && c.status !== 'inativo') ||
+        c.status === filtroStatus;
+      return matchSearch && matchStatus;
+    })
+    .sort((a, b) => {
+      switch (ordenacao) {
+        case 'nome-desc':
+          return (b.nome ?? '').localeCompare(a.nome ?? '', 'pt-BR');
+        case 'recentes':
+          return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
+        case 'antigos':
+          return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime();
+        case 'nome-asc':
+        default:
+          return (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR');
+      }
+    });
 
   const getTarefasPendentes = (clienteId) =>
     tarefas.filter((t) => t.cliente_id === clienteId && t.status !== 'concluida');
@@ -205,6 +221,18 @@ export default function ClientesPage({ onVerCliente }) {
                 className="bg-transparent text-sm text-white placeholder:text-muted-foreground outline-none flex-1"
               />
             </div>
+            <Select value={ordenacao} onValueChange={setOrdenacao}>
+              <SelectTrigger className="w-full sm:w-48 bg-white/5 border-white/10 text-white">
+                <ArrowUpDown className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a2e] border-white/10">
+                <SelectItem value="nome-asc">Nome (A-Z)</SelectItem>
+                <SelectItem value="nome-desc">Nome (Z-A)</SelectItem>
+                <SelectItem value="recentes">Mais recentes</SelectItem>
+                <SelectItem value="antigos">Mais antigos</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={filtroStatus} onValueChange={setFiltroStatus}>
               <SelectTrigger className="w-full sm:w-44 bg-white/5 border-white/10 text-white">
                 <Filter className="w-3.5 h-3.5 mr-1 text-muted-foreground" />

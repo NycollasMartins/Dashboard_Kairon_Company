@@ -1,11 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Edit2, Archive, Mail, Phone, Building2,
-  Users, Package, FileText, Upload, FolderOpen, User,
-  FileBadge, MapPin, CalendarDays, UserCheck, TrendingUp,
-  Briefcase,
+  ArrowLeft, Edit2, Archive, Mail, FileText, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -34,181 +30,29 @@ function formatMesAno(iso) {
   }
 }
 
-function formatBRL(valor) {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(valor || 0);
-}
-
-function StatCard({ label, value, footer, accent }) {
+function TabContrato({ sectionIndex = 3 }) {
+  const sectionNumber = String(sectionIndex).padStart(2, '0');
   return (
-    <div className="glass-card rounded-2xl border border-white/5 p-5 space-y-2">
-      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-        {label}
-      </p>
-      <p className="text-2xl font-bold text-white font-mono tracking-tight">
-        {value}
-      </p>
-      {footer && (
-        <div className={`text-[11px] flex items-center gap-1.5 ${accent || 'text-muted-foreground'}`}>
-          {footer}
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="w-0.5 h-5 rounded-full bg-[#EA3935]" />
+          <span className="text-xs font-mono text-muted-foreground tracking-wider">{sectionNumber}</span>
         </div>
-      )}
-    </div>
-  );
-}
-
-const tabs = [
-  { id: 'dados', label: 'Dados Gerais' },
-  { id: 'projetos', label: 'Projetos' },
-  { id: 'equipe', label: 'Equipe Responsável' },
-  { id: 'arquivos', label: 'Arquivos' },
-];
-
-function TabDadosGerais({ cliente }) {
-  const squad = cliente.squads;
-  const responsavel = cliente.responsavel;
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="glass-card rounded-2xl border border-white/5 p-5 space-y-3">
-          <p className="text-xs font-semibold text-[#EA3935] uppercase tracking-wider flex items-center gap-1.5">
-            <Mail className="w-3.5 h-3.5" /> Contato
-          </p>
-          {cliente.email ? (
-            <div className="flex items-center gap-2">
-              <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <a href={`mailto:${cliente.email}`} className="text-sm text-white hover:text-[#EA3935] transition-colors truncate">
-                {cliente.email}
-              </a>
-            </div>
-          ) : <p className="text-xs text-muted-foreground italic">Sem email</p>}
-          {cliente.telefone ? (
-            <div className="flex items-center gap-2">
-              <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <a href={`tel:${cliente.telefone}`} className="text-sm text-white hover:text-[#EA3935] transition-colors">
-                {cliente.telefone}
-              </a>
-            </div>
-          ) : <p className="text-xs text-muted-foreground italic">Sem telefone</p>}
-          {cliente.empresa && (
-            <div className="flex items-center gap-2">
-              <Building2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <span className="text-sm text-white">{cliente.empresa}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="glass-card rounded-2xl border border-white/5 p-5 space-y-3">
-          <p className="text-xs font-semibold text-[#EA3935] uppercase tracking-wider flex items-center gap-1.5">
-            <Users className="w-3.5 h-3.5" /> Squad & Responsável
-          </p>
-          {squad ? (
-            <div>
-              <p className="text-sm font-medium text-white">{squad.nome}</p>
-              {squad.descricao && <p className="text-xs text-muted-foreground mt-0.5">{squad.descricao}</p>}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground italic">Nenhum squad atribuído</p>
-          )}
-          {responsavel && (
-            <div className="flex items-center gap-2 pt-1 border-t border-white/5">
-              <div className="w-6 h-6 rounded-lg bg-[#EA3935]/20 flex items-center justify-center text-[#EA3935] text-xs font-semibold shrink-0">
-                {responsavel.full_name?.[0]?.toUpperCase() || <User className="w-3 h-3" />}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-white truncate">{responsavel.full_name}</p>
-                <p className="text-xs text-muted-foreground truncate">{responsavel.email}</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="glass-card rounded-2xl border border-white/5 p-5 space-y-3">
-          <p className="text-xs font-semibold text-[#EA3935] uppercase tracking-wider flex items-center gap-1.5">
-            <FileText className="w-3.5 h-3.5" /> Notas
-          </p>
-          {cliente.notas ? (
-            <p className="text-sm text-muted-foreground leading-relaxed">{cliente.notas}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground italic">Sem notas</p>
-          )}
-        </div>
+        <h2 className="text-lg font-semibold text-white">Contrato do Cliente</h2>
       </div>
-
-      {cliente.entregaveis?.length > 0 && (
-        <div className="glass-card rounded-2xl border border-white/5 p-5">
-          <p className="text-xs font-semibold text-[#EA3935] uppercase tracking-wider flex items-center gap-1.5 mb-3">
-            <Package className="w-3.5 h-3.5" /> Entregáveis
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {cliente.entregaveis.map((e) => (
-              <span key={e} className="px-3 py-1 rounded-lg bg-[#EA3935]/10 border border-[#EA3935]/20 text-xs text-white">
-                {e}
-              </span>
-            ))}
-          </div>
+      <div className="glass-card rounded-2xl border border-white/5 p-10 flex flex-col items-center justify-center gap-3">
+        <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center">
+          <FileText className="w-7 h-7 text-muted-foreground" />
         </div>
-      )}
-    </div>
-  );
-}
-
-function TabEquipe({ cliente }) {
-  const squad = cliente.squads;
-  const membros = squad?.squad_membros?.map((sm) => sm.profiles).filter(Boolean) ?? [];
-
-  return (
-    <div className="glass-card rounded-2xl border border-white/5 p-5">
-      <p className="text-xs font-semibold text-[#EA3935] uppercase tracking-wider flex items-center gap-1.5 mb-4">
-        <Users className="w-3.5 h-3.5" /> Equipe Responsável
-        {squad && <span className="text-muted-foreground font-normal normal-case">— {squad.nome}</span>}
-      </p>
-      {membros.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-          {membros.map((u) => (
-            <div key={u.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-semibold shrink-0"
-                style={{ background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' }}
-              >
-                {u.full_name?.[0]?.toUpperCase() || '?'}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-white truncate">{u.full_name}</p>
-                <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground italic">Nenhum membro na equipe responsável.</p>
-      )}
-    </div>
-  );
-}
-
-function TabArquivos() {
-  return (
-    <div className="glass-card rounded-2xl border border-white/5 p-10 flex flex-col items-center justify-center gap-3">
-      <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center">
-        <FolderOpen className="w-7 h-7 text-muted-foreground" />
+        <p className="text-sm font-medium text-white">Nenhum contrato cadastrado</p>
+        <p className="text-xs text-muted-foreground text-center">As informações de contrato deste cliente aparecerão aqui.</p>
       </div>
-      <p className="text-sm font-medium text-white">Nenhum arquivo enviado</p>
-      <p className="text-xs text-muted-foreground text-center">Funcionalidade de upload de arquivos em breve.</p>
-      <Button variant="outline" className="border-white/10 text-muted-foreground hover:text-white mt-2 gap-2">
-        <Upload className="w-4 h-4" /> Enviar Arquivo
-      </Button>
     </div>
   );
 }
 
-export default function ClienteDetalhePage({ clienteId, onBack }) {
-  const [activeTab, setActiveTab] = useState('dados');
+export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) {
   const [showEdit, setShowEdit] = useState(false);
   const [showConfirmArchive, setShowConfirmArchive] = useState(false);
   const { toast } = useToast();
@@ -269,168 +113,137 @@ export default function ClienteDetalhePage({ clienteId, onBack }) {
   }
 
   const cfg = statusConfig[cliente.status] || statusConfig.lead;
-  const squadMembros = cliente.squads?.squad_membros ?? [];
   const tier = cliente.tier ?? null;
   const cnpj = cliente.cnpj ?? null;
   const cidade = cliente.cidade ?? null;
   const uf = cliente.uf ?? null;
   const localizacao = [cidade, uf].filter(Boolean).join(', ');
   const clienteDesde = formatMesAno(cliente.created_at);
-
-  const mrr = cliente.mrr ?? 0;
-  const mrrDelta = cliente.mrr_delta ?? 0;
-  const contratoTotal = cliente.contrato_total ?? 0;
-  const contratoMeses = cliente.contrato_meses ?? 0;
-  const projetosAtivos = cliente.projetos_ativos ?? 0;
-  const projetosEmDev = cliente.projetos_em_dev ?? 0;
-  const renovacaoDias = cliente.renovacao_dias ?? 0;
-  const renovacaoData = cliente.renovacao_data ?? null;
+  const squad = cliente.squads;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-muted-foreground hover:text-white transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => setShowEdit(true)}
-            variant="outline"
-            className="border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white h-10 px-4 text-sm gap-2"
-          >
-            <Edit2 className="w-4 h-4" /> Editar
-          </Button>
-          {cliente.status !== 'inativo' && (
-            <Button
-              onClick={() => setShowConfirmArchive(true)}
-              className="bg-[#EA3935]/15 hover:bg-[#EA3935]/25 border border-[#EA3935]/30 text-[#EA3935] h-10 px-4 text-sm gap-2"
+    <div className="space-y-16 animate-fade-in">
+      <div>
+        <div className="relative h-36 w-full rounded-2xl overflow-hidden bg-gradient-to-br from-[#EA3935]/30 via-purple-500/15 to-blue-500/25">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(234,57,53,0.25),transparent_55%)]" />
+          <div className="absolute inset-0 flex items-start justify-between p-4">
+            <button
+              onClick={onBack}
+              className="p-2 rounded-xl bg-black/30 hover:bg-black/50 border border-white/10 text-white/80 hover:text-white backdrop-blur transition-colors"
             >
-              <Archive className="w-4 h-4" /> Deletar
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-5">
-        <div className="flex items-start gap-5">
-          <div
-            className="w-20 h-20 rounded-2xl flex items-center justify-center text-[#EA3935] font-bold text-3xl shrink-0 border border-[#EA3935]/20"
-            style={{ background: 'rgba(234, 57, 53, 0.18)' }}
-          >
-            {cliente.nome?.[0]?.toUpperCase() || '?'}
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setShowEdit(true)}
+                variant="outline"
+                className="border-white/15 bg-black/30 backdrop-blur text-white hover:bg-black/50 hover:text-white h-9 px-4 text-xs gap-2"
+              >
+                <Edit2 className="w-3.5 h-3.5" /> Editar
+              </Button>
+              {cliente.status !== 'inativo' && (
+                <Button
+                  onClick={() => setShowConfirmArchive(true)}
+                  className="bg-[#EA3935]/20 hover:bg-[#EA3935]/35 border border-[#EA3935]/40 text-white backdrop-blur h-9 px-4 text-xs gap-2"
+                >
+                  <Archive className="w-3.5 h-3.5" /> Arquivar
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex-1 min-w-0 space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-3xl font-bold text-white truncate">{cliente.nome}</h2>
-              <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${cfg.bg} ${cfg.color}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                {cfg.label}
-              </span>
-              {tier && (
-                <span className="inline-flex items-center text-xs px-2.5 py-1 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-300 font-medium">
-                  Tier {tier}
+        </div>
+
+        <div className="px-6 pb-2">
+          <div className="-mt-12 mb-5 flex items-end gap-4">
+            <div
+              className="w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-4xl shrink-0 ring-4 ring-background shadow-xl"
+              style={{ background: 'linear-gradient(135deg, #EA3935, #B91C1C)' }}
+            >
+              {cliente.nome?.[0]?.toUpperCase() || '?'}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-2 min-w-0">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-3xl font-bold text-white truncate">{cliente.nome}</h2>
+                <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${cfg.bg} ${cfg.color}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                  {cfg.label}
                 </span>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <FileBadge className="w-4 h-4" />
-                <span>CNPJ</span>
-                <span className="text-white font-medium">{cnpj || '—'}</span>
+                {tier && (
+                  <span className="inline-flex items-center text-xs px-2.5 py-1 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-300 font-medium">
+                    Tier {tier}
+                  </span>
+                )}
               </div>
-              {localizacao && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  <span className="text-white font-medium">{localizacao}</span>
+              {cliente.email && (
+                <a
+                  href={`mailto:${cliente.email}`}
+                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-[#EA3935] transition-colors"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  {cliente.email}
+                </a>
+              )}
+
+              <div className="space-y-1.5 pt-2 text-sm">
+                <div className="flex flex-wrap gap-x-8 gap-y-1">
+                  <span>
+                    <span className="text-muted-foreground">CNPJ </span>
+                    <span className="text-white font-medium">{cnpj || '—'}</span>
+                  </span>
+                  <span>
+                    <span className="text-muted-foreground">Empresa </span>
+                    <span className="text-white font-medium">{cliente.empresa || '—'}</span>
+                  </span>
                 </div>
-              )}
-              <div className="flex items-center gap-2">
-                <CalendarDays className="w-4 h-4" />
-                <span>Cliente desde</span>
-                <span className="text-white font-medium">{clienteDesde}</span>
+                <div className="flex flex-wrap gap-x-8 gap-y-1">
+                  <span>
+                    <span className="text-muted-foreground">Localização </span>
+                    <span className="text-white font-medium">{localizacao || '—'}</span>
+                  </span>
+                  <span>
+                    <span className="text-muted-foreground">Telefone </span>
+                    <span className="text-white font-medium">{cliente.telefone || '—'}</span>
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-x-8 gap-y-1">
+                  <span>
+                    <span className="text-muted-foreground">Cliente desde </span>
+                    <span className="text-white font-medium">{clienteDesde}</span>
+                  </span>
+                </div>
               </div>
+
+              {cliente.notas && (
+                <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-white/10 pl-3 italic mt-3">
+                  {cliente.notas}
+                </p>
+              )}
             </div>
-            {cliente.responsavel && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <UserCheck className="w-4 h-4" />
-                <span>Conta gerenciada por</span>
-                <span className="text-white font-medium">{cliente.responsavel.full_name}</span>
+
+            {squad && (
+              <div className="flex items-center gap-2.5 pt-1">
+                <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-muted-foreground shrink-0">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">Squad</p>
+                  <p className="text-xs font-medium text-muted-foreground truncate">{squad.nome}</p>
+                </div>
               </div>
             )}
           </div>
         </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-1 rounded-2xl border border-white/5 bg-white/[0.02]">
-          <StatCard
-            label="MRR"
-            value={formatBRL(mrr)}
-            accent={mrrDelta > 0 ? 'text-emerald-400' : mrrDelta < 0 ? 'text-red-400' : 'text-muted-foreground'}
-            footer={
-              <>
-                {mrrDelta !== 0 && <TrendingUp className="w-3 h-3" />}
-                {mrrDelta > 0 ? `+${mrrDelta}% vs. mês anterior` : mrrDelta < 0 ? `${mrrDelta}% vs. mês anterior` : 'Sem variação'}
-              </>
-            }
-          />
-          <StatCard
-            label="Contrato Total"
-            value={formatBRL(contratoTotal)}
-            accent={null}
-            footer={<>Período {contratoMeses || 0} meses</>}
-          />
-          <StatCard
-            label="Projetos Ativos"
-            value={String(projetosAtivos).padStart(2, '0')}
-            accent={null}
-            footer={
-              <>
-                <Briefcase className="w-3 h-3" />
-                {projetosEmDev} em desenvolvimento
-              </>
-            }
-          />
-          <StatCard
-            label="Renovação em"
-            value={
-              <>
-                {renovacaoDias} <span className="text-base font-normal text-muted-foreground">dias</span>
-              </>
-            }
-            accent="text-amber-300"
-            footer={
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
-                {renovacaoData ? `${renovacaoData} — renovação automática` : 'Renovação automática'}
-              </>
-            }
-          />
-        </div>
       </div>
 
-      <div className="flex gap-1 p-1 glass-card rounded-xl border border-white/5 w-fit">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 whitespace-nowrap
-              ${activeTab === tab.id ? 'bg-[#EA3935] text-white shadow' : 'text-muted-foreground hover:text-white'}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <div className="h-px bg-white/5" />
 
-      <motion.div key={activeTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-        {activeTab === 'dados' && <TabDadosGerais cliente={cliente} />}
-        {activeTab === 'projetos' && (
-          <ProjetosLista clienteId={clienteId} clienteNome={cliente.nome} squadMembros={squadMembros} />
-        )}
-        {activeTab === 'equipe' && <TabEquipe cliente={cliente} />}
-        {activeTab === 'arquivos' && <TabArquivos />}
-      </motion.div>
+      <div className="space-y-10">
+        <ProjetosLista clienteId={clienteId} sectionIndex={1} onVerProjeto={onVerProjeto} />
+        <TabContrato sectionIndex={2} />
+      </div>
 
       {showEdit && (
         <ClienteForm

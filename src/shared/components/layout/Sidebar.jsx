@@ -17,7 +17,7 @@ const getNavItems = ({ isAdmin, podeUsarOperacional, podeUsarCrm }) => {
   }
 
   if (podeUsarCrm) {
-    items.push({ to: '/comercial', label: 'Comercial (CRM)', icon: Target });
+    items.push({ to: '/comercial', label: 'Comercial', icon: Target });
   }
 
   if (podeUsarOperacional) {
