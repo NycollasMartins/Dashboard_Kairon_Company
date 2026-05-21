@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email      text,
   full_name  text,
   role       text NOT NULL DEFAULT 'sdr'
-               CHECK (role IN ('admin', 'social media', 'closer', 'sdr')),
+               CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr')),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -372,14 +372,18 @@ CREATE TABLE IF NOT EXISTS public.leads (
   momento_empresa    text,
   objetivo_principal text,
   status             text NOT NULL DEFAULT 'pendente'
-                       CHECK (status IN ('pendente', 'follow_up', 'reuniao_marcada')),
+                       CHECK (status IN ('pendente', 'em_atendimento', 'follow_up', 'reuniao_marcada')),
   origem             text NOT NULL DEFAULT 'landing_page',
   notas              text,
   responsavel_id     uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   cliente_id         uuid REFERENCES public.clientes(id) ON DELETE SET NULL,
+  atendimento_iniciado_em timestamptz,
   created_at         timestamptz NOT NULL DEFAULT now(),
   updated_at         timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.leads
+  ADD COLUMN IF NOT EXISTS atendimento_iniciado_em timestamptz;
 
 CREATE INDEX IF NOT EXISTS idx_leads_status      ON public.leads (status);
 CREATE INDEX IF NOT EXISTS idx_leads_responsavel ON public.leads (responsavel_id);
@@ -409,19 +413,103 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
   )
 $$;
 
--- RLS: apenas admin e closer enxergam/alteram leads
-CREATE POLICY "leads: closer/admin select"
-  ON public.leads FOR SELECT
-  USING (private.is_admin_or_closer());
+-- Helper: true se o usuário atual é SDR ou BDR (papéis de prospecção)
+CREATE OR REPLACE FUNCTION private.is_sdr_or_bdr()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role IN ('sdr', 'bdr')
+  )
+$$;
 
-CREATE POLICY "leads: closer/admin update"
+-- Helper: true se o usuário atual só tem acesso ao CRM (sdr/bdr/closer).
+-- Usado em policies RESTRICTIVE para bloquear acesso a tabelas operacionais/administrativas.
+CREATE OR REPLACE FUNCTION private.is_crm_only()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role IN ('sdr', 'bdr', 'closer')
+  )
+$$;
+
+-- RLS: admin/closer veem e editam tudo; SDR/BDR vê tudo, edita Pendentes ou os seus
+DROP POLICY IF EXISTS "leads: closer/admin select"            ON public.leads;
+DROP POLICY IF EXISTS "leads: closer/admin update"            ON public.leads;
+DROP POLICY IF EXISTS "leads: actor select"                   ON public.leads;
+DROP POLICY IF EXISTS "leads: admin/closer update"            ON public.leads;
+DROP POLICY IF EXISTS "leads: sdr update own or pendente"     ON public.leads;
+DROP POLICY IF EXISTS "leads: sdr/bdr update own or pendente" ON public.leads;
+DROP FUNCTION IF EXISTS private.is_sdr();
+
+CREATE POLICY "leads: actor select"
+  ON public.leads FOR SELECT
+  USING (private.is_admin_or_closer() OR private.is_sdr_or_bdr());
+
+CREATE POLICY "leads: admin/closer update"
   ON public.leads FOR UPDATE
   USING (private.is_admin_or_closer())
   WITH CHECK (private.is_admin_or_closer());
 
+CREATE POLICY "leads: sdr/bdr update own or pendente"
+  ON public.leads FOR UPDATE
+  USING (
+    private.is_sdr_or_bdr() AND (status = 'pendente' OR responsavel_id = auth.uid())
+  )
+  WITH CHECK (
+    private.is_sdr_or_bdr() AND responsavel_id = auth.uid()
+  );
+
 CREATE POLICY "leads: admin delete"
   ON public.leads FOR DELETE
   USING (private.is_admin());
+
+-- Trigger guard: auto-promove status, valida role do responsavel e
+-- carimba/limpa o início do atendimento conforme transições de status.
+CREATE OR REPLACE FUNCTION public.leads_atendimento_guard()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  responsavel_role text;
+BEGIN
+  -- Auto-promove pendente -> em_atendimento quando ganha responsavel
+  IF TG_OP = 'UPDATE'
+     AND NEW.responsavel_id IS NOT NULL
+     AND NEW.responsavel_id IS DISTINCT FROM OLD.responsavel_id
+     AND NEW.status = 'pendente' THEN
+    NEW.status := 'em_atendimento';
+  END IF;
+
+  -- em_atendimento exige responsavel
+  IF NEW.status = 'em_atendimento' AND NEW.responsavel_id IS NULL THEN
+    RAISE EXCEPTION 'em_atendimento requires a responsavel';
+  END IF;
+
+  -- Responsavel precisa ser SDR ou BDR (defesa em profundidade da regra de UI)
+  IF NEW.responsavel_id IS NOT NULL
+     AND (TG_OP = 'INSERT' OR NEW.responsavel_id IS DISTINCT FROM OLD.responsavel_id) THEN
+    SELECT role INTO responsavel_role
+      FROM public.profiles
+      WHERE id = NEW.responsavel_id;
+    IF responsavel_role NOT IN ('sdr', 'bdr') THEN
+      RAISE EXCEPTION 'responsavel must have role sdr or bdr';
+    END IF;
+  END IF;
+
+  -- Carimba ao entrar em em_atendimento; limpa ao sair
+  IF NEW.status = 'em_atendimento'
+     AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM 'em_atendimento') THEN
+    NEW.atendimento_iniciado_em := now();
+  ELSIF NEW.status <> 'em_atendimento' THEN
+    NEW.atendimento_iniciado_em := NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS leads_atendimento_guard ON public.leads;
+CREATE TRIGGER leads_atendimento_guard
+  BEFORE INSERT OR UPDATE ON public.leads
+  FOR EACH ROW EXECUTE FUNCTION public.leads_atendimento_guard();
 
 -- Sem policy de INSERT: inserts vêm exclusivamente via
 -- public.create_lead_from_webhook (SECURITY DEFINER).
@@ -471,6 +559,63 @@ $$;
 GRANT EXECUTE ON FUNCTION public.create_lead_from_webhook(
   text, text, text, text, text, text, text
 ) TO anon, authenticated;
+
+-- ==================================================================
+-- CRM-ONLY LOCKDOWN
+-- SDR/BDR/Closer não têm acesso a tabelas operacionais nem administrativas.
+-- Aplicado via policies RESTRICTIVE (avaliadas em AND com qualquer outra),
+-- então qualquer leitura ou escrita feita por esses papéis nessas tabelas falha.
+-- ==================================================================
+
+DROP POLICY IF EXISTS "clientes: deny crm-only roles"      ON public.clientes;
+DROP POLICY IF EXISTS "projetos: deny crm-only roles"      ON public.projetos;
+DROP POLICY IF EXISTS "tarefas: deny crm-only roles"       ON public.tarefas;
+DROP POLICY IF EXISTS "squads: deny crm-only roles"        ON public.squads;
+DROP POLICY IF EXISTS "squad_membros: deny crm-only roles" ON public.squad_membros;
+
+CREATE POLICY "clientes: deny crm-only roles"
+  ON public.clientes
+  AS RESTRICTIVE
+  FOR ALL
+  TO authenticated
+  USING (NOT private.is_crm_only())
+  WITH CHECK (NOT private.is_crm_only());
+
+CREATE POLICY "projetos: deny crm-only roles"
+  ON public.projetos
+  AS RESTRICTIVE
+  FOR ALL
+  TO authenticated
+  USING (NOT private.is_crm_only())
+  WITH CHECK (NOT private.is_crm_only());
+
+CREATE POLICY "tarefas: deny crm-only roles"
+  ON public.tarefas
+  AS RESTRICTIVE
+  FOR ALL
+  TO authenticated
+  USING (NOT private.is_crm_only())
+  WITH CHECK (NOT private.is_crm_only());
+
+CREATE POLICY "squads: deny crm-only roles"
+  ON public.squads
+  AS RESTRICTIVE
+  FOR ALL
+  TO authenticated
+  USING (NOT private.is_crm_only())
+  WITH CHECK (NOT private.is_crm_only());
+
+CREATE POLICY "squad_membros: deny crm-only roles"
+  ON public.squad_membros
+  AS RESTRICTIVE
+  FOR ALL
+  TO authenticated
+  USING (NOT private.is_crm_only())
+  WITH CHECK (NOT private.is_crm_only());
+
+-- public.profiles permanece lível por todos os autenticados — o frontend
+-- depende disso para renderizar avatar do usuário logado e o dropdown de
+-- responsaveis no CRM. Mudanças em role continuam restritas a admin.
 
 -- ==================================================================
 -- PROMOTE FIRST ADMIN

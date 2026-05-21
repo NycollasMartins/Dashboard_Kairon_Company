@@ -5,6 +5,8 @@ import { Users, Plus, Edit2, Trash2, X, Check, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import RestrictedAccessCard from '@/shared/components/RestrictedAccessCard';
 import { squadsApi } from '@/features/squads/api/squads.api';
 import { squadMembrosApi } from '@/features/squads/api/squad-membros.api';
 import { usersApi } from '@/features/administrativo/api/users.api';
@@ -104,6 +106,18 @@ function SquadForm({ squad, usuarios, onClose, onSave }) {
 }
 
 export default function SquadsPage() {
+  const { user } = useAuth();
+  if (user?.role !== 'admin') {
+    return (
+      <RestrictedAccessCard
+        description="Apenas usuários com perfil admin podem gerenciar Squads."
+      />
+    );
+  }
+  return <SquadsPageContent />;
+}
+
+function SquadsPageContent() {
   const [showForm, setShowForm] = useState(false);
   const [editando, setEditando] = useState(null);
   const { toast } = useToast();

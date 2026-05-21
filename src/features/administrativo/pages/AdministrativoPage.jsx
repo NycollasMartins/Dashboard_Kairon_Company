@@ -7,15 +7,29 @@ import { useToast } from '@/components/ui/use-toast';
 import { usersApi } from '@/features/administrativo/api/users.api';
 import { queryKeys } from '@/entities/query-keys';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import RestrictedAccessCard from '@/shared/components/RestrictedAccessCard';
 
 const roleConfig = {
   admin: { label: 'Admin', icon: Crown, color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20', desc: 'Acesso total ao sistema' },
   'social media': { label: 'Social Media', icon: Briefcase, color: 'text-[#EA3935]', bg: 'bg-red-500/10 border-red-500/20', desc: 'Gestão de redes sociais' },
   closer: { label: 'Closer', icon: User, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20', desc: 'Fechamento de vendas' },
   sdr: { label: 'SDR', icon: UserCheck, color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20', desc: 'Prospecção e qualificação' },
+  bdr: { label: 'BDR', icon: UserCheck, color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', desc: 'Geração de demanda outbound' },
 };
 
 export default function AdministrativoPage() {
+  const { user: currentUser } = useAuth();
+  if (currentUser?.role !== 'admin') {
+    return (
+      <RestrictedAccessCard
+        description="Apenas usuários com perfil admin podem acessar Administrativo."
+      />
+    );
+  }
+  return <AdministrativoPageContent />;
+}
+
+function AdministrativoPageContent() {
   const [editandoId, setEditandoId] = useState(null);
   const [novoRole, setNovoRole] = useState('');
   const { toast } = useToast();

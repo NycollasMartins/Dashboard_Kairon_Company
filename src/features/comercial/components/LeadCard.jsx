@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Draggable } from '@hello-pangea/dnd';
-import { Mail, Phone, Building2, Clock } from 'lucide-react';
+import { Mail, Phone, Building2, Clock, AlertCircle } from 'lucide-react';
+
+const SLA_MS = 10 * 60 * 1000;
 
 function initialsOf(name = '') {
   const parts = name.trim().split(/\s+/);
@@ -37,10 +40,42 @@ function relativeDate(iso) {
   return `${Math.floor(diffD / 7)}sem`;
 }
 
+function SlaBadge({ startedAt }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const elapsed = now - new Date(startedAt).getTime();
+  const remaining = SLA_MS - elapsed;
+  const expired = remaining <= 0;
+
+  if (expired) {
+    return (
+      <span className="flex items-center gap-1 text-[10px] font-semibold text-red-300 bg-red-500/15 border border-red-500/30 rounded-md px-1.5 py-0.5 shrink-0 animate-pulse">
+        <AlertCircle className="w-3 h-3" />
+        SLA vencido
+      </span>
+    );
+  }
+
+  const totalSec = Math.max(0, Math.floor(remaining / 1000));
+  const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
+  const ss = String(totalSec % 60).padStart(2, '0');
+  return (
+    <span className="flex items-center gap-1 text-[10px] font-semibold text-blue-300 bg-blue-500/10 border border-blue-500/25 rounded-md px-1.5 py-0.5 shrink-0 tabular-nums">
+      <Clock className="w-3 h-3" />
+      {mm}:{ss}
+    </span>
+  );
+}
+
 export default function LeadCard({ lead, index, onOpen }) {
   const responsavelNome = lead.responsavel?.full_name || lead.responsavel?.email;
   const created = relativeDate(lead.created_at);
   const empresa = lead.empresa;
+  const showSla = lead.status === 'em_atendimento' && lead.atendimento_iniciado_em;
 
   return (
     <Draggable draggableId={lead.id} index={index}>
@@ -58,12 +93,14 @@ export default function LeadCard({ lead, index, onOpen }) {
               <p className="text-sm text-white/95 font-medium leading-snug line-clamp-1 flex-1">
                 {lead.nome}
               </p>
-              {created && (
+              {showSla ? (
+                <SlaBadge startedAt={lead.atendimento_iniciado_em} />
+              ) : created ? (
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60 shrink-0">
                   <Clock className="w-3 h-3" />
                   {created}
                 </span>
-              )}
+              ) : null}
             </div>
 
             {empresa && (
@@ -90,7 +127,11 @@ export default function LeadCard({ lead, index, onOpen }) {
 
             <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.04]">
               <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">
-                {lead.origem === 'landing_page' ? 'Landing Page' : lead.origem}
+                {lead.origem === 'landing_page'
+                  ? 'Landing Page'
+                  : lead.origem === 'manual'
+                    ? 'Manual (CRM)'
+                    : lead.origem}
               </span>
               {responsavelNome ? (
                 <span

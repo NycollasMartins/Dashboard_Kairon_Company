@@ -11,6 +11,7 @@ import {
 
 const statusOptions = [
   { value: 'pendente', label: 'Pendente', dot: 'bg-slate-400', color: 'text-slate-300' },
+  { value: 'em_atendimento', label: 'Em Atendimento', dot: 'bg-blue-400', color: 'text-blue-300' },
   { value: 'follow_up', label: 'Follow Up', dot: 'bg-yellow-400', color: 'text-yellow-300' },
   { value: 'reuniao_marcada', label: 'Reunião Marcada', dot: 'bg-emerald-400', color: 'text-emerald-300' },
 ];
@@ -40,6 +41,7 @@ export default function LeadDetalheModal({
   lead,
   responsaveis = [],
   isAdmin = false,
+  currentUser = null,
   isSubmitting = false,
   onClose,
   onSave,
@@ -50,6 +52,12 @@ export default function LeadDetalheModal({
     responsavel_id: lead.responsavel_id || '',
     notas: lead.notas || '',
   });
+
+  const canEdit =
+    currentUser?.role === 'admin' ||
+    currentUser?.role === 'closer' ||
+    ((currentUser?.role === 'sdr' || currentUser?.role === 'bdr') &&
+      (lead.status === 'pendente' || lead.responsavel_id === currentUser.id));
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -142,8 +150,12 @@ export default function LeadDetalheModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <FieldLabel icon={Building2}>Status</FieldLabel>
-              <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
-                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+              <Select
+                value={form.status}
+                onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}
+                disabled={!canEdit}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 disabled:opacity-60">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#1a1a2e] border-white/10">
@@ -160,12 +172,13 @@ export default function LeadDetalheModal({
             </div>
 
             <div>
-              <FieldLabel icon={User}>Responsável</FieldLabel>
+              <FieldLabel icon={User}>Responsável (SDR/BDR)</FieldLabel>
               <Select
                 value={form.responsavel_id || 'none'}
                 onValueChange={(v) => setForm((f) => ({ ...f, responsavel_id: v === 'none' ? '' : v }))}
+                disabled={!canEdit}
               >
-                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 disabled:opacity-60">
                   <SelectValue placeholder="Sem responsável" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#1a1a2e] border-white/10">
@@ -186,9 +199,16 @@ export default function LeadDetalheModal({
               placeholder="Anotações do closer, próximos passos, contexto..."
               value={form.notas}
               onChange={(e) => setForm((f) => ({ ...f, notas: e.target.value }))}
-              className="bg-white/5 border-white/10 text-white placeholder:text-muted-foreground/70 min-h-[90px] resize-none"
+              disabled={!canEdit}
+              className="bg-white/5 border-white/10 text-white placeholder:text-muted-foreground/70 min-h-[90px] resize-none disabled:opacity-60"
             />
           </div>
+
+          {!canEdit && (
+            <p className="text-[11px] text-muted-foreground/80 bg-white/[0.03] border border-white/5 rounded-lg px-3 py-2">
+              Você só pode editar leads pendentes ou nos quais já é responsavel.
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-3 px-6 pb-5 pt-1">
@@ -202,7 +222,7 @@ export default function LeadDetalheModal({
           </Button>
           <Button
             type="submit"
-            disabled={!dirty || isSubmitting}
+            disabled={!dirty || isSubmitting || !canEdit}
             className="flex-1 bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white h-10 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (

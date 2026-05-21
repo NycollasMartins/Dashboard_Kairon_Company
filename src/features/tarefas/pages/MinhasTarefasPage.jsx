@@ -43,6 +43,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import RestrictedAccessCard from '@/shared/components/RestrictedAccessCard';
 import { tarefasApi } from '@/features/tarefas/api/tarefas.api';
 import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { projetosApi } from '@/features/projetos/api/projetos.api';
@@ -674,7 +675,21 @@ function applySort(list, sort) {
   }
 }
 
+const OPERACIONAL_ROLES = ['admin', 'social media'];
+
 export default function MinhasTarefasPage() {
+  const { user } = useAuth();
+  if (!OPERACIONAL_ROLES.includes(user?.role)) {
+    return (
+      <RestrictedAccessCard
+        description="Apenas usuários com perfil admin ou social media podem acessar Tarefas."
+      />
+    );
+  }
+  return <MinhasTarefasPageContent />;
+}
+
+function MinhasTarefasPageContent() {
   const [showForm, setShowForm] = useState(false);
   const [editandoTarefa, setEditandoTarefa] = useState(null);
   const { toast } = useToast();

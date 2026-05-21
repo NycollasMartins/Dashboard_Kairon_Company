@@ -10,8 +10,9 @@ import LeadCard from './LeadCard';
 import LeadDetalheModal from './LeadDetalheModal';
 
 const columns = [
-  { id: 'pendente',        label: 'Pendente',         color: 'text-slate-300',   dot: 'bg-slate-400',  border: 'border-slate-500/20',  empty: 'Sem leads pendentes' },
-  { id: 'follow_up',       label: 'Follow Up',        color: 'text-yellow-300',  dot: 'bg-yellow-400', border: 'border-yellow-500/20', empty: 'Sem follow ups' },
+  { id: 'pendente',        label: 'Pendente',         color: 'text-slate-300',   dot: 'bg-slate-400',   border: 'border-slate-500/20',   empty: 'Sem leads pendentes' },
+  { id: 'em_atendimento',  label: 'Em Atendimento',   color: 'text-blue-300',    dot: 'bg-blue-400',    border: 'border-blue-500/20',    empty: 'Sem leads em atendimento' },
+  { id: 'follow_up',       label: 'Follow Up',        color: 'text-yellow-300',  dot: 'bg-yellow-400',  border: 'border-yellow-500/20',  empty: 'Sem follow ups' },
   { id: 'reuniao_marcada', label: 'Reunião Marcada',  color: 'text-emerald-300', dot: 'bg-emerald-400', border: 'border-emerald-500/20', empty: 'Sem reuniões marcadas' },
 ];
 
@@ -33,7 +34,7 @@ export default function LeadsKanban() {
   });
 
   const responsaveis = useMemo(
-    () => usuarios.filter((u) => u.role === 'admin' || u.role === 'closer'),
+    () => usuarios.filter((u) => u.role === 'sdr' || u.role === 'bdr'),
     [usuarios]
   );
 
@@ -85,7 +86,25 @@ export default function LeadsKanban() {
   const onDragEnd = (result) => {
     const { destination, source, draggableId } = result;
     if (!destination || destination.droppableId === source.droppableId) return;
-    atualizar.mutate({ id: draggableId, data: { status: destination.droppableId } });
+
+    const lead = leads.find((l) => l.id === draggableId);
+    const newStatus = destination.droppableId;
+    const payload = { status: newStatus };
+
+    if (newStatus === 'em_atendimento' && !lead?.responsavel_id) {
+      if (user?.role === 'sdr' || user?.role === 'bdr') {
+        payload.responsavel_id = user.id;
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Lead sem responsavel',
+          description: 'Atribua um SDR ou BDR pelo modal antes de mover para Em Atendimento.',
+        });
+        return;
+      }
+    }
+
+    atualizar.mutate({ id: draggableId, data: payload });
   };
 
   if (isLoading) {
@@ -99,7 +118,7 @@ export default function LeadsKanban() {
   return (
     <>
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {columns.map((col) => {
             const colLeads = leads.filter((l) => l.status === col.id);
             return (
@@ -142,6 +161,7 @@ export default function LeadsKanban() {
           lead={leadAberto}
           responsaveis={responsaveis}
           isAdmin={isAdmin}
+          currentUser={user}
           isSubmitting={atualizar.isPending}
           onClose={() => setLeadAberto(null)}
           onSave={(data) => atualizar.mutate({ id: leadAberto.id, data })}

@@ -7,28 +7,45 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
-const getNavItems = (isAdmin, isAdminOrCloser) => [
-  { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
-  { to: '/administrativo', label: 'Administrativo', icon: Shield },
-  ...(isAdminOrCloser
-    ? [{ to: '/comercial', label: 'Comercial (CRM)', icon: Target }]
-    : []),
-  {
-    label: 'Operacional', icon: Briefcase,
-    children: [
-      { to: '/clientes', label: 'Clientes', icon: Users },
-      { to: '/tarefas', label: 'Tarefas', icon: CheckSquare },
-      ...(isAdmin ? [{ to: '/squads', label: 'Squads', icon: Layers }] : []),
-    ],
-  },
-];
+const getNavItems = ({ isAdmin, podeUsarOperacional, podeUsarCrm }) => {
+  const items = [
+    { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
+  ];
+
+  if (isAdmin) {
+    items.push({ to: '/administrativo', label: 'Administrativo', icon: Shield });
+  }
+
+  if (podeUsarCrm) {
+    items.push({ to: '/comercial', label: 'Comercial (CRM)', icon: Target });
+  }
+
+  if (podeUsarOperacional) {
+    items.push({
+      label: 'Operacional', icon: Briefcase,
+      children: [
+        { to: '/clientes', label: 'Clientes', icon: Users },
+        { to: '/tarefas', label: 'Tarefas', icon: CheckSquare },
+        ...(isAdmin ? [{ to: '/squads', label: 'Squads', icon: Layers }] : []),
+      ],
+    });
+  }
+
+  return items;
+};
 
 const activeStyle = { background: 'rgba(234, 57, 53,0.15)', borderColor: 'rgba(234, 57, 53,0.3)' };
 const activeDot = { background: '#EA3935' };
 
-export default function Sidebar({ isAdmin = false, isAdminOrCloser = false, mobileOpen, setMobileOpen }) {
+export default function Sidebar({
+  isAdmin = false,
+  podeUsarOperacional = false,
+  podeUsarCrm = false,
+  mobileOpen,
+  setMobileOpen,
+}) {
   const [operacionalOpen, setOperacionalOpen] = useState(true);
-  const navItems = getNavItems(isAdmin, isAdminOrCloser);
+  const navItems = getNavItems({ isAdmin, podeUsarOperacional, podeUsarCrm });
   const { logout } = useAuth();
   const navigate = useNavigate();
 

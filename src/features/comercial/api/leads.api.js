@@ -11,7 +11,7 @@ const LEAD_SELECT =
   '*, responsavel:profiles(id,full_name,email), cliente:clientes(id,nome)';
 
 function sanitize(input) {
-  const { responsavel: _r, cliente: _c, ...data } = input;
+  const { responsavel: _r, cliente: _c, atendimento_iniciado_em: _a, ...data } = input;
   const emptyToNull = (v) =>
     v == null || (typeof v === 'string' && v.trim() === '') ? null : v;
 
@@ -27,6 +27,12 @@ function sanitize(input) {
   return result;
 }
 
+function emptyOrNull(v) {
+  if (v == null) return null;
+  const s = String(v).trim();
+  return s === '' ? null : s;
+}
+
 export const leadsApi = {
   list: () =>
     supabase
@@ -34,6 +40,26 @@ export const leadsApi = {
       .select(LEAD_SELECT)
       .order('created_at', { ascending: false })
       .then(unwrap),
+
+  create: async (data) => {
+    const { data: newId, error } = await supabase.rpc('create_lead_from_webhook', {
+      p_nome: String(data.nome ?? '').trim(),
+      p_empresa: emptyOrNull(data.empresa),
+      p_email: emptyOrNull(data.email),
+      p_telefone: emptyOrNull(data.telefone),
+      p_momento_empresa: emptyOrNull(data.momento_empresa),
+      p_objetivo_principal: emptyOrNull(data.objetivo_principal),
+      p_origem: emptyOrNull(data.origem) ?? 'manual',
+    });
+    if (error) throw error;
+
+    return supabase
+      .from(TABLE)
+      .select(LEAD_SELECT)
+      .eq('id', newId)
+      .single()
+      .then(unwrap);
+  },
 
   update: (id, data) =>
     supabase
