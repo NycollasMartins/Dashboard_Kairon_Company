@@ -113,8 +113,32 @@ CREATE TABLE IF NOT EXISTS public.tarefas (
   responsavel_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   cliente_id     uuid REFERENCES public.clientes(id) ON DELETE SET NULL,
   projeto_id     uuid REFERENCES public.projetos(id) ON DELETE SET NULL,
+  created_by     uuid REFERENCES public.profiles(id) ON DELETE SET NULL DEFAULT auth.uid(),
   created_at     timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.tarefas
+  ADD COLUMN IF NOT EXISTS created_by uuid
+    REFERENCES public.profiles(id) ON DELETE SET NULL
+    DEFAULT auth.uid();
+
+CREATE INDEX IF NOT EXISTS idx_tarefas_created_by ON public.tarefas (created_by);
+
+-- created_by é imutável depois do INSERT: lock no update
+CREATE OR REPLACE FUNCTION public.tarefas_lock_created_by()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.created_by IS NOT NULL THEN
+    NEW.created_by := OLD.created_by;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tarefas_lock_created_by ON public.tarefas;
+CREATE TRIGGER tarefas_lock_created_by
+  BEFORE UPDATE ON public.tarefas
+  FOR EACH ROW EXECUTE FUNCTION public.tarefas_lock_created_by();
 
 -- ==================================================================
 -- ROW LEVEL SECURITY

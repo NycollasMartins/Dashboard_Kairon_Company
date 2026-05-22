@@ -16,6 +16,7 @@ function sanitizeTarefaRow(input) {
   const {
     cliente_nome: _cn,
     responsavel: _r,
+    criador: _cr,
     clientes: _c,
     projetos: _p,
     ...data
@@ -34,7 +35,8 @@ function sanitizeTarefaRow(input) {
   return result;
 }
 
-const TAREFA_SELECT = '*, clientes(nome,status), projetos(nome), responsavel:profiles(id,full_name,email)';
+const TAREFA_SELECT =
+  '*, clientes(nome,status), projetos(nome), responsavel:profiles!tarefas_responsavel_id_fkey(id,full_name,email), criador:profiles!tarefas_created_by_fkey(id,full_name,email)';
 
 export const tarefasApi = {
   list: () =>

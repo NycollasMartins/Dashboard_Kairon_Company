@@ -243,9 +243,20 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
               <h3 className="text-sm font-semibold text-white leading-tight">
                 {isEdit ? 'Editar Tarefa' : 'Nova Tarefa'}
               </h3>
-              <p className="text-[11px] text-muted-foreground">
-                {isEdit ? 'Atualize os detalhes desta tarefa' : 'Organize sua próxima ação em segundos'}
-              </p>
+              {isEdit ? (
+                <p className="mt-1.5 text-[11px] text-muted-foreground/70 italic">
+                  {tarefa?.criador?.full_name || tarefa?.criador?.email
+                    ? `Criada por ${tarefa.criador.full_name || tarefa.criador.email}`
+                    : 'Criador desconhecido'}
+                  {tarefa?.created_at && (
+                    <> · {new Date(tarefa.created_at).toLocaleDateString('pt-BR')}</>
+                  )}
+                </p>
+              ) : (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Organize sua próxima ação em segundos
+                </p>
+              )}
             </div>
           </div>
           {isEdit && onDelete && (

@@ -3,36 +3,34 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Shield, Briefcase, Users, CheckSquare,
-  ChevronDown, X, Layers, LogOut, Target,
+  ChevronDown, X, Layers, LogOut, Target, TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
-const getNavItems = ({ isAdmin, podeUsarOperacional, podeUsarCrm }) => {
-  const items = [
-    { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
-  ];
-
-  if (isAdmin) {
-    items.push({ to: '/administrativo', label: 'Administrativo', icon: Shield });
-  }
-
-  if (podeUsarCrm) {
-    items.push({ to: '/comercial', label: 'Comercial', icon: Target });
-  }
-
-  if (podeUsarOperacional) {
-    items.push({
-      label: 'Operacional', icon: Briefcase,
-      children: [
-        { to: '/clientes', label: 'Clientes', icon: Users },
-        { to: '/tarefas', label: 'Tarefas', icon: CheckSquare },
-        ...(isAdmin ? [{ to: '/squads', label: 'Squads', icon: Layers }] : []),
-      ],
-    });
-  }
-
-  return items;
-};
+const getNavItems = ({ isAdmin, podeUsarOperacional, podeUsarCrm }) => [
+  { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
+  ...(isAdmin
+    ? [{ to: '/administrativo', label: 'Administrativo', icon: Shield }]
+    : []),
+  ...(podeUsarCrm
+    ? [{
+        label: 'Comercial', icon: Target,
+        children: [
+          { to: '/comercial', label: 'Pipeline SDR', icon: TrendingUp },
+        ],
+      }]
+    : []),
+  ...(podeUsarOperacional
+    ? [{
+        label: 'Operacional', icon: Briefcase,
+        children: [
+          { to: '/clientes', label: 'Clientes', icon: Users },
+          { to: '/tarefas', label: 'Tarefas', icon: CheckSquare },
+          ...(isAdmin ? [{ to: '/squads', label: 'Squads', icon: Layers }] : []),
+        ],
+      }]
+    : []),
+];
 
 const activeStyle = { background: 'rgba(234, 57, 53,0.15)', borderColor: 'rgba(234, 57, 53,0.3)' };
 const activeDot = { background: '#EA3935' };
@@ -44,7 +42,9 @@ export default function Sidebar({
   mobileOpen,
   setMobileOpen,
 }) {
-  const [operacionalOpen, setOperacionalOpen] = useState(true);
+  const [openGroups, setOpenGroups] = useState({ Comercial: true, Operacional: true });
+  const toggleGroup = (label) =>
+    setOpenGroups((s) => ({ ...s, [label]: !s[label] }));
   const navItems = getNavItems({ isAdmin, podeUsarOperacional, podeUsarCrm });
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -73,18 +73,19 @@ export default function Sidebar({
           const Icon = item.icon;
 
           if (item.children) {
+            const isOpen = openGroups[item.label] ?? true;
             return (
               <div key={item.label}>
                 <button
-                  onClick={() => setOperacionalOpen(!operacionalOpen)}
+                  onClick={() => toggleGroup(item.label)}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 text-muted-foreground hover:text-white"
                 >
                   <Icon className="w-4 h-4 shrink-0" />
                   <span className="flex-1 text-left font-medium">{item.label}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${operacionalOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 </button>
                 <AnimatePresence>
-                  {operacionalOpen && (
+                  {isOpen && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
