@@ -80,8 +80,8 @@ CREATE TABLE IF NOT EXISTS public.clientes (
   email          text,
   telefone       text,
   empresa        text,
-  status         text NOT NULL DEFAULT 'lead'
-                   CHECK (status IN ('lead', 'qualificado', 'ativo', 'inativo')),
+  status         text NOT NULL DEFAULT 'ativo'
+                   CHECK (status IN ('ativo', 'churn')),
   squad_id       uuid REFERENCES public.squads(id)   ON DELETE SET NULL,
   responsavel_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   entregaveis    text[],

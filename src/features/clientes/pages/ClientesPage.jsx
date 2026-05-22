@@ -12,7 +12,6 @@ import {
   ChevronRight,
   Users as UsersIcon,
   UserCheck,
-  ClipboardList,
   Filter,
   ArrowUpRight,
   ArrowUpDown,
@@ -27,10 +26,8 @@ import { tarefasApi } from '@/features/tarefas/api/tarefas.api';
 import { queryKeys } from '@/entities/query-keys';
 
 const statusConfig = {
-  lead: { label: 'Lead', color: 'text-blue-300', bg: 'bg-blue-500/10 border-blue-500/20', dot: 'bg-blue-400' },
-  qualificado: { label: 'Qualificado', color: 'text-purple-300', bg: 'bg-purple-500/10 border-purple-500/20', dot: 'bg-purple-400' },
   ativo: { label: 'Ativo', color: 'text-emerald-300', bg: 'bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
-  inativo: { label: 'Inativo', color: 'text-slate-300', bg: 'bg-slate-500/10 border-slate-500/20', dot: 'bg-slate-400' },
+  churn: { label: 'Churn', color: 'text-slate-300', bg: 'bg-slate-500/10 border-slate-500/20', dot: 'bg-slate-400' },
 };
 
 function StatCard({ icon: Icon, label, value, trend, trendLabel, accent = 'text-[#EA3935]', bgAccent = 'bg-[#EA3935]/10' }) {
@@ -100,7 +97,7 @@ export default function ClientesPage({ onVerCliente }) {
       qc.invalidateQueries({ queryKey: queryKeys.clientes.all });
       qc.invalidateQueries({ queryKey: queryKeys.tarefas.all });
       setArquivando(null);
-      toast({ title: 'Cliente arquivado.' });
+      toast({ title: 'Cliente marcado como churn.' });
     },
     onError: (err) => {
       toast({
@@ -119,8 +116,8 @@ export default function ClientesPage({ onVerCliente }) {
   const stats = useMemo(() => {
     const total = clientes.length;
     const ativos = clientes.filter((c) => c.status === 'ativo').length;
-    const leads = clientes.filter((c) => c.status === 'lead' || c.status === 'qualificado').length;
-    return { total, ativos, leads };
+    const churns = clientes.filter((c) => c.status === 'churn').length;
+    return { total, ativos, churns };
   }, [clientes]);
 
   const filtered = clientes
@@ -131,7 +128,7 @@ export default function ClientesPage({ onVerCliente }) {
         c.email?.toLowerCase().includes(search.toLowerCase());
       const matchStatus =
         filtroStatus === 'todos' ||
-        (filtroStatus === 'ativos' && c.status !== 'inativo') ||
+        (filtroStatus === 'ativos' && c.status !== 'churn') ||
         c.status === filtroStatus;
       return matchSearch && matchStatus;
     })
@@ -183,11 +180,11 @@ export default function ClientesPage({ onVerCliente }) {
           bgAccent="bg-emerald-500/10"
         />
         <StatCard
-          icon={ClipboardList}
-          label="Leads em pipeline"
-          value={stats.leads}
-          accent="text-blue-300"
-          bgAccent="bg-blue-500/10"
+          icon={Archive}
+          label="Clientes em churn"
+          value={stats.churns}
+          accent="text-slate-300"
+          bgAccent="bg-slate-500/10"
         />
       </div>
 
@@ -241,10 +238,8 @@ export default function ClientesPage({ onVerCliente }) {
               <SelectContent className="bg-[#1a1a2e] border-white/10">
                 <SelectItem value="ativos">Ativos</SelectItem>
                 <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="lead">Lead</SelectItem>
-                <SelectItem value="qualificado">Qualificado</SelectItem>
                 <SelectItem value="ativo">Ativo</SelectItem>
-                <SelectItem value="inativo">Inativo</SelectItem>
+                <SelectItem value="churn">Churn</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -266,7 +261,7 @@ export default function ClientesPage({ onVerCliente }) {
 
             <div className="divide-y divide-white/5">
               {filtered.map((c, i) => {
-                const cfg = statusConfig[c.status] || statusConfig.lead;
+                const cfg = statusConfig[c.status] || statusConfig.ativo;
                 const pendentes = getTarefasPendentes(c.id);
                 const pendentesTotal = pendentes.length;
                 const pendentesPct = Math.min(100, pendentesTotal * 20);
@@ -353,10 +348,10 @@ export default function ClientesPage({ onVerCliente }) {
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
-                        {c.status !== 'inativo' && (
+                        {c.status !== 'churn' && (
                           <button
                             onClick={() => setArquivando(c)}
-                            title="Arquivar cliente"
+                            title="Marcar como churn"
                             className="p-1.5 rounded-lg hover:bg-amber-500/10 text-muted-foreground hover:text-amber-300 transition-colors"
                           >
                             <Archive className="w-3.5 h-3.5" />
@@ -383,8 +378,9 @@ export default function ClientesPage({ onVerCliente }) {
 
       {arquivando && (
         <ConfirmArchiveDialog
-          title={`Arquivar ${arquivando.nome}?`}
-          description="O cliente fica oculto da lista e suas tarefas somem do Kanban. O histórico é preservado e você pode reativar a qualquer momento mudando o status para Ativo."
+          title={`Marcar ${arquivando.nome} como churn?`}
+          description="O cliente sai da carteira ativa e suas tarefas somem do Kanban. O histórico é preservado e você pode reativar a qualquer momento mudando o status para Ativo."
+          confirmLabel="Marcar churn"
           onConfirm={() => arquivar.mutate(arquivando.id)}
           onCancel={() => setArquivando(null)}
           isLoading={arquivar.isPending}

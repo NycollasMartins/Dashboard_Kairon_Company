@@ -38,10 +38,8 @@ const NOME_MAX = 120;
 const NOTAS_MAX = 500;
 
 const statusOptions = [
-  { value: 'lead', label: 'Lead', color: 'text-slate-300', dot: 'bg-slate-400' },
-  { value: 'qualificado', label: 'Qualificado', color: 'text-blue-300', dot: 'bg-blue-400' },
   { value: 'ativo', label: 'Ativo', color: 'text-emerald-300', dot: 'bg-emerald-400' },
-  { value: 'inativo', label: 'Inativo', color: 'text-slate-400', dot: 'bg-slate-500' },
+  { value: 'churn', label: 'Churn', color: 'text-slate-400', dot: 'bg-slate-500' },
 ];
 
 const statusConfig = statusOptions.reduce((acc, s) => {
@@ -67,7 +65,7 @@ export default function ClienteForm({ onClose, onSave, cliente }) {
     email: cliente?.email ?? '',
     telefone: cliente?.telefone ?? '',
     empresa: cliente?.empresa ?? '',
-    status: cliente?.status ?? 'lead',
+    status: cliente?.status ?? 'ativo',
     squad_id: cliente?.squad_id ?? '',
     entregaveis: cliente?.entregaveis ?? [],
     notas: cliente?.notas ?? '',
@@ -122,7 +120,7 @@ export default function ClienteForm({ onClose, onSave, cliente }) {
     onSave({ ...form, nome: nomeTrim });
   };
 
-  const status = statusConfig[form.status] ?? statusConfig.lead;
+  const status = statusConfig[form.status] ?? statusConfig.ativo;
 
   const sugestoesDisponiveis = ENTREGAVEIS_SUGERIDOS.filter(
     (s) => !form.entregaveis.includes(s)

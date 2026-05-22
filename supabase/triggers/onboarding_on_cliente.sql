@@ -7,7 +7,10 @@
 -- E idempotente: pode ser executado varias vezes sem erro.
 -- =============================================================
 
+-- Nome com prefixo "01_" garante que o Onboarding seja criado antes do Backlog (02_),
+-- pois Postgres dispara triggers AFTER em ordem alfabetica por nome.
 DROP TRIGGER IF EXISTS on_cliente_created_onboarding ON public.clientes;
+DROP TRIGGER IF EXISTS on_cliente_created_01_onboarding ON public.clientes;
 
 CREATE OR REPLACE FUNCTION public.handle_new_cliente_onboarding()
 RETURNS trigger
@@ -46,6 +49,6 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER on_cliente_created_onboarding
+CREATE TRIGGER on_cliente_created_01_onboarding
   AFTER INSERT ON public.clientes
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_cliente_onboarding();

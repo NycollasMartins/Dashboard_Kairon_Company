@@ -8,7 +8,10 @@
 
 -- 1) Remove trigger antigo (se existir) ANTES de mexer na funcao,
 --    para evitar estado orfao (trigger apontando para funcao inexistente).
+--    Nome com prefixo "02_" garante que o Onboarding (01_) seja criado primeiro,
+--    pois Postgres dispara triggers AFTER em ordem alfabetica por nome.
 DROP TRIGGER IF EXISTS on_cliente_created_backlog ON public.clientes;
+DROP TRIGGER IF EXISTS on_cliente_created_02_backlog ON public.clientes;
 
 -- 2) Cria/atualiza a funcao. Mesmo padrao de public.handle_new_user().
 CREATE OR REPLACE FUNCTION public.handle_new_cliente_backlog()
@@ -30,6 +33,6 @@ END;
 $$;
 
 -- 3) Recria o trigger apontando para a funcao recem-criada.
-CREATE TRIGGER on_cliente_created_backlog
+CREATE TRIGGER on_cliente_created_02_backlog
   AFTER INSERT ON public.clientes
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_cliente_backlog();

@@ -8,7 +8,7 @@
  * @property {string} [email]
  * @property {string} [telefone]
  * @property {string} [empresa]
- * @property {'lead'|'qualificado'|'ativo'|'inativo'} status
+ * @property {'ativo'|'churn'} status
  * @property {string} [squad_id]         - FK → squads.id
  * @property {string} [responsavel_id]   - FK → profiles.id
  * @property {string[]} [entregaveis]

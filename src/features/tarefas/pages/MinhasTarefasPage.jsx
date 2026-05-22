@@ -428,11 +428,11 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
           </div>
 
           {(() => {
-            const clienteAtualInativo = clientes.find(
-              (c) => c.id === form.cliente_id && c.status === 'inativo'
+            const clienteAtualChurn = clientes.find(
+              (c) => c.id === form.cliente_id && c.status === 'churn'
             );
             const clientesSelecionaveis = clientes.filter(
-              (c) => c.status !== 'inativo' || c.id === clienteAtualInativo?.id
+              (c) => c.status !== 'churn' || c.id === clienteAtualChurn?.id
             );
             if (clientesSelecionaveis.length === 0) return null;
             return (
@@ -447,7 +447,7 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
                     {clientesSelecionaveis.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.nome}
-                        {c.status === 'inativo' ? ' (arquivado)' : ''}
+                        {c.status === 'churn' ? ' (churn)' : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -866,7 +866,7 @@ function MinhasTarefasPageContent() {
   }, [meusSquads, user?.id]);
 
   const tarefasDoSquad = useMemo(() => {
-    const baseClientesAtivos = tarefas.filter((t) => t.clientes?.status !== 'inativo');
+    const baseClientesAtivos = tarefas.filter((t) => t.clientes?.status !== 'churn');
     if (squadMemberIds.size === 0) return baseClientesAtivos;
     return baseClientesAtivos.filter(
       (t) => !t.responsavel_id || squadMemberIds.has(t.responsavel_id)

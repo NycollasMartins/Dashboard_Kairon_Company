@@ -12,10 +12,8 @@ import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { queryKeys } from '@/entities/query-keys';
 
 const statusConfig = {
-  lead: { label: 'Lead', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20', dot: 'bg-blue-400' },
-  qualificado: { label: 'Qualificado', color: 'text-[#EA3935]', bg: 'bg-red-500/10 border-red-500/20', dot: 'bg-[#EA3935]' },
   ativo: { label: 'Ativo', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
-  inativo: { label: 'Inativo', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20', dot: 'bg-red-400' },
+  churn: { label: 'Churn', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20', dot: 'bg-red-400' },
 };
 
 function formatMesAno(iso) {
@@ -81,13 +79,13 @@ export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) 
       qc.invalidateQueries({ queryKey: queryKeys.clientes.all });
       qc.invalidateQueries({ queryKey: queryKeys.tarefas.all });
       setShowConfirmArchive(false);
-      toast({ title: 'Cliente arquivado.' });
+      toast({ title: 'Cliente marcado como churn.' });
       onBack();
     },
     onError: (err) => {
       toast({
         variant: 'destructive',
-        title: 'Não foi possível arquivar o cliente',
+        title: 'Não foi possível marcar como churn',
         description: err?.message ?? 'Tente novamente em instantes.',
       });
     },
@@ -112,7 +110,7 @@ export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) 
     );
   }
 
-  const cfg = statusConfig[cliente.status] || statusConfig.lead;
+  const cfg = statusConfig[cliente.status] || statusConfig.ativo;
   const tier = cliente.tier ?? null;
   const cnpj = cliente.cnpj ?? null;
   const cidade = cliente.cidade ?? null;
@@ -141,12 +139,12 @@ export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) 
               >
                 <Edit2 className="w-3.5 h-3.5" /> Editar
               </Button>
-              {cliente.status !== 'inativo' && (
+              {cliente.status !== 'churn' && (
                 <Button
                   onClick={() => setShowConfirmArchive(true)}
                   className="bg-[#EA3935]/20 hover:bg-[#EA3935]/35 border border-[#EA3935]/40 text-white backdrop-blur h-9 px-4 text-xs gap-2"
                 >
-                  <Archive className="w-3.5 h-3.5" /> Arquivar
+                  <Archive className="w-3.5 h-3.5" /> Marcar churn
                 </Button>
               )}
             </div>
@@ -254,8 +252,9 @@ export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) 
       )}
       {showConfirmArchive && (
         <ConfirmArchiveDialog
-          title={`Arquivar ${cliente.nome}?`}
-          description="O cliente fica oculto da lista e suas tarefas somem do Kanban. O histórico é preservado e você pode reativar a qualquer momento mudando o status para Ativo."
+          title={`Marcar ${cliente.nome} como churn?`}
+          description="O cliente sai da carteira ativa e suas tarefas somem do Kanban. O histórico é preservado e você pode reativar a qualquer momento mudando o status para Ativo."
+          confirmLabel="Marcar churn"
           onConfirm={() => arquivar.mutate()}
           onCancel={() => setShowConfirmArchive(false)}
           isLoading={arquivar.isPending}

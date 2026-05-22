@@ -27,7 +27,7 @@ export const clientesApi = {
   archive: (id) =>
     supabase
       .from(TABLE)
-      .update({ status: 'inativo' })
+      .update({ status: 'churn' })
       .eq('id', id)
       .select(LIST_SELECT)
       .single()
