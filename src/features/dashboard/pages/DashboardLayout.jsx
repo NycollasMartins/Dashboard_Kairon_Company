@@ -14,14 +14,16 @@ export default function DashboardLayout() {
 
   const role = user?.role;
   const isAdmin = role === 'admin';
-  const podeUsarOperacional = role === 'admin' || role === 'social media';
+  const podeVerTarefas = ['admin', 'social media', 'editor'].includes(role);
+  const podeUsarClientesSquads = ['admin', 'social media'].includes(role);
   const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr'].includes(role);
 
   return (
     <div className="min-h-screen bg-background font-inter">
       <Sidebar
         isAdmin={isAdmin}
-        podeUsarOperacional={podeUsarOperacional}
+        podeVerTarefas={podeVerTarefas}
+        podeUsarClientesSquads={podeUsarClientesSquads}
         podeUsarCrm={podeUsarCrm}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}

@@ -17,14 +17,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email      text,
   full_name  text,
   role       text NOT NULL DEFAULT 'sdr'
-               CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr', 'head')),
+               CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr', 'head', 'editor')),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- Idempotent: ajusta o CHECK constraint em bancos ja existentes
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
-  CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr', 'head'));
+  CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr', 'head', 'editor'));
 
 -- Automatically create a profile row on every new sign-up
 -- Note: raw_user_meta_data is used only for display (full_name), never for authorization.
@@ -186,6 +186,38 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
   )
 $$;
 
+-- Returns true if current user is restricted to seeing only their own tasks
+-- (used to scope tarefas/clientes/projetos visibility for editor and social media).
+CREATE OR REPLACE FUNCTION private.is_own_tasks_only()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role IN ('editor', 'social media')
+  )
+$$;
+
+-- Helpers SECURITY DEFINER para evitar recursao entre as policies de
+-- tarefas <-> clientes/projetos. Sem isso, a policy "clientes: own tarefa
+-- select" consultaria public.tarefas (que reavalia sua propria policy, que
+-- por sua vez consulta clientes...).
+CREATE OR REPLACE FUNCTION private.user_has_tarefa_for_cliente(p_cliente_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.tarefas
+    WHERE cliente_id = p_cliente_id
+      AND responsavel_id = auth.uid()
+  )
+$$;
+
+CREATE OR REPLACE FUNCTION private.user_has_tarefa_for_projeto(p_projeto_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.tarefas
+    WHERE projeto_id = p_projeto_id
+      AND responsavel_id = auth.uid()
+  )
+$$;
+
 -- ==================================================================
 -- RLS POLICIES
 -- ==================================================================
@@ -254,6 +286,14 @@ CREATE POLICY "clientes: admin delete"
   ON public.clientes FOR DELETE
   USING (private.is_admin());
 
+-- Permite que editor/social media (sem acesso geral a clientes via squad)
+-- leiam o cliente vinculado a uma tarefa propria — necessario para o card
+-- exibir nome do cliente. PERMISSIVE → entra em OR com as policies acima.
+DROP POLICY IF EXISTS "clientes: own tarefa select" ON public.clientes;
+CREATE POLICY "clientes: own tarefa select"
+  ON public.clientes FOR SELECT
+  USING (private.user_has_tarefa_for_cliente(id));
+
 -- PROJETOS ---------------------------------------------------------
 
 -- Users see projects whose client belongs to one of their squads
@@ -302,94 +342,123 @@ CREATE POLICY "projetos: admin delete"
   ON public.projetos FOR DELETE
   USING (private.is_admin());
 
+-- Mesma logica do clientes: permite leitura do projeto vinculado a uma
+-- tarefa propria, para o card exibir nome do projeto.
+DROP POLICY IF EXISTS "projetos: own tarefa select" ON public.projetos;
+CREATE POLICY "projetos: own tarefa select"
+  ON public.projetos FOR SELECT
+  USING (private.user_has_tarefa_for_projeto(id));
+
 -- TAREFAS ----------------------------------------------------------
 
 -- Tarefas with a project → inherit squad access from the project's client.
 -- Standalone tarefas with a client → must belong to user's squad.
 -- Fully standalone (no project, no client) → any authenticated user can insert/see their own.
+DROP POLICY IF EXISTS "tarefas: squad select" ON public.tarefas;
 CREATE POLICY "tarefas: squad select"
   ON public.tarefas FOR SELECT
   USING (
     private.is_admin()
+    OR (private.is_own_tasks_only() AND responsavel_id = auth.uid())
     OR (
-      projeto_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM public.projetos p
-        JOIN public.clientes c ON c.id = p.cliente_id
-        WHERE p.id = projeto_id
-          AND c.squad_id = ANY(private.get_user_squad_ids())
+      NOT private.is_own_tasks_only() AND (
+        (
+          projeto_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.projetos p
+            JOIN public.clientes c ON c.id = p.cliente_id
+            WHERE p.id = projeto_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (
+          projeto_id IS NULL AND cliente_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.clientes c
+            WHERE c.id = cliente_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (projeto_id IS NULL AND cliente_id IS NULL AND responsavel_id = auth.uid())
       )
     )
-    OR (
-      projeto_id IS NULL AND cliente_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM public.clientes c
-        WHERE c.id = cliente_id
-          AND c.squad_id = ANY(private.get_user_squad_ids())
-      )
-    )
-    OR (projeto_id IS NULL AND cliente_id IS NULL AND responsavel_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "tarefas: squad insert" ON public.tarefas;
 CREATE POLICY "tarefas: squad insert"
   ON public.tarefas FOR INSERT
   WITH CHECK (
     private.is_admin()
     OR (
-      projeto_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM public.projetos p
-        JOIN public.clientes c ON c.id = p.cliente_id
-        WHERE p.id = projeto_id
-          AND c.squad_id = ANY(private.get_user_squad_ids())
+      NOT private.is_own_tasks_only() AND (
+        (
+          projeto_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.projetos p
+            JOIN public.clientes c ON c.id = p.cliente_id
+            WHERE p.id = projeto_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (
+          projeto_id IS NULL AND cliente_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.clientes c
+            WHERE c.id = cliente_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (projeto_id IS NULL AND cliente_id IS NULL)
       )
     )
-    OR (
-      projeto_id IS NULL AND cliente_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM public.clientes c
-        WHERE c.id = cliente_id
-          AND c.squad_id = ANY(private.get_user_squad_ids())
-      )
-    )
-    OR (projeto_id IS NULL AND cliente_id IS NULL)
   );
 
+DROP POLICY IF EXISTS "tarefas: squad update" ON public.tarefas;
 CREATE POLICY "tarefas: squad update"
   ON public.tarefas FOR UPDATE
   USING (
     private.is_admin()
+    OR (private.is_own_tasks_only() AND responsavel_id = auth.uid())
     OR (
-      projeto_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM public.projetos p
-        JOIN public.clientes c ON c.id = p.cliente_id
-        WHERE p.id = projeto_id
-          AND c.squad_id = ANY(private.get_user_squad_ids())
+      NOT private.is_own_tasks_only() AND (
+        (
+          projeto_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.projetos p
+            JOIN public.clientes c ON c.id = p.cliente_id
+            WHERE p.id = projeto_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (
+          projeto_id IS NULL AND cliente_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.clientes c
+            WHERE c.id = cliente_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (projeto_id IS NULL AND cliente_id IS NULL AND responsavel_id = auth.uid())
       )
     )
-    OR (
-      projeto_id IS NULL AND cliente_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM public.clientes c
-        WHERE c.id = cliente_id
-          AND c.squad_id = ANY(private.get_user_squad_ids())
-      )
-    )
-    OR (projeto_id IS NULL AND cliente_id IS NULL AND responsavel_id = auth.uid())
   )
   WITH CHECK (
     private.is_admin()
+    OR (private.is_own_tasks_only() AND responsavel_id = auth.uid())
     OR (
-      projeto_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM public.projetos p
-        JOIN public.clientes c ON c.id = p.cliente_id
-        WHERE p.id = projeto_id
-          AND c.squad_id = ANY(private.get_user_squad_ids())
+      NOT private.is_own_tasks_only() AND (
+        (
+          projeto_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.projetos p
+            JOIN public.clientes c ON c.id = p.cliente_id
+            WHERE p.id = projeto_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (
+          projeto_id IS NULL AND cliente_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.clientes c
+            WHERE c.id = cliente_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (projeto_id IS NULL AND cliente_id IS NULL)
       )
     )
-    OR (
-      projeto_id IS NULL AND cliente_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM public.clientes c
-        WHERE c.id = cliente_id
-          AND c.squad_id = ANY(private.get_user_squad_ids())
-      )
-    )
-    OR (projeto_id IS NULL AND cliente_id IS NULL)
   );
 
 CREATE POLICY "tarefas: admin delete"

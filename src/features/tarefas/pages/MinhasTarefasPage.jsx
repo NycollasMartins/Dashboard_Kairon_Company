@@ -695,14 +695,14 @@ function applySort(list, sort) {
   }
 }
 
-const OPERACIONAL_ROLES = ['admin', 'social media'];
+const TAREFAS_ROLES = ['admin', 'social media', 'editor'];
 
 export default function MinhasTarefasPage() {
   const { user } = useAuth();
-  if (!OPERACIONAL_ROLES.includes(user?.role)) {
+  if (!TAREFAS_ROLES.includes(user?.role)) {
     return (
       <RestrictedAccessCard
-        description="Apenas usuários com perfil admin ou social media podem acessar Tarefas."
+        description="Apenas usuários com perfil admin, social media ou editor podem acessar Tarefas."
       />
     );
   }
@@ -715,6 +715,9 @@ function MinhasTarefasPageContent() {
   const { toast } = useToast();
   const { user } = useAuth();
   const qc = useQueryClient();
+
+  const isEditor = user?.role === 'editor';
+  const isOwnOnly = isEditor || user?.role === 'social media';
 
   const [busca, setBusca] = useState('');
   const [sort, setSort] = useState('recentes');
@@ -733,16 +736,21 @@ function MinhasTarefasPageContent() {
     if (stored) {
       if (typeof stored.busca === 'string') setBusca(stored.busca);
       if (typeof stored.sort === 'string') setSort(stored.sort);
-      if (Array.isArray(stored.filtroResponsaveis)) setFiltroResponsaveis(new Set(stored.filtroResponsaveis));
-      else setFiltroResponsaveis(new Set([user.id]));
+      if (isEditor) {
+        setFiltroResponsaveis(new Set());
+      } else if (Array.isArray(stored.filtroResponsaveis)) {
+        setFiltroResponsaveis(new Set(stored.filtroResponsaveis));
+      } else {
+        setFiltroResponsaveis(new Set([user.id]));
+      }
       if (Array.isArray(stored.filtroClientes)) setFiltroClientes(new Set(stored.filtroClientes));
       if (Array.isArray(stored.filtroProjetos)) setFiltroProjetos(new Set(stored.filtroProjetos));
       if (Array.isArray(stored.filtroPrioridades)) setFiltroPrioridades(new Set(stored.filtroPrioridades));
-    } else {
+    } else if (!isEditor) {
       setFiltroResponsaveis(new Set([user.id]));
     }
     setFiltrosHidratados(true);
-  }, [user?.id]);
+  }, [user?.id, isEditor]);
 
   useEffect(() => {
     if (!filtrosHidratados || !user?.id || typeof window === 'undefined') return;
@@ -867,11 +875,14 @@ function MinhasTarefasPageContent() {
 
   const tarefasDoSquad = useMemo(() => {
     const baseClientesAtivos = tarefas.filter((t) => t.clientes?.status !== 'churn');
+    if (isOwnOnly) {
+      return baseClientesAtivos.filter((t) => t.responsavel_id === user?.id);
+    }
     if (squadMemberIds.size === 0) return baseClientesAtivos;
     return baseClientesAtivos.filter(
       (t) => !t.responsavel_id || squadMemberIds.has(t.responsavel_id)
     );
-  }, [tarefas, squadMemberIds]);
+  }, [tarefas, squadMemberIds, isOwnOnly, user?.id]);
 
   const responsaveisDoSquad = useMemo(() => {
     const map = new Map();
@@ -1005,12 +1016,14 @@ function MinhasTarefasPageContent() {
             </SelectContent>
           </Select>
 
-          <Button
-            onClick={() => setShowForm(true)}
-            className="bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white text-sm h-9"
-          >
-            <Plus className="w-4 h-4 mr-1.5" /> Nova Tarefa
-          </Button>
+          {!isEditor && (
+            <Button
+              onClick={() => setShowForm(true)}
+              className="bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white text-sm h-9"
+            >
+              <Plus className="w-4 h-4 mr-1.5" /> Nova Tarefa
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1037,47 +1050,53 @@ function MinhasTarefasPageContent() {
             )}
           />
 
-          <MultiSelectPopover
-            icon={Users}
-            label="Responsável"
-            items={responsaveisDoSquad}
-            selected={filtroResponsaveis}
-            onChange={setFiltroResponsaveis}
-            getKey={(u) => u.id}
-            getLabel={(u) => u.full_name}
-            renderItem={(u) => (
-              <span className="flex items-center gap-2">
-                <Avatar name={u.full_name} size={18} />
-                <span className="truncate">{u.full_name}</span>
-              </span>
-            )}
-          />
+          {!isEditor && (
+            <MultiSelectPopover
+              icon={Users}
+              label="Responsável"
+              items={responsaveisDoSquad}
+              selected={filtroResponsaveis}
+              onChange={setFiltroResponsaveis}
+              getKey={(u) => u.id}
+              getLabel={(u) => u.full_name}
+              renderItem={(u) => (
+                <span className="flex items-center gap-2">
+                  <Avatar name={u.full_name} size={18} />
+                  <span className="truncate">{u.full_name}</span>
+                </span>
+              )}
+            />
+          )}
 
-          <MultiSelectPopover
-            icon={Building2}
-            label="Cliente"
-            items={clientesNoEscopo}
-            selected={filtroClientes}
-            onChange={setFiltroClientes}
-            getKey={(c) => c.id}
-            getLabel={(c) => c.nome}
-            renderItem={(c) => (
-              <span className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full" style={{ background: tagColorFor(c.nome).fg }} />
-                <span className="truncate">{c.nome}</span>
-              </span>
-            )}
-          />
+          {!isEditor && (
+            <MultiSelectPopover
+              icon={Building2}
+              label="Cliente"
+              items={clientesNoEscopo}
+              selected={filtroClientes}
+              onChange={setFiltroClientes}
+              getKey={(c) => c.id}
+              getLabel={(c) => c.nome}
+              renderItem={(c) => (
+                <span className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full" style={{ background: tagColorFor(c.nome).fg }} />
+                  <span className="truncate">{c.nome}</span>
+                </span>
+              )}
+            />
+          )}
 
-          <MultiSelectPopover
-            icon={FolderKanban}
-            label="Projeto"
-            items={projetosNoEscopo}
-            selected={filtroProjetos}
-            onChange={setFiltroProjetos}
-            getKey={(p) => p.id}
-            getLabel={(p) => p.nome}
-          />
+          {!isEditor && (
+            <MultiSelectPopover
+              icon={FolderKanban}
+              label="Projeto"
+              items={projetosNoEscopo}
+              selected={filtroProjetos}
+              onChange={setFiltroProjetos}
+              getKey={(p) => p.id}
+              getLabel={(p) => p.nome}
+            />
+          )}
 
           {algumFiltroNaoPadrao && (
             <button
@@ -1103,14 +1122,16 @@ function MinhasTarefasPageContent() {
                     <span className={`text-xs font-semibold ${col.color}`}>{col.label}</span>
                     <span className="text-[11px] font-medium text-muted-foreground">{colTarefas.length}</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(true)}
-                    className="p-1 rounded-md text-muted-foreground/60 hover:text-white hover:bg-white/5 transition-colors"
-                    aria-label="Adicionar tarefa"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
+                  {!isEditor && (
+                    <button
+                      type="button"
+                      onClick={() => setShowForm(true)}
+                      className="p-1 rounded-md text-muted-foreground/60 hover:text-white hover:bg-white/5 transition-colors"
+                      aria-label="Adicionar tarefa"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 <Droppable droppableId={col.id}>
                   {(provided, snapshot) => (
@@ -1151,7 +1172,11 @@ function MinhasTarefasPageContent() {
             </div>
             <div>
               <p className="text-sm font-medium text-white">Nenhuma tarefa corresponde aos filtros</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Ajuste os filtros para ver mais tarefas do seu squad.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {isOwnOnly
+                  ? 'Ajuste os filtros para ver mais das suas tarefas.'
+                  : 'Ajuste os filtros para ver mais tarefas do seu squad.'}
+              </p>
             </div>
             <Button
               onClick={limparFiltros}
@@ -1174,15 +1199,27 @@ function MinhasTarefasPageContent() {
               <CheckCircle2 className="w-5 h-5 text-[#EA3935]" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">O squad ainda não tem tarefas</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Crie a primeira tarefa para começar a organizar o trabalho.</p>
+              <p className="text-sm font-semibold text-white">
+                {isEditor
+                  ? 'Você ainda não tem tarefas atribuídas'
+                  : isOwnOnly
+                  ? 'Você ainda não tem tarefas'
+                  : 'O squad ainda não tem tarefas'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {isEditor
+                  ? 'Quando alguém atribuir uma tarefa a você, ela aparecerá aqui.'
+                  : 'Crie a primeira tarefa para começar a organizar o trabalho.'}
+              </p>
             </div>
-            <Button
-              onClick={() => setShowForm(true)}
-              className="bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white text-xs h-8"
-            >
-              <Plus className="w-3.5 h-3.5 mr-1.5" /> Nova tarefa
-            </Button>
+            {!isEditor && (
+              <Button
+                onClick={() => setShowForm(true)}
+                className="bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white text-xs h-8"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Nova tarefa
+              </Button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
