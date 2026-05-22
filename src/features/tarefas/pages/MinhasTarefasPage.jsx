@@ -149,6 +149,8 @@ function FieldLabel({ icon: Icon, children, required }) {
 
 function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis = [], responsavelId, isSubmitting, tarefa = null }) {
   const isEdit = !!tarefa;
+  const { user } = useAuth();
+  const podeUsarOnboarding = user?.role === 'admin' || user?.role === 'head';
   const projetoEscolhidoManualmenteRef = useRef(isEdit);
   const [form, setForm] = useState({
     titulo: tarefa?.titulo ?? '',
@@ -166,6 +168,13 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
     queryFn: () => projetosApi.byCliente(form.cliente_id),
     enabled: !!form.cliente_id,
   });
+
+  const projetosSelecionaveis = useMemo(() => {
+    if (podeUsarOnboarding) return projetosCliente;
+    return projetosCliente.filter(
+      (p) => p.nome?.trim().toLowerCase() !== 'onboarding' || p.id === form.projeto_id
+    );
+  }, [projetosCliente, podeUsarOnboarding, form.projeto_id]);
   const [submitted, setSubmitted] = useState(false);
   const tituloRef = useRef(null);
 
@@ -453,12 +462,12 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
               <Select
                 value={isEdit ? (form.projeto_id || 'none') : (form.projeto_id || undefined)}
                 onValueChange={handleProjetoChange}
-                disabled={projetosCliente.length === 0}
+                disabled={projetosSelecionaveis.length === 0}
               >
                 <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
                   <SelectValue
                     placeholder={
-                      projetosCliente.length === 0
+                      projetosSelecionaveis.length === 0
                         ? 'Este cliente ainda não tem projetos'
                         : 'Vincular a um projeto'
                     }
@@ -466,7 +475,7 @@ function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis =
                 </SelectTrigger>
                 <SelectContent className="bg-[#1a1a2e] border-white/10">
                   {isEdit && <SelectItem value="none">Sem projeto</SelectItem>}
-                  {projetosCliente.map((p) => (
+                  {projetosSelecionaveis.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.nome}
                     </SelectItem>

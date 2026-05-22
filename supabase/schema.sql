@@ -17,9 +17,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email      text,
   full_name  text,
   role       text NOT NULL DEFAULT 'sdr'
-               CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr')),
+               CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr', 'head')),
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Idempotent: ajusta o CHECK constraint em bancos ja existentes
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
+  CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr', 'head'));
 
 -- Automatically create a profile row on every new sign-up
 -- Note: raw_user_meta_data is used only for display (full_name), never for authorization.
@@ -170,6 +175,14 @@ CREATE OR REPLACE FUNCTION private.is_admin()
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'
+  )
+$$;
+
+CREATE OR REPLACE FUNCTION private.is_admin_or_head()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role IN ('admin', 'head')
   )
 $$;
 
@@ -382,6 +395,23 @@ CREATE POLICY "tarefas: squad update"
 CREATE POLICY "tarefas: admin delete"
   ON public.tarefas FOR DELETE
   USING (private.is_admin());
+
+-- Restringe INSERT em tarefas vinculadas a projeto chamado 'Onboarding'
+-- apenas para admin/head. Avaliada em AND com "tarefas: squad insert".
+DROP POLICY IF EXISTS "tarefas: only admin/head insert in onboarding" ON public.tarefas;
+CREATE POLICY "tarefas: only admin/head insert in onboarding"
+  ON public.tarefas
+  AS RESTRICTIVE
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    projeto_id IS NULL
+    OR NOT EXISTS (
+      SELECT 1 FROM public.projetos p
+      WHERE p.id = projeto_id AND p.nome = 'Onboarding'
+    )
+    OR private.is_admin_or_head()
+  );
 
 -- ==================================================================
 -- LEADS  (capturados via Landing Page + Kanban comercial)
