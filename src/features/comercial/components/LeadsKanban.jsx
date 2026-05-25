@@ -36,7 +36,10 @@ export default function LeadsKanban() {
   });
 
   const responsaveis = useMemo(
-    () => usuarios.filter((u) => u.role === 'sdr' || u.role === 'bdr'),
+    () =>
+      usuarios.filter(
+        (u) => (u.role === 'sdr' || u.role === 'bdr') && u.status === 'active',
+      ),
     [usuarios]
   );
 

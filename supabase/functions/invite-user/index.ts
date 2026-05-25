@@ -139,6 +139,29 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Permissão inválida.' }, 400);
   }
 
+  // Bloqueia re-convite de email pertencente a usuário arquivado:
+  // admin precisa restaurar manualmente em Administrativo > Arquivados.
+  const { data: existing, error: existingErr } = await adminClient
+    .from('profiles')
+    .select('id, archived_at')
+    .eq('email', email)
+    .maybeSingle();
+  if (existingErr) {
+    return jsonResponse(
+      { error: existingErr.message ?? 'Falha ao verificar usuário.' },
+      500,
+    );
+  }
+  if (existing?.archived_at) {
+    return jsonResponse(
+      {
+        error:
+          'Este e-mail pertence a um usuário arquivado. Restaure-o em Administrativo > Arquivados.',
+      },
+      409,
+    );
+  }
+
   const { data: invited, error: inviteErr } =
     await adminClient.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName },

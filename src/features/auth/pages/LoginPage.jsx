@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/infrastructure/supabase/client';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -41,6 +41,7 @@ function AppleIcon(props) {
 export default function LoginPage() {
   const navigate = useNavigate();
   const { checkUserAuth } = useAuth();
+  const [searchParams] = useSearchParams();
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
@@ -55,6 +56,11 @@ export default function LoginPage() {
   const [oauthLoading, setOauthLoading] = useState(null);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
+
+  const archivedNotice =
+    searchParams.get('reason') === 'archived'
+      ? 'Seu acesso ao dashboard foi desativado. Contate um administrador.'
+      : '';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -155,6 +161,12 @@ export default function LoginPage() {
                 equipe.
               </p>
             </header>
+
+            {archivedNotice && !error && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                {archivedNotice}
+              </div>
+            )}
 
             {error && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">

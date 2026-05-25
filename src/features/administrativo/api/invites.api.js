@@ -7,12 +7,20 @@ function unwrap({ data, error }) {
   return data;
 }
 
-function unwrapInvoke({ data, error }) {
+async function unwrapInvoke({ data, error }) {
   if (error) {
-    const message =
-      (data && (data.error || data.message)) ||
-      error.message ||
-      'Erro ao chamar função.';
+    let message =
+      (data && (data.error || data.message)) || error.message || 'Erro ao chamar função.';
+    try {
+      const response = error.context?.response;
+      if (response && typeof response.json === 'function') {
+        const body = await response.json();
+        if (body?.error) message = body.error;
+        else if (body?.message) message = body.message;
+      }
+    } catch {
+      // body não era JSON — usa o que já tinha
+    }
     throw new Error(message);
   }
   if (data && data.error) throw new Error(data.error);

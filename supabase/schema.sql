@@ -1423,3 +1423,117 @@ GRANT EXECUTE ON FUNCTION public.cancelar_contrato(uuid, text) TO authenticated;
 --   WHERE email = 'seu@email.com';
 --
 -- ==================================================================
+
+-- ==================================================================
+-- USER ARCHIVING (soft delete)
+--
+-- archived_at IS NULL  → usuário ativo, login permitido
+-- archived_at IS NOT NULL → usuário arquivado, banido em auth.users
+--                           pela Edge Function manage-user.
+--
+-- Hard delete continua via manage-user (DELETE em auth.users que
+-- cascateia profiles e squad_membros). Soft delete preserva o profile
+-- para que clientes/tarefas/leads/contratos mantenham o histórico
+-- "responsavel" / "criado por" mesmo após o usuário sair do time.
+-- ==================================================================
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+CREATE INDEX IF NOT EXISTS idx_profiles_archived_at_active
+  ON public.profiles (id) WHERE archived_at IS NULL;
+
+CREATE OR REPLACE FUNCTION private.count_active_admins()
+RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT count(*)::int FROM public.profiles
+   WHERE role = 'admin' AND archived_at IS NULL
+$$;
+
+-- Trigger guard: invariantes que defendem o domínio contra requests
+-- que escapem da Edge Function (acesso direto via PostgREST, etc.).
+--
+-- auth.uid() é NULL quando o caller é service_role (Edge Functions,
+-- jobs internos). Nessas chamadas confiamos no caller — a Edge Function
+-- manage-user já valida que quem chamou é admin antes do UPDATE.
+--
+-- SECURITY DEFINER + search_path explícito: a trigger precisa enxergar
+-- o schema `private` (helpers is_admin / count_active_admins), e
+-- service_role não tem USAGE em private. Rodar como owner resolve.
+CREATE OR REPLACE FUNCTION public.profiles_archive_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, private, pg_temp
+AS $$
+DECLARE
+  archived_changed boolean := (OLD.archived_at IS DISTINCT FROM NEW.archived_at);
+  is_system        boolean := (auth.uid() IS NULL);
+BEGIN
+  -- 1) Usuário não pode arquivar/desarquivar a si mesmo
+  IF archived_changed AND NOT is_system AND NEW.id = auth.uid() THEN
+    RAISE EXCEPTION 'Não é permitido arquivar ou restaurar a si mesmo.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- 2) Apenas admin (ou service_role) pode mexer em archived_at
+  IF archived_changed AND NOT is_system AND NOT private.is_admin() THEN
+    RAISE EXCEPTION 'Apenas admin pode arquivar ou restaurar usuários.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- 3) Não permitir alterar role de usuário arquivado (force restore antes)
+  IF OLD.archived_at IS NOT NULL
+     AND NEW.archived_at IS NOT NULL
+     AND OLD.role IS DISTINCT FROM NEW.role THEN
+    RAISE EXCEPTION 'Restaure o usuário antes de alterar o cargo.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- 4) Não deixar o sistema sem nenhum admin ativo
+  IF OLD.role = 'admin' AND OLD.archived_at IS NULL THEN
+    IF (NEW.role IS DISTINCT FROM 'admin' OR NEW.archived_at IS NOT NULL)
+       AND private.count_active_admins() <= 1 THEN
+      RAISE EXCEPTION 'Não é possível remover o último admin ativo do sistema.'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS profiles_archive_guard ON public.profiles;
+CREATE TRIGGER profiles_archive_guard
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.profiles_archive_guard();
+
+-- View atualizada: expõe archived_at e um campo `status` calculado
+-- ('archived' | 'pending' | 'active') para a UI filtrar por aba.
+--
+-- Sem security_invoker: precisamos rodar como o dono (postgres) porque
+-- o JOIN com auth.users falha para usuários `authenticated` (eles não
+-- têm SELECT em auth.users). A tela /administrativo já é admin-only no
+-- front e a policy "profiles: authenticated read" já permite ler todos
+-- os profiles — a única coluna nova exposta é last_sign_in_at.
+--
+-- DROP + CREATE em vez de OR REPLACE porque a ordem das colunas mudou
+-- (CREATE OR REPLACE só permite adicionar colunas no final).
+DROP VIEW IF EXISTS public.user_invites_view;
+CREATE VIEW public.user_invites_view AS
+SELECT
+  p.id,
+  p.email,
+  p.full_name,
+  p.role,
+  p.created_at                              AS invited_at,
+  p.archived_at,
+  u.last_sign_in_at,
+  u.confirmed_at,
+  (u.last_sign_in_at IS NULL AND p.archived_at IS NULL) AS pending,
+  CASE
+    WHEN p.archived_at IS NOT NULL THEN 'archived'
+    WHEN u.last_sign_in_at IS NULL  THEN 'pending'
+    ELSE 'active'
+  END AS status
+FROM public.profiles p
+JOIN auth.users u ON u.id = p.id;
+
+GRANT SELECT ON public.user_invites_view TO authenticated;

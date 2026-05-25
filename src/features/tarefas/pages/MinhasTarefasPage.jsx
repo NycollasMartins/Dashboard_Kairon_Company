@@ -895,6 +895,7 @@ function MinhasTarefasPageContent() {
       }
     });
     usuarios.forEach((u) => {
+      if (u.status !== 'active') return;
       if (squadMemberIds.has(u.id) && !map.has(u.id)) {
         map.set(u.id, { id: u.id, full_name: u.full_name || u.email, email: u.email });
       }

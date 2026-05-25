@@ -128,10 +128,11 @@ function SquadsPageContent() {
     queryFn: squadsApi.list,
   });
 
-  const { data: usuarios = [] } = useQuery({
+  const { data: usuariosRaw = [] } = useQuery({
     queryKey: queryKeys.usuarios.all,
     queryFn: usersApi.list,
   });
+  const usuarios = usuariosRaw.filter((u) => u.status === 'active');
 
   const criar = useMutation({
     mutationFn: async ({ nome, descricao, membros_ids }) => {

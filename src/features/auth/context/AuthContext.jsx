@@ -1,5 +1,4 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/infrastructure/supabase/client';
 
 const AuthContext = createContext();
@@ -7,7 +6,7 @@ const AuthContext = createContext();
 async function fetchProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role')
+    .select('id, email, full_name, role, archived_at')
     .eq('id', userId)
     .single();
   if (error) throw error;
@@ -30,6 +29,15 @@ export function AuthProvider({ children }) {
     }
     try {
       const profile = await fetchProfile(session.user.id);
+      if (profile.archived_at) {
+        await supabase.auth.signOut();
+        setUser(null);
+        setIsAuthenticated(false);
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.replace('/login?reason=archived');
+        }
+        return;
+      }
       setUser({
         id: profile.id,
         email: profile.email ?? session.user.email,
