@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  X, Check, Loader2, Sparkles, Mail, Phone, Building2, Target, User, AlignLeft,
+  X, Check, Loader2, Sparkles, Mail, Phone, Building2, Target, User, AlignLeft, DollarSign,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
+  MOMENTO_EMPRESA_OPTIONS, FATURAMENTO_MENSAL_OPTIONS,
+} from '../constants/leadOptions';
 
 const NOME_MAX = 120;
 
@@ -26,6 +32,7 @@ export default function LeadNovoModal({ isSubmitting = false, onClose, onSave })
     email: '',
     telefone: '',
     momento_empresa: '',
+    faturamento_mensal: '',
     objetivo_principal: '',
   });
   const [submitted, setSubmitted] = useState(false);
@@ -135,14 +142,43 @@ export default function LeadNovoModal({ isSubmitting = false, onClose, onSave })
             </div>
           </div>
 
-          <div>
-            <FieldLabel icon={AlignLeft}>Momento da empresa</FieldLabel>
-            <Textarea
-              placeholder="Onde a empresa está hoje, principais dores..."
-              value={form.momento_empresa}
-              onChange={(e) => setForm({ ...form, momento_empresa: e.target.value })}
-              className="bg-white/5 border-white/10 text-white placeholder:text-muted-foreground/70 min-h-[70px] resize-none"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <FieldLabel icon={AlignLeft}>Momento da empresa</FieldLabel>
+              <Select
+                value={form.momento_empresa || undefined}
+                onValueChange={(v) => setForm({ ...form, momento_empresa: v })}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {MOMENTO_EMPRESA_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <FieldLabel icon={DollarSign}>Faturamento mensal</FieldLabel>
+              <Select
+                value={form.faturamento_mensal || undefined}
+                onValueChange={(v) => setForm({ ...form, faturamento_mensal: v })}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {FATURAMENTO_MENSAL_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div>

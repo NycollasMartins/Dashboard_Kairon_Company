@@ -503,6 +503,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
   telefone           text,
   momento_empresa    text,
   objetivo_principal text,
+  faturamento_mensal text,
   status             text NOT NULL DEFAULT 'pendente'
                        CHECK (status IN ('pendente', 'em_atendimento', 'follow_up', 'reuniao_marcada', 'perdido')),
   origem             text NOT NULL DEFAULT 'landing_page',
@@ -516,6 +517,9 @@ CREATE TABLE IF NOT EXISTS public.leads (
 
 ALTER TABLE public.leads
   ADD COLUMN IF NOT EXISTS atendimento_iniciado_em timestamptz;
+
+ALTER TABLE public.leads
+  ADD COLUMN IF NOT EXISTS faturamento_mensal text;
 
 -- Idempotente: garante que bancos pré-existentes aceitem 'perdido'
 ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_status_check;
@@ -660,7 +664,8 @@ CREATE OR REPLACE FUNCTION public.create_lead_from_webhook(
   p_telefone           text DEFAULT NULL,
   p_momento_empresa    text DEFAULT NULL,
   p_objetivo_principal text DEFAULT NULL,
-  p_origem             text DEFAULT 'landing_page'
+  p_origem             text DEFAULT 'landing_page',
+  p_faturamento_mensal text DEFAULT NULL
 )
 RETURNS uuid
 LANGUAGE plpgsql
@@ -676,7 +681,7 @@ BEGIN
 
   INSERT INTO public.leads (
     nome, empresa, email, telefone,
-    momento_empresa, objetivo_principal, origem, status
+    momento_empresa, objetivo_principal, faturamento_mensal, origem, status
   ) VALUES (
     trim(p_nome),
     NULLIF(trim(coalesce(p_empresa, '')), ''),
@@ -684,6 +689,7 @@ BEGIN
     NULLIF(trim(coalesce(p_telefone, '')), ''),
     NULLIF(trim(coalesce(p_momento_empresa, '')), ''),
     NULLIF(trim(coalesce(p_objetivo_principal, '')), ''),
+    NULLIF(trim(coalesce(p_faturamento_mensal, '')), ''),
     coalesce(p_origem, 'landing_page'),
     'pendente'
   )
@@ -694,7 +700,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.create_lead_from_webhook(
-  text, text, text, text, text, text, text
+  text, text, text, text, text, text, text, text
 ) TO anon, authenticated;
 
 -- ==================================================================

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   X, Mail, Phone, Building2, Sparkles, Target, User, Trash2, Loader2, Check,
-  UserPlus, XCircle, CheckCircle2,
+  UserPlus, XCircle, CheckCircle2, DollarSign,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -162,6 +162,7 @@ export default function LeadDetalheModal({
           </div>
 
           <ReadOnlyBlock icon={Sparkles} label="Momento da Empresa" value={lead.momento_empresa} />
+          <ReadOnlyBlock icon={DollarSign} label="Faturamento Mensal" value={lead.faturamento_mensal} />
           <ReadOnlyBlock icon={Target} label="Objetivo Principal" value={lead.objetivo_principal} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

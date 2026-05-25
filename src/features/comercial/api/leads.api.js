@@ -23,6 +23,7 @@ function sanitize(input) {
   if ('empresa' in data) result.empresa = emptyToNull(data.empresa);
   if ('momento_empresa' in data) result.momento_empresa = emptyToNull(data.momento_empresa);
   if ('objetivo_principal' in data) result.objetivo_principal = emptyToNull(data.objetivo_principal);
+  if ('faturamento_mensal' in data) result.faturamento_mensal = emptyToNull(data.faturamento_mensal);
   if ('notas' in data) result.notas = emptyToNull(data.notas);
   return result;
 }
@@ -50,6 +51,7 @@ export const leadsApi = {
       p_momento_empresa: emptyOrNull(data.momento_empresa),
       p_objetivo_principal: emptyOrNull(data.objetivo_principal),
       p_origem: emptyOrNull(data.origem) ?? 'manual',
+      p_faturamento_mensal: emptyOrNull(data.faturamento_mensal),
     });
     if (error) throw error;
 
