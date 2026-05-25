@@ -18,6 +18,9 @@ export const queryKeys = {
   usuarios: {
     all: ['usuarios'],
   },
+  convitesPendentes: {
+    all: ['convitesPendentes'],
+  },
   leads: {
     all: ['leads'],
   },

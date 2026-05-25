@@ -55,6 +55,7 @@ export default function LeadDetalheModal({
 
   const canEdit =
     currentUser?.role === 'admin' ||
+    currentUser?.role === 'head' ||
     currentUser?.role === 'closer' ||
     ((currentUser?.role === 'sdr' || currentUser?.role === 'bdr') &&
       (lead.status === 'pendente' || lead.responsavel_id === currentUser.id));

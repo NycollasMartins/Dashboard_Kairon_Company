@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { queryClientInstance } from '@/shared/lib/query-client';
 import ProtectedRoute from '@/shared/components/ProtectedRoute';
 import LoginPage from '@/features/auth/pages/LoginPage';
+import AcceptInvitePage from '@/features/auth/pages/AcceptInvitePage';
 import DashboardLayout from '@/features/dashboard/pages/DashboardLayout';
 import VisaoGeralPage from '@/features/dashboard/pages/VisaoGeralPage';
 import AdministrativoPage from '@/features/administrativo/pages/AdministrativoPage';
@@ -31,6 +32,7 @@ function AppContent() {
         path="/login"
         element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
       />
+      <Route path="/aceitar-convite" element={<AcceptInvitePage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route index element={<VisaoGeralPage />} />

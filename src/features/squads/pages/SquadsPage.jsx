@@ -107,10 +107,10 @@ function SquadForm({ squad, usuarios, onClose, onSave }) {
 
 export default function SquadsPage() {
   const { user } = useAuth();
-  if (user?.role !== 'admin') {
+  if (user?.role !== 'admin' && user?.role !== 'head') {
     return (
       <RestrictedAccessCard
-        description="Apenas usuários com perfil admin podem gerenciar Squads."
+        description="Apenas usuários com perfil admin ou head podem gerenciar Squads."
       />
     );
   }

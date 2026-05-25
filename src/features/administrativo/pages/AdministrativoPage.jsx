@@ -1,22 +1,25 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Shield, Crown, Briefcase, User, Edit2, Check, UserCheck } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Shield, Edit2, Check, UserPlus, Send, X, Clock, RotateCcw } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { usersApi } from '@/features/administrativo/api/users.api';
+import { invitesApi } from '@/features/administrativo/api/invites.api';
+import { roleConfig } from '@/features/administrativo/lib/roleConfig';
+import InviteUserDialog from '@/features/administrativo/components/InviteUserDialog';
 import { queryKeys } from '@/entities/query-keys';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import RestrictedAccessCard from '@/shared/components/RestrictedAccessCard';
 
-const roleConfig = {
-  admin: { label: 'Admin', icon: Crown, color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20', desc: 'Acesso total ao sistema' },
-  'social media': { label: 'Social Media', icon: Briefcase, color: 'text-[#EA3935]', bg: 'bg-red-500/10 border-red-500/20', desc: 'Gestão de redes sociais' },
-  editor: { label: 'Editor', icon: Edit2, color: 'text-cyan-400', bg: 'bg-cyan-500/10 border-cyan-500/20', desc: 'Edita apenas tarefas próprias' },
-  closer: { label: 'Closer', icon: User, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20', desc: 'Fechamento de vendas' },
-  sdr: { label: 'SDR', icon: UserCheck, color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20', desc: 'Prospecção e qualificação' },
-  bdr: { label: 'BDR', icon: UserCheck, color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', desc: 'Geração de demanda outbound' },
-};
+const BRAND_FROM = '#EA3935';
+const BRAND_TO = '#C12D29';
 
 export default function AdministrativoPage() {
   const { user: currentUser } = useAuth();
@@ -33,15 +36,31 @@ export default function AdministrativoPage() {
 function AdministrativoPageContent() {
   const [editandoId, setEditandoId] = useState(null);
   const [novoRole, setNovoRole] = useState('');
+  const [inviteOpen, setInviteOpen] = useState(false);
   const { toast } = useToast();
   const qc = useQueryClient();
   const { user: currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'admin';
 
-  const { data: usuarios = [] } = useQuery({
+  const { data: usuariosRaw = [] } = useQuery({
     queryKey: queryKeys.usuarios.all,
     queryFn: usersApi.list,
   });
+
+  const { data: convites = [] } = useQuery({
+    queryKey: queryKeys.convitesPendentes.all,
+    queryFn: async () => {
+      try {
+        return await invitesApi.list();
+      } catch {
+        // view ainda não criada no Supabase — degrada para "sem convites pendentes"
+        return [];
+      }
+    },
+  });
+
+  const pendingIds = new Set(convites.map((c) => c.id));
+  const usuarios = usuariosRaw.filter((u) => !pendingIds.has(u.id));
 
   const atualizar = useMutation({
     mutationFn: ({ id, role }) => usersApi.update(id, { role }),
@@ -52,14 +71,35 @@ function AdministrativoPageContent() {
     },
   });
 
-  const counts = {
-    admin: usuarios.filter((u) => u.role === 'admin').length,
-    'social media': usuarios.filter((u) => u.role === 'social media').length,
-    editor: usuarios.filter((u) => u.role === 'editor').length,
-    closer: usuarios.filter((u) => u.role === 'closer').length,
-    sdr: usuarios.filter((u) => !u.role || u.role === 'sdr').length,
-    bdr: usuarios.filter((u) => u.role === 'bdr').length,
-  };
+  const reenviar = useMutation({
+    mutationFn: (email) => invitesApi.resend(email),
+    onSuccess: (_data, email) => {
+      toast({ title: 'Convite reenviado!', description: `Novo e-mail enviado para ${email}.` });
+    },
+    onError: (err) => {
+      toast({ title: 'Erro ao reenviar', description: err?.message, variant: 'destructive' });
+    },
+  });
+
+  const cancelar = useMutation({
+    mutationFn: (id) => invitesApi.cancel(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.convitesPendentes.all });
+      toast({ title: 'Convite cancelado.' });
+    },
+    onError: (err) => {
+      toast({ title: 'Erro ao cancelar', description: err?.message, variant: 'destructive' });
+    },
+  });
+
+  const counts = Object.keys(roleConfig).reduce((acc, key) => {
+    if (key === 'sdr') {
+      acc[key] = usuarios.filter((u) => !u.role || u.role === 'sdr').length;
+    } else {
+      acc[key] = usuarios.filter((u) => u.role === key).length;
+    }
+    return acc;
+  }, {});
 
   const handleEditar = (u) => {
     if (!isAdmin) return;
@@ -67,12 +107,29 @@ function AdministrativoPageContent() {
     setNovoRole(u.role || 'sdr');
   };
 
+  const handleCancelar = (convite) => {
+    if (!window.confirm(`Cancelar o convite de ${convite.email}?`)) return;
+    cancelar.mutate(convite.id);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-          <Shield className="w-4 h-4 text-[#EA3935]" /> Controle de Níveis de Acesso
-        </h2>
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+          <h2 className="text-base font-semibold text-white flex items-center gap-2">
+            <Shield className="w-4 h-4 text-[#EA3935]" /> Controle de Níveis de Acesso
+          </h2>
+          {isAdmin && (
+            <button
+              onClick={() => setInviteOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-md shadow-[#EA3935]/25 transition-opacity hover:opacity-[0.97]"
+              style={{ background: `linear-gradient(135deg, ${BRAND_FROM}, ${BRAND_TO})` }}
+            >
+              <UserPlus className="w-4 h-4" />
+              Convidar Usuário
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {Object.entries(roleConfig).map(([key, cfg]) => {
             const Icon = cfg.icon;
@@ -91,6 +148,79 @@ function AdministrativoPageContent() {
           })}
         </div>
       </div>
+
+      {convites.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-400" /> Convites Pendentes
+            <span className="text-xs font-normal text-muted-foreground">({convites.length})</span>
+          </h2>
+          <div className="glass-card rounded-2xl border border-amber-500/15 overflow-hidden">
+            <div className="divide-y divide-white/5">
+              {convites.map((c, i) => {
+                const cfg = roleConfig[c.role] || roleConfig.sdr;
+                const Icon = cfg.icon;
+                const isResending = reenviar.isPending && reenviar.variables === c.email;
+                const isCanceling = cancelar.isPending && cancelar.variables === c.id;
+                return (
+                  <motion.div
+                    key={c.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-white/5 transition-colors"
+                  >
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-semibold text-sm shrink-0"
+                      style={{ background: 'rgba(245, 158, 11, 0.2)' }}
+                    >
+                      {c.full_name?.[0]?.toUpperCase() || c.email?.[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-white truncate">{c.full_name || '—'}</p>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/20">
+                          <Clock className="w-2.5 h-2.5" /> Aguardando aceite
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{c.email}</p>
+                    </div>
+
+                    <div
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${cfg.bg} ${cfg.color}`}
+                    >
+                      <Icon className="w-3 h-3" /> {cfg.label}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => reenviar.mutate(c.email)}
+                        disabled={isResending}
+                        title="Reenviar convite"
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 transition-colors disabled:opacity-50"
+                      >
+                        {isResending ? (
+                          <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Send className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleCancelar(c)}
+                        disabled={isCanceling}
+                        title="Cancelar convite"
+                        className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors disabled:opacity-50"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div>
         <h2 className="text-base font-semibold text-white mb-4">Usuários do Sistema</h2>
@@ -131,12 +261,9 @@ function AdministrativoPageContent() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-[#1a1a2e] border-white/10">
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="social media">Social Media</SelectItem>
-                            <SelectItem value="editor">Editor</SelectItem>
-                            <SelectItem value="closer">Closer</SelectItem>
-                            <SelectItem value="sdr">SDR</SelectItem>
-                            <SelectItem value="bdr">BDR</SelectItem>
+                            {Object.entries(roleConfig).map(([key, cfg]) => (
+                              <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <button
@@ -162,6 +289,8 @@ function AdministrativoPageContent() {
           )}
         </div>
       </div>
+
+      <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} />
     </div>
   );
 }

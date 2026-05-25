@@ -741,6 +741,261 @@ CREATE POLICY "squad_membros: deny crm-only roles"
 -- responsaveis no CRM. Mudanças em role continuam restritas a admin.
 
 -- ==================================================================
+-- USER INVITES VIEW
+-- Combina public.profiles com auth.users.last_sign_in_at para
+-- distinguir convites pendentes (nunca logaram) de usuarios ativos.
+-- security_invoker = true: respeita o RLS de profiles (admin-only no app).
+-- ==================================================================
+CREATE OR REPLACE VIEW public.user_invites_view
+WITH (security_invoker = true) AS
+SELECT
+  p.id,
+  p.email,
+  p.full_name,
+  p.role,
+  p.created_at                              AS invited_at,
+  u.last_sign_in_at,
+  u.confirmed_at,
+  (u.last_sign_in_at IS NULL)               AS pending
+FROM public.profiles p
+JOIN auth.users u ON u.id = p.id;
+
+GRANT SELECT ON public.user_invites_view TO authenticated;
+
+-- ==================================================================
+-- HEAD ROLE — admin-equivalent access EXCEPT Administrativo
+--
+-- Head pode ver/editar todos os dados operacionais e comerciais como
+-- um admin, mas NÃO gerencia roles de usuários (continua sendo
+-- exclusivo de 'admin' via "profiles: admin update").
+--
+-- Bloco idempotente: pode rodar várias vezes.
+-- ==================================================================
+
+-- Helper: head/closer/admin têm poderes de CRM
+CREATE OR REPLACE FUNCTION private.is_admin_or_closer()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role IN ('admin', 'closer', 'head')
+  )
+$$;
+
+-- Squads
+DROP POLICY IF EXISTS "squads: admin manage"      ON public.squads;
+DROP POLICY IF EXISTS "squads: admin/head manage" ON public.squads;
+CREATE POLICY "squads: admin/head manage"
+  ON public.squads FOR ALL
+  USING (private.is_admin_or_head())
+  WITH CHECK (private.is_admin_or_head());
+
+-- Squad membros
+DROP POLICY IF EXISTS "squad_membros: admin manage"      ON public.squad_membros;
+DROP POLICY IF EXISTS "squad_membros: admin/head manage" ON public.squad_membros;
+CREATE POLICY "squad_membros: admin/head manage"
+  ON public.squad_membros FOR ALL
+  USING (private.is_admin_or_head())
+  WITH CHECK (private.is_admin_or_head());
+
+-- Clientes: head também vê tudo (igual admin)
+DROP POLICY IF EXISTS "clientes: squad select" ON public.clientes;
+DROP POLICY IF EXISTS "clientes: squad insert" ON public.clientes;
+DROP POLICY IF EXISTS "clientes: squad update" ON public.clientes;
+DROP POLICY IF EXISTS "clientes: admin delete" ON public.clientes;
+DROP POLICY IF EXISTS "clientes: admin/head delete" ON public.clientes;
+
+CREATE POLICY "clientes: squad select"
+  ON public.clientes FOR SELECT
+  USING (squad_id = ANY(private.get_user_squad_ids()) OR private.is_admin_or_head());
+
+CREATE POLICY "clientes: squad insert"
+  ON public.clientes FOR INSERT
+  WITH CHECK (squad_id = ANY(private.get_user_squad_ids()) OR private.is_admin_or_head());
+
+CREATE POLICY "clientes: squad update"
+  ON public.clientes FOR UPDATE
+  USING  (squad_id = ANY(private.get_user_squad_ids()) OR private.is_admin_or_head())
+  WITH CHECK (squad_id = ANY(private.get_user_squad_ids()) OR private.is_admin_or_head());
+
+CREATE POLICY "clientes: admin/head delete"
+  ON public.clientes FOR DELETE
+  USING (private.is_admin_or_head());
+
+-- Projetos: head também vê/edita tudo
+DROP POLICY IF EXISTS "projetos: squad select" ON public.projetos;
+DROP POLICY IF EXISTS "projetos: squad insert" ON public.projetos;
+DROP POLICY IF EXISTS "projetos: squad update" ON public.projetos;
+DROP POLICY IF EXISTS "projetos: admin delete" ON public.projetos;
+DROP POLICY IF EXISTS "projetos: admin/head delete" ON public.projetos;
+
+CREATE POLICY "projetos: squad select"
+  ON public.projetos FOR SELECT
+  USING (
+    private.is_admin_or_head()
+    OR EXISTS (
+      SELECT 1 FROM public.clientes c
+      WHERE c.id = projetos.cliente_id
+        AND c.squad_id = ANY(private.get_user_squad_ids())
+    )
+  );
+
+CREATE POLICY "projetos: squad insert"
+  ON public.projetos FOR INSERT
+  WITH CHECK (
+    private.is_admin_or_head()
+    OR EXISTS (
+      SELECT 1 FROM public.clientes c
+      WHERE c.id = projetos.cliente_id
+        AND c.squad_id = ANY(private.get_user_squad_ids())
+    )
+  );
+
+CREATE POLICY "projetos: squad update"
+  ON public.projetos FOR UPDATE
+  USING (
+    private.is_admin_or_head()
+    OR EXISTS (
+      SELECT 1 FROM public.clientes c
+      WHERE c.id = projetos.cliente_id
+        AND c.squad_id = ANY(private.get_user_squad_ids())
+    )
+  )
+  WITH CHECK (
+    private.is_admin_or_head()
+    OR EXISTS (
+      SELECT 1 FROM public.clientes c
+      WHERE c.id = projetos.cliente_id
+        AND c.squad_id = ANY(private.get_user_squad_ids())
+    )
+  );
+
+CREATE POLICY "projetos: admin/head delete"
+  ON public.projetos FOR DELETE
+  USING (private.is_admin_or_head());
+
+-- Tarefas: head também vê/edita/deleta tudo (igual admin)
+DROP POLICY IF EXISTS "tarefas: squad select"      ON public.tarefas;
+DROP POLICY IF EXISTS "tarefas: squad insert"      ON public.tarefas;
+DROP POLICY IF EXISTS "tarefas: squad update"      ON public.tarefas;
+DROP POLICY IF EXISTS "tarefas: admin delete"      ON public.tarefas;
+DROP POLICY IF EXISTS "tarefas: admin/head delete" ON public.tarefas;
+
+CREATE POLICY "tarefas: squad select"
+  ON public.tarefas FOR SELECT
+  USING (
+    private.is_admin_or_head()
+    OR (private.is_own_tasks_only() AND responsavel_id = auth.uid())
+    OR (
+      NOT private.is_own_tasks_only() AND (
+        (
+          projeto_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.projetos p
+            JOIN public.clientes c ON c.id = p.cliente_id
+            WHERE p.id = projeto_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (
+          projeto_id IS NULL AND cliente_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.clientes c
+            WHERE c.id = cliente_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (projeto_id IS NULL AND cliente_id IS NULL AND responsavel_id = auth.uid())
+      )
+    )
+  );
+
+CREATE POLICY "tarefas: squad insert"
+  ON public.tarefas FOR INSERT
+  WITH CHECK (
+    private.is_admin_or_head()
+    OR (
+      NOT private.is_own_tasks_only() AND (
+        (
+          projeto_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.projetos p
+            JOIN public.clientes c ON c.id = p.cliente_id
+            WHERE p.id = projeto_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (
+          projeto_id IS NULL AND cliente_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.clientes c
+            WHERE c.id = cliente_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (projeto_id IS NULL AND cliente_id IS NULL)
+      )
+    )
+  );
+
+CREATE POLICY "tarefas: squad update"
+  ON public.tarefas FOR UPDATE
+  USING (
+    private.is_admin_or_head()
+    OR (private.is_own_tasks_only() AND responsavel_id = auth.uid())
+    OR (
+      NOT private.is_own_tasks_only() AND (
+        (
+          projeto_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.projetos p
+            JOIN public.clientes c ON c.id = p.cliente_id
+            WHERE p.id = projeto_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (
+          projeto_id IS NULL AND cliente_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.clientes c
+            WHERE c.id = cliente_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (projeto_id IS NULL AND cliente_id IS NULL AND responsavel_id = auth.uid())
+      )
+    )
+  )
+  WITH CHECK (
+    private.is_admin_or_head()
+    OR (private.is_own_tasks_only() AND responsavel_id = auth.uid())
+    OR (
+      NOT private.is_own_tasks_only() AND (
+        (
+          projeto_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.projetos p
+            JOIN public.clientes c ON c.id = p.cliente_id
+            WHERE p.id = projeto_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (
+          projeto_id IS NULL AND cliente_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.clientes c
+            WHERE c.id = cliente_id
+              AND c.squad_id = ANY(private.get_user_squad_ids())
+          )
+        )
+        OR (projeto_id IS NULL AND cliente_id IS NULL)
+      )
+    )
+  );
+
+CREATE POLICY "tarefas: admin/head delete"
+  ON public.tarefas FOR DELETE
+  USING (private.is_admin_or_head());
+
+-- Leads: head também pode deletar (e já entra em is_admin_or_closer atualizado acima)
+DROP POLICY IF EXISTS "leads: admin delete"      ON public.leads;
+DROP POLICY IF EXISTS "leads: admin/head delete" ON public.leads;
+CREATE POLICY "leads: admin/head delete"
+  ON public.leads FOR DELETE
+  USING (private.is_admin_or_head());
+
+-- ==================================================================
 -- PROMOTE FIRST ADMIN
 -- After your first sign-up, run the command below (replace the email):
 --

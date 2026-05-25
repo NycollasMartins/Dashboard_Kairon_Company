@@ -5,7 +5,7 @@ import ClientesPage from '@/features/clientes/pages/ClientesPage';
 import ClienteDetalhePage from '@/features/clientes/pages/ClienteDetalhePage';
 import ProjetoKanban from '@/features/projetos/components/ProjetoKanban';
 
-const OPERACIONAL_ROLES = ['admin', 'social media'];
+const OPERACIONAL_ROLES = ['admin', 'social media', 'head'];
 
 export default function ClientesPageWrapper() {
   const { user } = useAuth();
@@ -24,7 +24,7 @@ export default function ClientesPageWrapper() {
   if (!OPERACIONAL_ROLES.includes(user?.role)) {
     return (
       <RestrictedAccessCard
-        description="Apenas usuários com perfil admin ou social media podem acessar Clientes."
+        description="Apenas usuários com perfil admin, head ou social media podem acessar Clientes."
       />
     );
   }

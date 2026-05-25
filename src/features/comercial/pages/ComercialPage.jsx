@@ -11,7 +11,7 @@ import LeadNovoModal from '../components/LeadNovoModal';
 
 export default function ComercialPage() {
   const { user } = useAuth();
-  const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr'].includes(user?.role);
+  const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr', 'head'].includes(user?.role);
   const { toast } = useToast();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
@@ -47,7 +47,7 @@ export default function ComercialPage() {
         <div>
           <p className="text-sm font-semibold text-white">Acesso restrito</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Apenas usuários com perfil <b>admin</b>, <b>closer</b>, <b>sdr</b> ou <b>bdr</b> podem acessar o CRM.
+            Apenas usuários com perfil <b>admin</b>, <b>head</b>, <b>closer</b>, <b>sdr</b> ou <b>bdr</b> podem acessar o CRM.
           </p>
         </div>
       </div>

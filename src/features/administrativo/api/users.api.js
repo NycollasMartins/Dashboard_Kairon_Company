@@ -9,7 +9,11 @@ function unwrap({ data, error }) {
 
 export const usersApi = {
   list: () =>
-    supabase.from(TABLE).select('id, email, full_name, role').order('full_name', { ascending: true }).then(unwrap),
+    supabase
+      .from(TABLE)
+      .select('id, email, full_name, role')
+      .order('full_name', { ascending: true })
+      .then(unwrap),
 
   update: (id, data) =>
     supabase.from(TABLE).update(data).eq('id', id).select('id, email, full_name, role').single().then(unwrap),

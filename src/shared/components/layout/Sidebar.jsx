@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
-const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm }) => [
+const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads }) => [
   { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
   ...(isAdmin
     ? [{ to: '/administrativo', label: 'Administrativo', icon: Shield }]
@@ -26,7 +26,7 @@ const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsar
         children: [
           ...(podeUsarClientesSquads ? [{ to: '/clientes', label: 'Clientes', icon: Users }] : []),
           { to: '/tarefas', label: 'Tarefas', icon: CheckSquare },
-          ...(isAdmin ? [{ to: '/squads', label: 'Squads', icon: Layers }] : []),
+          ...(podeUsarSquads ? [{ to: '/squads', label: 'Squads', icon: Layers }] : []),
         ],
       }]
     : []),
@@ -40,13 +40,14 @@ export default function Sidebar({
   podeVerTarefas = false,
   podeUsarClientesSquads = false,
   podeUsarCrm = false,
+  podeUsarSquads = false,
   mobileOpen,
   setMobileOpen,
 }) {
   const [openGroups, setOpenGroups] = useState({ Comercial: true, Operacional: true });
   const toggleGroup = (label) =>
     setOpenGroups((s) => ({ ...s, [label]: !s[label] }));
-  const navItems = getNavItems({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm });
+  const navItems = getNavItems({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads });
   const { logout } = useAuth();
   const navigate = useNavigate();
 

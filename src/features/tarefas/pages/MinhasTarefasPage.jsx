@@ -695,14 +695,14 @@ function applySort(list, sort) {
   }
 }
 
-const TAREFAS_ROLES = ['admin', 'social media', 'editor'];
+const TAREFAS_ROLES = ['admin', 'social media', 'editor', 'head'];
 
 export default function MinhasTarefasPage() {
   const { user } = useAuth();
   if (!TAREFAS_ROLES.includes(user?.role)) {
     return (
       <RestrictedAccessCard
-        description="Apenas usuários com perfil admin, social media ou editor podem acessar Tarefas."
+        description="Apenas usuários com perfil admin, head, social media ou editor podem acessar Tarefas."
       />
     );
   }

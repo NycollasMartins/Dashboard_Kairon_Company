@@ -14,9 +14,11 @@ export default function DashboardLayout() {
 
   const role = user?.role;
   const isAdmin = role === 'admin';
-  const podeVerTarefas = ['admin', 'social media', 'editor'].includes(role);
-  const podeUsarClientesSquads = ['admin', 'social media'].includes(role);
-  const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr'].includes(role);
+  const isHead = role === 'head';
+  const podeVerTarefas = ['admin', 'social media', 'editor', 'head'].includes(role);
+  const podeUsarClientesSquads = ['admin', 'social media', 'head'].includes(role);
+  const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr', 'head'].includes(role);
+  const podeUsarSquads = isAdmin || isHead;
 
   return (
     <div className="min-h-screen bg-background font-inter">
@@ -25,6 +27,7 @@ export default function DashboardLayout() {
         podeVerTarefas={podeVerTarefas}
         podeUsarClientesSquads={podeUsarClientesSquads}
         podeUsarCrm={podeUsarCrm}
+        podeUsarSquads={podeUsarSquads}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
       />
