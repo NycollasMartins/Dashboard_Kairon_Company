@@ -82,12 +82,21 @@ CREATE TABLE IF NOT EXISTS public.clientes (
   empresa        text,
   status         text NOT NULL DEFAULT 'ativo'
                    CHECK (status IN ('ativo', 'churn')),
+  origem         text NOT NULL DEFAULT 'manual'
+                   CHECK (origem IN ('manual', 'lead')),
   squad_id       uuid REFERENCES public.squads(id)   ON DELETE SET NULL,
   responsavel_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   entregaveis    text[],
   notas          text,
   created_at     timestamptz NOT NULL DEFAULT now()
 );
+
+-- Idempotente para bancos pré-existentes
+ALTER TABLE public.clientes
+  ADD COLUMN IF NOT EXISTS origem text NOT NULL DEFAULT 'manual';
+ALTER TABLE public.clientes DROP CONSTRAINT IF EXISTS clientes_origem_check;
+ALTER TABLE public.clientes ADD CONSTRAINT clientes_origem_check
+  CHECK (origem IN ('manual', 'lead'));
 
 -- ------------------------------------------------------------------
 -- PROJETOS
@@ -495,7 +504,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
   momento_empresa    text,
   objetivo_principal text,
   status             text NOT NULL DEFAULT 'pendente'
-                       CHECK (status IN ('pendente', 'em_atendimento', 'follow_up', 'reuniao_marcada')),
+                       CHECK (status IN ('pendente', 'em_atendimento', 'follow_up', 'reuniao_marcada', 'perdido')),
   origem             text NOT NULL DEFAULT 'landing_page',
   notas              text,
   responsavel_id     uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -507,6 +516,11 @@ CREATE TABLE IF NOT EXISTS public.leads (
 
 ALTER TABLE public.leads
   ADD COLUMN IF NOT EXISTS atendimento_iniciado_em timestamptz;
+
+-- Idempotente: garante que bancos pré-existentes aceitem 'perdido'
+ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_status_check;
+ALTER TABLE public.leads ADD CONSTRAINT leads_status_check
+  CHECK (status IN ('pendente', 'em_atendimento', 'follow_up', 'reuniao_marcada', 'perdido'));
 
 CREATE INDEX IF NOT EXISTS idx_leads_status      ON public.leads (status);
 CREATE INDEX IF NOT EXISTS idx_leads_responsavel ON public.leads (responsavel_id);
@@ -994,6 +1008,406 @@ DROP POLICY IF EXISTS "leads: admin/head delete" ON public.leads;
 CREATE POLICY "leads: admin/head delete"
   ON public.leads FOR DELETE
   USING (private.is_admin_or_head());
+
+-- ==================================================================
+-- CONVERSÃO LEAD → CLIENTE
+--
+-- RPC atômica: cria registro em clientes (com origem='lead') e
+-- popula leads.cliente_id apontando para o cliente recém-criado.
+-- Apenas admin/head pode executar.
+-- ==================================================================
+
+CREATE OR REPLACE FUNCTION public.convert_lead_to_cliente(
+  p_lead_id        uuid,
+  p_squad_id       uuid    DEFAULT NULL,
+  p_responsavel_id uuid    DEFAULT NULL,
+  p_entregaveis    text[]  DEFAULT NULL,
+  p_notas          text    DEFAULT NULL,
+  p_nome           text    DEFAULT NULL,
+  p_empresa        text    DEFAULT NULL,
+  p_email          text    DEFAULT NULL,
+  p_telefone       text    DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, private
+AS $$
+DECLARE
+  v_lead       public.leads%ROWTYPE;
+  v_cliente_id uuid;
+BEGIN
+  IF NOT private.is_admin_or_head() THEN
+    RAISE EXCEPTION 'Apenas admin ou head podem converter leads em clientes.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_lead FROM public.leads WHERE id = p_lead_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Lead % não encontrado.', p_lead_id USING ERRCODE = 'P0002';
+  END IF;
+
+  IF v_lead.cliente_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Lead já foi convertido em cliente (cliente_id=%).', v_lead.cliente_id
+      USING ERRCODE = '23505';
+  END IF;
+
+  INSERT INTO public.clientes (
+    nome, empresa, email, telefone,
+    squad_id, responsavel_id, entregaveis, notas, origem, status
+  ) VALUES (
+    COALESCE(NULLIF(TRIM(p_nome), ''),    v_lead.nome),
+    COALESCE(NULLIF(TRIM(p_empresa), ''), v_lead.empresa),
+    COALESCE(NULLIF(TRIM(p_email), ''),   v_lead.email),
+    COALESCE(NULLIF(TRIM(p_telefone),''), v_lead.telefone),
+    p_squad_id,
+    p_responsavel_id,
+    p_entregaveis,
+    COALESCE(NULLIF(TRIM(p_notas), ''), v_lead.notas),
+    'lead',
+    'ativo'
+  )
+  RETURNING id INTO v_cliente_id;
+
+  UPDATE public.leads
+     SET cliente_id = v_cliente_id,
+         updated_at = now()
+   WHERE id = p_lead_id;
+
+  RETURN v_cliente_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.convert_lead_to_cliente(uuid, uuid, uuid, text[], text, text, text, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.convert_lead_to_cliente(uuid, uuid, uuid, text[], text, text, text, text, text) TO authenticated;
+
+-- ==================================================================
+-- CONTRATOS (financeiro por cliente)
+--
+-- Cada cliente pode ter múltiplos contratos ao longo do tempo, mas
+-- apenas UM com status='ativo' por vez (índice único parcial).
+-- Tipos: MRR (mensalidade recorrente) ou TCV (valor total do contrato).
+-- Renovação cria um novo registro com FK renovacao_de e marca o
+-- anterior como 'renovado'. Expiração é automática quando data_fim
+-- passou (função expire_due_contracts). Cancelamento exige motivo.
+-- Cliente só pode virar 'churn' sem contrato ativo (trigger guard).
+-- ==================================================================
+
+CREATE TABLE IF NOT EXISTS public.contratos (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  cliente_id          uuid NOT NULL REFERENCES public.clientes(id) ON DELETE RESTRICT,
+  tipo                text NOT NULL CHECK (tipo IN ('MRR', 'TCV')),
+  valor               numeric(12, 2) NOT NULL CHECK (valor > 0),
+  duracao_meses       integer NOT NULL CHECK (duracao_meses > 0),
+  data_inicio         date NOT NULL,
+  data_fim            date NOT NULL,
+  entregaveis         text[],
+  status              text NOT NULL DEFAULT 'ativo'
+                        CHECK (status IN ('ativo', 'expirado', 'renovado', 'cancelado')),
+  renovacao_de        uuid REFERENCES public.contratos(id) ON DELETE SET NULL,
+  data_cancelamento   date,
+  motivo_cancelamento text,
+  notas               text,
+  created_by          uuid REFERENCES public.profiles(id) ON DELETE SET NULL DEFAULT auth.uid(),
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  updated_at          timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT contratos_dates_chk CHECK (data_fim >= data_inicio)
+);
+
+-- Apenas um contrato ativo por cliente (índice único parcial)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_contratos_ativo_unico
+  ON public.contratos (cliente_id)
+  WHERE status = 'ativo';
+
+CREATE INDEX IF NOT EXISTS idx_contratos_cliente   ON public.contratos (cliente_id);
+CREATE INDEX IF NOT EXISTS idx_contratos_status    ON public.contratos (status);
+CREATE INDEX IF NOT EXISTS idx_contratos_data_fim  ON public.contratos (data_fim);
+
+-- Trigger updated_at (reusa touch_updated_at)
+DROP TRIGGER IF EXISTS contratos_touch_updated_at ON public.contratos;
+CREATE TRIGGER contratos_touch_updated_at
+  BEFORE UPDATE ON public.contratos
+  FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+
+-- created_by é imutável depois do INSERT
+CREATE OR REPLACE FUNCTION public.contratos_lock_created_by()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.created_by IS NOT NULL THEN
+    NEW.created_by := OLD.created_by;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS contratos_lock_created_by ON public.contratos;
+CREATE TRIGGER contratos_lock_created_by
+  BEFORE UPDATE ON public.contratos
+  FOR EACH ROW EXECUTE FUNCTION public.contratos_lock_created_by();
+
+ALTER TABLE public.contratos ENABLE ROW LEVEL SECURITY;
+
+-- RLS: leitura segue squad do cliente; escrita restrita a admin/head.
+-- As RPCs SECURITY DEFINER são a porta principal; estas policies servem
+-- como defesa em profundidade (qualquer acesso direto via PostgREST falha).
+DROP POLICY IF EXISTS "contratos: squad select"        ON public.contratos;
+DROP POLICY IF EXISTS "contratos: admin/head write"    ON public.contratos;
+DROP POLICY IF EXISTS "contratos: deny crm-only roles" ON public.contratos;
+
+CREATE POLICY "contratos: squad select"
+  ON public.contratos FOR SELECT
+  USING (
+    private.is_admin_or_head()
+    OR EXISTS (
+      SELECT 1 FROM public.clientes c
+      WHERE c.id = contratos.cliente_id
+        AND c.squad_id = ANY(private.get_user_squad_ids())
+    )
+  );
+
+CREATE POLICY "contratos: admin/head write"
+  ON public.contratos FOR ALL
+  USING (private.is_admin_or_head())
+  WITH CHECK (private.is_admin_or_head());
+
+CREATE POLICY "contratos: deny crm-only roles"
+  ON public.contratos
+  AS RESTRICTIVE
+  FOR ALL
+  TO authenticated
+  USING (NOT private.is_crm_only())
+  WITH CHECK (NOT private.is_crm_only());
+
+-- ------------------------------------------------------------------
+-- Função utilitária: expirar contratos vencidos.
+-- Rodar via cron diário OU chamar manualmente. Idempotente.
+-- ------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.expire_due_contracts()
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, private
+AS $$
+DECLARE
+  v_count integer;
+BEGIN
+  UPDATE public.contratos
+     SET status = 'expirado',
+         updated_at = now()
+   WHERE status = 'ativo'
+     AND data_fim < CURRENT_DATE;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.expire_due_contracts() TO authenticated;
+
+-- ------------------------------------------------------------------
+-- Trigger guard: bloqueia cliente.status='churn' se houver contrato ativo.
+-- ------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.clientes_block_churn_if_active_contract()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.status = 'churn' AND OLD.status IS DISTINCT FROM 'churn' THEN
+    IF EXISTS (
+      SELECT 1 FROM public.contratos
+      WHERE cliente_id = NEW.id
+        AND status = 'ativo'
+    ) THEN
+      RAISE EXCEPTION 'Cliente possui contrato ativo. Cancele ou expire o contrato antes de marcar como churn.'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS clientes_block_churn_if_active_contract ON public.clientes;
+CREATE TRIGGER clientes_block_churn_if_active_contract
+  BEFORE UPDATE ON public.clientes
+  FOR EACH ROW EXECUTE FUNCTION public.clientes_block_churn_if_active_contract();
+
+-- ------------------------------------------------------------------
+-- RPC: criar contrato (admin/head)
+-- ------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.criar_contrato(
+  p_cliente_id    uuid,
+  p_tipo          text,
+  p_valor         numeric,
+  p_duracao_meses integer,
+  p_data_inicio   date,
+  p_entregaveis   text[] DEFAULT NULL,
+  p_notas         text   DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, private
+AS $$
+DECLARE
+  v_id       uuid;
+  v_data_fim date;
+BEGIN
+  IF NOT private.is_admin_or_head() THEN
+    RAISE EXCEPTION 'Apenas admin ou head podem gerenciar contratos.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_tipo NOT IN ('MRR', 'TCV') THEN
+    RAISE EXCEPTION 'Tipo de contrato inválido: %', p_tipo USING ERRCODE = '22023';
+  END IF;
+  IF p_valor IS NULL OR p_valor <= 0 THEN
+    RAISE EXCEPTION 'Valor deve ser maior que zero.' USING ERRCODE = '22023';
+  END IF;
+  IF p_duracao_meses IS NULL OR p_duracao_meses <= 0 THEN
+    RAISE EXCEPTION 'Duração em meses deve ser maior que zero.' USING ERRCODE = '22023';
+  END IF;
+  IF p_data_inicio IS NULL THEN
+    RAISE EXCEPTION 'Data de início é obrigatória.' USING ERRCODE = '22023';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.contratos
+    WHERE cliente_id = p_cliente_id
+      AND status = 'ativo'
+  ) THEN
+    RAISE EXCEPTION 'Cliente já possui contrato ativo. Cancele ou expire o contrato atual antes de criar um novo.'
+      USING ERRCODE = '23505';
+  END IF;
+
+  v_data_fim := (p_data_inicio + (p_duracao_meses || ' months')::interval)::date - 1;
+
+  INSERT INTO public.contratos (
+    cliente_id, tipo, valor, duracao_meses, data_inicio, data_fim,
+    entregaveis, notas, status, created_by
+  ) VALUES (
+    p_cliente_id, p_tipo, p_valor, p_duracao_meses, p_data_inicio, v_data_fim,
+    p_entregaveis, NULLIF(TRIM(p_notas), ''), 'ativo', auth.uid()
+  )
+  RETURNING id INTO v_id;
+
+  RETURN v_id;
+END;
+$$;
+
+REVOKE ALL  ON FUNCTION public.criar_contrato(uuid, text, numeric, integer, date, text[], text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.criar_contrato(uuid, text, numeric, integer, date, text[], text) TO authenticated;
+
+-- ------------------------------------------------------------------
+-- RPC: renovar contrato (admin/head)
+-- Marca o anterior como 'renovado' e cria novo apontando para ele.
+-- ------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.renovar_contrato(
+  p_contrato_anterior_id uuid,
+  p_tipo                 text,
+  p_valor                numeric,
+  p_duracao_meses        integer,
+  p_data_inicio          date,
+  p_entregaveis          text[] DEFAULT NULL,
+  p_notas                text   DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, private
+AS $$
+DECLARE
+  v_anterior public.contratos%ROWTYPE;
+  v_novo_id  uuid;
+  v_data_fim date;
+BEGIN
+  IF NOT private.is_admin_or_head() THEN
+    RAISE EXCEPTION 'Apenas admin ou head podem renovar contratos.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_tipo NOT IN ('MRR', 'TCV') THEN
+    RAISE EXCEPTION 'Tipo de contrato inválido: %', p_tipo USING ERRCODE = '22023';
+  END IF;
+  IF p_valor IS NULL OR p_valor <= 0 THEN
+    RAISE EXCEPTION 'Valor deve ser maior que zero.' USING ERRCODE = '22023';
+  END IF;
+  IF p_duracao_meses IS NULL OR p_duracao_meses <= 0 THEN
+    RAISE EXCEPTION 'Duração em meses deve ser maior que zero.' USING ERRCODE = '22023';
+  END IF;
+  IF p_data_inicio IS NULL THEN
+    RAISE EXCEPTION 'Data de início é obrigatória.' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_anterior FROM public.contratos
+    WHERE id = p_contrato_anterior_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Contrato % não encontrado.', p_contrato_anterior_id USING ERRCODE = 'P0002';
+  END IF;
+
+  IF v_anterior.status NOT IN ('ativo', 'expirado') THEN
+    RAISE EXCEPTION 'Apenas contratos ativos ou expirados podem ser renovados (status atual: %).', v_anterior.status
+      USING ERRCODE = '22023';
+  END IF;
+
+  v_data_fim := (p_data_inicio + (p_duracao_meses || ' months')::interval)::date - 1;
+
+  -- Marca o anterior como 'renovado' primeiro: libera o índice único parcial.
+  UPDATE public.contratos
+     SET status = 'renovado',
+         updated_at = now()
+   WHERE id = p_contrato_anterior_id;
+
+  INSERT INTO public.contratos (
+    cliente_id, tipo, valor, duracao_meses, data_inicio, data_fim,
+    entregaveis, notas, status, renovacao_de, created_by
+  ) VALUES (
+    v_anterior.cliente_id, p_tipo, p_valor, p_duracao_meses, p_data_inicio, v_data_fim,
+    p_entregaveis, NULLIF(TRIM(p_notas), ''), 'ativo', p_contrato_anterior_id, auth.uid()
+  )
+  RETURNING id INTO v_novo_id;
+
+  RETURN v_novo_id;
+END;
+$$;
+
+REVOKE ALL  ON FUNCTION public.renovar_contrato(uuid, text, numeric, integer, date, text[], text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.renovar_contrato(uuid, text, numeric, integer, date, text[], text) TO authenticated;
+
+-- ------------------------------------------------------------------
+-- RPC: cancelar contrato (admin/head)
+-- ------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.cancelar_contrato(
+  p_contrato_id uuid,
+  p_motivo      text
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, private
+AS $$
+BEGIN
+  IF NOT private.is_admin_or_head() THEN
+    RAISE EXCEPTION 'Apenas admin ou head podem cancelar contratos.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_motivo IS NULL OR length(trim(p_motivo)) = 0 THEN
+    RAISE EXCEPTION 'Motivo do cancelamento é obrigatório.' USING ERRCODE = '22023';
+  END IF;
+
+  UPDATE public.contratos
+     SET status = 'cancelado',
+         data_cancelamento = CURRENT_DATE,
+         motivo_cancelamento = trim(p_motivo),
+         updated_at = now()
+   WHERE id = p_contrato_id
+     AND status = 'ativo';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Contrato % não encontrado ou não está ativo.', p_contrato_id USING ERRCODE = 'P0002';
+  END IF;
+END;
+$$;
+
+REVOKE ALL  ON FUNCTION public.cancelar_contrato(uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.cancelar_contrato(uuid, text) TO authenticated;
 
 -- ==================================================================
 -- PROMOTE FIRST ADMIN

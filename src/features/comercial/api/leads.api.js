@@ -72,4 +72,23 @@ export const leadsApi = {
 
   delete: (id) =>
     supabase.from(TABLE).delete().eq('id', id).then(unwrap),
+
+  convertToCliente: async (leadId, extras = {}) => {
+    const { data: clienteId, error } = await supabase.rpc('convert_lead_to_cliente', {
+      p_lead_id: leadId,
+      p_squad_id: extras.squad_id || null,
+      p_responsavel_id: extras.responsavel_id || null,
+      p_entregaveis:
+        Array.isArray(extras.entregaveis) && extras.entregaveis.length > 0
+          ? extras.entregaveis
+          : null,
+      p_notas: emptyOrNull(extras.notas),
+      p_nome: emptyOrNull(extras.nome),
+      p_empresa: emptyOrNull(extras.empresa),
+      p_email: emptyOrNull(extras.email),
+      p_telefone: emptyOrNull(extras.telefone),
+    });
+    if (error) throw error;
+    return clienteId;
+  },
 };

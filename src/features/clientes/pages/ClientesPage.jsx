@@ -22,6 +22,8 @@ import { useToast } from '@/components/ui/use-toast';
 import ConfirmArchiveDialog from '@/shared/ui/ConfirmArchiveDialog';
 import ClienteForm from '@/features/clientes/components/ClienteForm';
 import { clientesApi } from '@/features/clientes/api/clientes.api';
+import { getContratoAtivo } from '@/features/clientes/api/contratos.api';
+import { formatBRL } from '@/features/clientes/utils/contrato.format';
 import { tarefasApi } from '@/features/tarefas/api/tarefas.api';
 import { queryKeys } from '@/entities/query-keys';
 
@@ -265,6 +267,12 @@ export default function ClientesPage({ onVerCliente }) {
                 const pendentes = getTarefasPendentes(c.id);
                 const pendentesTotal = pendentes.length;
                 const pendentesPct = Math.min(100, pendentesTotal * 20);
+                const contratoAtivo = getContratoAtivo(c.contratos);
+                const contratoLabel = contratoAtivo
+                  ? contratoAtivo.tipo === 'MRR'
+                    ? `${contratoAtivo.tipo} · ${formatBRL(contratoAtivo.valor)}/mês`
+                    : `${contratoAtivo.tipo} · ${formatBRL(contratoAtivo.valor)}`
+                  : null;
                 return (
                   <motion.div
                     key={c.id}
@@ -286,14 +294,33 @@ export default function ClientesPage({ onVerCliente }) {
                           {c.nome?.[0]?.toUpperCase() || '?'}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-white truncate group-hover:text-white">
-                            {c.nome}
-                          </p>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className="text-sm font-semibold text-white truncate group-hover:text-white">
+                              {c.nome}
+                            </p>
+                            {c.origem === 'lead' && (
+                              <span
+                                title="Cliente convertido a partir de um Lead"
+                                className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/25"
+                              >
+                                Lead
+                              </span>
+                            )}
+                          </div>
                           {c.email && (
                             <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
                               <Mail className="w-3 h-3 shrink-0" /> {c.email}
                             </p>
                           )}
+                          {contratoLabel ? (
+                            <span className="inline-flex items-center mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/25">
+                              {contratoLabel}
+                            </span>
+                          ) : c.status === 'ativo' ? (
+                            <span className="inline-flex items-center mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground border border-white/10">
+                              Sem contrato ativo
+                            </span>
+                          ) : null}
                         </div>
                       </div>
 

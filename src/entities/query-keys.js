@@ -24,4 +24,8 @@ export const queryKeys = {
   leads: {
     all: ['leads'],
   },
+  contratos: {
+    all: ['contratos'],
+    byCliente: (clienteId) => ['contratos', 'cliente', clienteId],
+  },
 };

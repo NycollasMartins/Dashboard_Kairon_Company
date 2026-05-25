@@ -4,8 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { motion } from 'framer-motion';
 import {
-  Plus, X, Check, Calendar, Flag, Grip, ArrowLeft, Trash2, Edit2, User,
-  FolderKanban, CalendarDays, ListChecks, Briefcase,
+  Plus, X, Check, Calendar, ArrowLeft, Trash2,
+  FolderKanban, CalendarDays, ListChecks, Briefcase, AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,11 +24,72 @@ const columns = [
 ];
 
 const prioridadeConfig = {
-  baixa: { label: 'Baixa', color: 'text-slate-400' },
-  media: { label: 'Média', color: 'text-blue-400' },
-  alta: { label: 'Alta', color: 'text-red-400' },
-  urgente: { label: 'Urgente', color: 'text-red-400' },
+  baixa:    { label: 'Baixa',    color: 'text-slate-300', dot: 'bg-slate-400' },
+  media:    { label: 'Média',    color: 'text-blue-300',  dot: 'bg-blue-400' },
+  alta:     { label: 'Alta',     color: 'text-amber-300', dot: 'bg-amber-400' },
+  urgente:  { label: 'Urgente',  color: 'text-red-300',   dot: 'bg-red-400' },
 };
+
+const tagPalette = [
+  { bg: 'rgba(234,57,53,0.12)', fg: '#EA3935' },
+  { bg: 'rgba(59,130,246,0.14)', fg: '#60A5FA' },
+  { bg: 'rgba(16,185,129,0.14)', fg: '#34D399' },
+  { bg: 'rgba(168,85,247,0.14)', fg: '#C084FC' },
+  { bg: 'rgba(245,158,11,0.14)', fg: '#FBBF24' },
+  { bg: 'rgba(236,72,153,0.14)', fg: '#F472B6' },
+];
+
+function tagColorFor(key) {
+  if (!key) return tagPalette[0];
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return tagPalette[h % tagPalette.length];
+}
+
+function initialsOf(name = '') {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0][0]?.toUpperCase() ?? '?';
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function Avatar({ name, size = 20, muted = false }) {
+  const color = tagColorFor(name);
+  const style = muted
+    ? { width: size, height: size, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.65)' }
+    : { width: size, height: size, background: color.bg, color: color.fg };
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-full text-[10px] font-semibold shrink-0"
+      style={style}
+      title={name}
+    >
+      {initialsOf(name)}
+    </span>
+  );
+}
+
+function PrazoBadge({ prazo, status }) {
+  if (!prazo) return null;
+  const concluida = status === 'concluida';
+  const today = todayStr();
+  const atrasada = !concluida && prazo < today;
+  const formatted = (() => {
+    const [y, m, d] = prazo.split('-');
+    if (!y) return prazo;
+    return `${d}/${m}`;
+  })();
+  return (
+    <span
+      className={`flex items-center gap-1 text-[10.5px] ${
+        atrasada ? 'text-red-400/80' : 'text-muted-foreground/70'
+      }`}
+    >
+      {atrasada ? <AlertTriangle className="w-3 h-3" /> : <Calendar className="w-3 h-3" />}
+      {formatted}
+    </span>
+  );
+}
 
 const todayStr = () => new Date().toISOString().split('T')[0];
 
@@ -85,7 +146,7 @@ function diasAteData(iso) {
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
 
-function TarefaForm({ onClose, onSave, clienteId, projetoId, tarefa, squadMembros }) {
+function TarefaForm({ onClose, onSave, onDelete, clienteId, projetoId, tarefa, squadMembros }) {
   const membros = squadMembros?.map((sm) => sm.profiles).filter(Boolean) ?? [];
 
   const [form, setForm] = useState({
@@ -115,7 +176,24 @@ function TarefaForm({ onClose, onSave, clienteId, projetoId, tarefa, squadMembro
       >
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-semibold text-white">{tarefa ? 'Editar Tarefa' : 'Nova Tarefa'}</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-white"><X className="w-4 h-4" /></button>
+          <div className="flex items-center gap-1">
+            {tarefa && onDelete && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Excluir esta tarefa? Esta ação não pode ser desfeita.')) {
+                    onDelete(tarefa.id);
+                  }
+                }}
+                className="flex items-center gap-1.5 p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors text-xs"
+                aria-label="Excluir tarefa"
+              >
+                <Trash2 className="w-4 h-4" />
+                Excluir
+              </button>
+            )}
+            <button onClick={onClose} className="text-muted-foreground hover:text-white p-1.5"><X className="w-4 h-4" /></button>
+          </div>
         </div>
         <div className="space-y-3">
           <Input
@@ -215,9 +293,9 @@ function TarefaForm({ onClose, onSave, clienteId, projetoId, tarefa, squadMembro
   );
 }
 
-function TarefaCard({ tarefa, index, onOpen, onEdit, onDelete }) {
+function TarefaCard({ tarefa, index, onOpen }) {
   const cfg = prioridadeConfig[tarefa.prioridade] || prioridadeConfig.media;
-  const responsavel = tarefa.responsavel;
+  const responsavelNome = tarefa.responsavel?.full_name || tarefa.responsavel?.email;
 
   return (
     <Draggable draggableId={tarefa.id} index={index}>
@@ -228,45 +306,26 @@ function TarefaCard({ tarefa, index, onOpen, onEdit, onDelete }) {
             {...provided.draggableProps}
             {...provided.dragHandleProps}
             onClick={() => onOpen(tarefa)}
-            className={`glass-card border border-white/5 rounded-xl p-3.5 mb-2.5 transition-colors duration-200 group cursor-grab active:cursor-grabbing select-none
-              ${snapshot.isDragging ? 'border-[#EA3935]/40 shadow-lg shadow-red-500/10' : 'hover:border-white/10'}`}
+            className={`group glass-card border border-white/5 rounded-xl p-3 mb-2 cursor-grab active:cursor-grabbing transition-colors duration-200 select-none
+              ${snapshot.isDragging ? 'border-white/20 shadow-lg shadow-black/20' : 'hover:border-white/10'}`}
           >
-            <div className="flex items-start gap-2 mb-2">
-              <div className="text-muted-foreground mt-0.5 shrink-0">
-                <Grip className="w-3.5 h-3.5" />
-              </div>
-              <p className="text-sm text-white font-medium flex-1 leading-snug">{tarefa.titulo}</p>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                <button
-                  onClick={(e) => { e.stopPropagation(); onEdit(tarefa); }}
-                  className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
-                >
-                  <Edit2 className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onDelete(tarefa.id); }}
-                  className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-            {tarefa.descricao && <p className="text-xs text-muted-foreground mb-2 ml-5 line-clamp-2">{tarefa.descricao}</p>}
-            <div className="flex items-center gap-2 flex-wrap ml-5">
-              <span className={`flex items-center gap-1 text-xs ${cfg.color}`}>
-                <Flag className="w-3 h-3" />{cfg.label}
+            <p className="text-sm text-white/95 font-medium leading-snug line-clamp-2 mb-2.5">
+              {tarefa.titulo}
+            </p>
+
+            {tarefa.descricao && (
+              <p className="text-xs text-muted-foreground/60 mb-2.5 line-clamp-2">{tarefa.descricao}</p>
+            )}
+
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.04]">
+              <span className={`flex items-center gap-1.5 text-[10.5px] font-medium ${cfg.color}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                {cfg.label}
               </span>
-              {tarefa.prazo && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Calendar className="w-3 h-3" />{tarefa.prazo}
-                </span>
-              )}
-              {responsavel && (
-                <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md bg-white/5 text-muted-foreground">
-                  <User className="w-3 h-3 shrink-0" />
-                  {responsavel.full_name || responsavel.email}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                <PrazoBadge prazo={tarefa.prazo} status={tarefa.status} />
+                {responsavelNome && <Avatar name={responsavelNome} size={20} muted />}
+              </div>
             </div>
           </div>
         );
@@ -485,8 +544,6 @@ export default function ProjetoKanban({ projeto, onBack }) {
                           tarefa={t}
                           index={i}
                           onOpen={setEditandoTarefa}
-                          onEdit={setEditandoTarefa}
-                          onDelete={(id) => deletar.mutate(id)}
                         />
                       ))}
                       {provided.placeholder}
@@ -514,6 +571,10 @@ export default function ProjetoKanban({ projeto, onBack }) {
           tarefa={editandoTarefa}
           onClose={() => setEditandoTarefa(null)}
           onSave={(f) => atualizar.mutate({ id: editandoTarefa.id, data: f })}
+          onDelete={(id) => {
+            deletar.mutate(id);
+            setEditandoTarefa(null);
+          }}
           clienteId={projeto.cliente_id}
           projetoId={projeto.id}
           squadMembros={squadMembros}

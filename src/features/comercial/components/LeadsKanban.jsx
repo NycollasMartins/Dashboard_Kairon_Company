@@ -8,6 +8,7 @@ import { usersApi } from '@/features/administrativo/api/users.api';
 import { queryKeys } from '@/entities/query-keys';
 import LeadCard from './LeadCard';
 import LeadDetalheModal from './LeadDetalheModal';
+import ConverterLeadModal from './ConverterLeadModal';
 
 const columns = [
   { id: 'pendente',        label: 'Pendente',         color: 'text-slate-300',   dot: 'bg-slate-400',   border: 'border-slate-500/20',   empty: 'Sem leads pendentes' },
@@ -22,6 +23,7 @@ export default function LeadsKanban() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [leadAberto, setLeadAberto] = useState(null);
+  const [leadParaConverter, setLeadParaConverter] = useState(null);
 
   const { data: leads = [], isLoading } = useQuery({
     queryKey: queryKeys.leads.all,
@@ -64,6 +66,41 @@ export default function LeadsKanban() {
         setLeadAberto(null);
         toast({ title: 'Lead atualizado.' });
       }
+    },
+  });
+
+  const marcarPerdido = useMutation({
+    mutationFn: (id) => leadsApi.update(id, { status: 'perdido' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.leads.all });
+      setLeadAberto(null);
+      toast({ title: 'Lead marcado como perdido.' });
+    },
+    onError: (err) => {
+      toast({
+        variant: 'destructive',
+        title: 'Não foi possível marcar como perdido',
+        description: err?.message ?? 'Tente novamente em instantes.',
+      });
+    },
+  });
+
+  const converter = useMutation({
+    mutationFn: ({ leadId, extras }) => leadsApi.convertToCliente(leadId, extras),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.leads.all });
+      qc.invalidateQueries({ queryKey: queryKeys.clientes.all });
+      qc.invalidateQueries({ queryKey: queryKeys.projetos.all });
+      setLeadParaConverter(null);
+      setLeadAberto(null);
+      toast({ title: 'Cliente criado a partir do lead.' });
+    },
+    onError: (err) => {
+      toast({
+        variant: 'destructive',
+        title: 'Não foi possível converter o lead',
+        description: err?.message ?? 'Tente novamente em instantes.',
+      });
     },
   });
 
@@ -120,7 +157,9 @@ export default function LeadsKanban() {
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {columns.map((col) => {
-            const colLeads = leads.filter((l) => l.status === col.id);
+            const colLeads = leads.filter(
+              (l) => l.status === col.id && !l.cliente_id && l.status !== 'perdido'
+            );
             return (
               <div key={col.id} className={`glass-card rounded-2xl border ${col.border} p-3.5 flex flex-col min-h-[300px]`}>
                 <div className="flex items-center justify-between mb-3.5 px-0.5">
@@ -163,9 +202,23 @@ export default function LeadsKanban() {
           isAdmin={isAdmin}
           currentUser={user}
           isSubmitting={atualizar.isPending}
+          isMarcandoPerdido={marcarPerdido.isPending}
           onClose={() => setLeadAberto(null)}
           onSave={(data) => atualizar.mutate({ id: leadAberto.id, data })}
           onDelete={(id) => deletar.mutate(id)}
+          onMarcarPerdido={(id) => marcarPerdido.mutate(id)}
+          onConverter={(lead) => setLeadParaConverter(lead)}
+        />
+      )}
+
+      {leadParaConverter && (
+        <ConverterLeadModal
+          lead={leadParaConverter}
+          isSubmitting={converter.isPending}
+          onClose={() => setLeadParaConverter(null)}
+          onConfirm={(extras) =>
+            converter.mutate({ leadId: leadParaConverter.id, extras })
+          }
         />
       )}
     </>

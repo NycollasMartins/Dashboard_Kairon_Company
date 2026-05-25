@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   X, Mail, Phone, Building2, Sparkles, Target, User, Trash2, Loader2, Check,
+  UserPlus, XCircle, CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +15,7 @@ const statusOptions = [
   { value: 'em_atendimento', label: 'Em Atendimento', dot: 'bg-blue-400', color: 'text-blue-300' },
   { value: 'follow_up', label: 'Follow Up', dot: 'bg-yellow-400', color: 'text-yellow-300' },
   { value: 'reuniao_marcada', label: 'Reunião Marcada', dot: 'bg-emerald-400', color: 'text-emerald-300' },
+  { value: 'perdido', label: 'Perdido', dot: 'bg-red-400', color: 'text-red-300' },
 ];
 
 function FieldLabel({ icon: Icon, children }) {
@@ -43,9 +45,12 @@ export default function LeadDetalheModal({
   isAdmin = false,
   currentUser = null,
   isSubmitting = false,
+  isMarcandoPerdido = false,
   onClose,
   onSave,
   onDelete,
+  onMarcarPerdido,
+  onConverter,
 }) {
   const [form, setForm] = useState({
     status: lead.status,
@@ -59,6 +64,11 @@ export default function LeadDetalheModal({
     currentUser?.role === 'closer' ||
     ((currentUser?.role === 'sdr' || currentUser?.role === 'bdr') &&
       (lead.status === 'pendente' || lead.responsavel_id === currentUser.id));
+
+  const isAdminOrHead = currentUser?.role === 'admin' || currentUser?.role === 'head';
+  const jaConvertido = Boolean(lead.cliente_id);
+  const canDecide =
+    isAdminOrHead && lead.status === 'reuniao_marcada' && !jaConvertido;
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -102,6 +112,12 @@ export default function LeadDetalheModal({
               <p className="text-[11px] text-muted-foreground truncate">
                 {lead.empresa || 'Sem empresa informada'}
               </p>
+              {jaConvertido && (
+                <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 rounded-md px-1.5 py-0.5">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Convertido em Cliente{lead.cliente?.nome ? `: ${lead.cliente.nome}` : ''}
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -209,6 +225,50 @@ export default function LeadDetalheModal({
             <p className="text-[11px] text-muted-foreground/80 bg-white/[0.03] border border-white/5 rounded-lg px-3 py-2">
               Você só pode editar leads pendentes ou nos quais já é responsavel.
             </p>
+          )}
+
+          {canDecide && (
+            <div className="pt-2 mt-2 border-t border-white/5">
+              <FieldLabel>Decisão (admin/head)</FieldLabel>
+              <p className="text-[11px] text-muted-foreground/80 mb-2.5">
+                Após a reunião, decida o desfecho deste lead.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isMarcandoPerdido || isSubmitting}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        'Marcar este lead como Perdido? Ele sairá do kanban.'
+                      )
+                    ) {
+                      onMarcarPerdido?.(lead.id);
+                    }
+                  }}
+                  className="border-red-500/30 bg-transparent text-red-300 hover:bg-red-500/10 hover:text-red-200 h-10"
+                >
+                  {isMarcandoPerdido ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Marcando...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4 mr-1.5" /> Marcar como Perdido
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => onConverter?.(lead)}
+                  className="bg-emerald-500 hover:bg-emerald-600 border-0 text-white h-10"
+                >
+                  <UserPlus className="w-4 h-4 mr-1.5" /> Converter em Cliente
+                </Button>
+              </div>
+            </div>
           )}
         </div>
 

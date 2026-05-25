@@ -7,9 +7,11 @@ function unwrap({ data, error }) {
   return data;
 }
 
-const LIST_SELECT = '*, responsavel:profiles(id,full_name,email), squads(id,nome)';
-const DETAIL_SELECT =
-  '*, responsavel:profiles(id,full_name,email), squads(id,nome,squad_membros(profile_id,profiles(id,email,full_name,role)))';
+const CONTRATO_EMBED =
+  'contratos(id,tipo,valor,duracao_meses,data_inicio,data_fim,status,renovacao_de,data_cancelamento,motivo_cancelamento,entregaveis,notas,created_at,updated_at)';
+
+const LIST_SELECT = `*, responsavel:profiles(id,full_name,email), squads(id,nome), ${CONTRATO_EMBED}`;
+const DETAIL_SELECT = `*, responsavel:profiles(id,full_name,email), squads(id,nome,squad_membros(profile_id,profiles(id,email,full_name,role))), ${CONTRATO_EMBED}`;
 
 export const clientesApi = {
   list: () =>

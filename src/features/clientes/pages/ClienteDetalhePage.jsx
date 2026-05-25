@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowLeft, Edit2, Archive, Mail, FileText, Users,
+  ArrowLeft, Edit2, Archive, Mail, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import ConfirmArchiveDialog from '@/shared/ui/ConfirmArchiveDialog';
 import ClienteForm from '@/features/clientes/components/ClienteForm';
+import ContratosSection from '@/features/clientes/components/ContratosSection';
 import ProjetosLista from '@/features/projetos/components/ProjetosLista';
 import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { queryKeys } from '@/entities/query-keys';
@@ -26,28 +27,6 @@ function formatMesAno(iso) {
   } catch {
     return '—';
   }
-}
-
-function TabContrato({ sectionIndex = 3 }) {
-  const sectionNumber = String(sectionIndex).padStart(2, '0');
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <span className="w-0.5 h-5 rounded-full bg-[#EA3935]" />
-          <span className="text-xs font-mono text-muted-foreground tracking-wider">{sectionNumber}</span>
-        </div>
-        <h2 className="text-lg font-semibold text-white">Contrato do Cliente</h2>
-      </div>
-      <div className="glass-card rounded-2xl border border-white/5 p-10 flex flex-col items-center justify-center gap-3">
-        <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center">
-          <FileText className="w-7 h-7 text-muted-foreground" />
-        </div>
-        <p className="text-sm font-medium text-white">Nenhum contrato cadastrado</p>
-        <p className="text-xs text-muted-foreground text-center">As informações de contrato deste cliente aparecerão aqui.</p>
-      </div>
-    </div>
-  );
 }
 
 export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) {
@@ -240,7 +219,7 @@ export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) 
 
       <div className="space-y-10">
         <ProjetosLista clienteId={clienteId} sectionIndex={1} onVerProjeto={onVerProjeto} />
-        <TabContrato sectionIndex={2} />
+        <ContratosSection clienteId={clienteId} contratos={cliente.contratos} sectionIndex={2} />
       </div>
 
       {showEdit && (
