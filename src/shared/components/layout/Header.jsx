@@ -1,34 +1,21 @@
-import { useLocation } from 'react-router-dom';
 import { Bell, Search, Menu } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
-
-const routeLabels = {
-  '/': 'Visão Geral',
-  '/administrativo': 'Administrativo',
-  '/clientes': 'Clientes',
-  '/tarefas': 'Minhas Tarefas',
-  '/squads': 'Squads',
-};
+import Breadcrumbs from '@/shared/components/layout/Breadcrumbs';
 
 export default function Header({ onMenuClick }) {
   const { user } = useAuth();
-  const { pathname } = useLocation();
   const initials = user?.full_name?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
-  const pageTitle = routeLabels[pathname] || 'Dashboard';
 
   return (
     <header className="glass-card border-b border-white/5 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 min-w-0">
         <button
           onClick={onMenuClick}
-          className="md:hidden text-muted-foreground hover:text-white transition-colors"
+          className="md:hidden text-muted-foreground hover:text-white transition-colors shrink-0"
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div>
-          <h1 className="text-lg font-semibold text-white">{pageTitle}</h1>
-          <p className="text-xs text-muted-foreground hidden sm:block">Marketing Operations Dashboard</p>
-        </div>
+        <Breadcrumbs />
       </div>
 
       <div className="flex items-center gap-3">

@@ -30,6 +30,14 @@ export const projetosApi = {
       .order('created_at', { ascending: false })
       .then(unwrap),
 
+  get: (id) =>
+    supabase
+      .from(TABLE)
+      .select('*')
+      .eq('id', id)
+      .single()
+      .then(unwrap),
+
   create: (data) =>
     supabase
       .from(TABLE)

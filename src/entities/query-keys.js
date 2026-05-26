@@ -11,6 +11,7 @@ export const queryKeys = {
   projetos: {
     all: ['projetos'],
     byCliente: (clienteId) => ['projetos', 'cliente', clienteId],
+    detail: (id) => ['projetos', id],
   },
   squads: {
     all: ['squads'],
