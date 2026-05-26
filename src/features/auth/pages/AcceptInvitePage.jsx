@@ -2,14 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/infrastructure/supabase/client';
-import { useAuth } from '@/features/auth/context/AuthContext';
 
 const BRAND_FROM = '#EA3935';
 const BRAND_TO = '#C12D29';
 
 export default function AcceptInvitePage() {
   const navigate = useNavigate();
-  const { checkUserAuth } = useAuth();
   const isMountedRef = useRef(true);
 
   const [checkingSession, setCheckingSession] = useState(true);
@@ -84,15 +82,17 @@ export default function AcceptInvitePage() {
         window.history.replaceState(null, '', window.location.pathname);
       }
 
-      // Atualiza o AuthContext em background — não bloqueia o redirect.
-      checkUserAuth().catch(() => {});
+      // O AuthContext já reage ao USER_UPDATED via onAuthStateChange —
+      // chamar checkUserAuth() aqui dispararia isLoadingAuth=true, o que
+      // desmonta esta página e cancela o redirect agendado.
 
       setSuccess(true);
 
       // Navegação hard garante saída limpa da página de aceite,
       // mesmo que o React Router se confunda com o hash residual.
+      // Sem guard de isMountedRef: queremos navegar mesmo se a página
+      // for desmontada por alguma mudança de auth state.
       setTimeout(() => {
-        if (!isMountedRef.current) return;
         window.location.assign('/');
       }, 800);
     } catch (err) {
