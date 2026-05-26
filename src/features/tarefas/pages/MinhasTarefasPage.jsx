@@ -150,7 +150,7 @@ function FieldLabel({ icon: Icon, children, required }) {
 function TarefaForm({ onClose, onSave, onDelete = null, clientes, responsaveis = [], responsavelId, isSubmitting, tarefa = null }) {
   const isEdit = !!tarefa;
   const { user } = useAuth();
-  const podeUsarOnboarding = user?.role === 'admin' || user?.role === 'head';
+  const podeUsarOnboarding = user?.role === 'admin' || user?.role === 'head' || user?.role === 'cs';
   const projetoEscolhidoManualmenteRef = useRef(isEdit);
   const [form, setForm] = useState({
     titulo: tarefa?.titulo ?? '',
@@ -695,14 +695,14 @@ function applySort(list, sort) {
   }
 }
 
-const TAREFAS_ROLES = ['admin', 'social media', 'editor', 'head'];
+const TAREFAS_ROLES = ['admin', 'social media', 'editor', 'designer', 'head', 'cs'];
 
 export default function MinhasTarefasPage() {
   const { user } = useAuth();
   if (!TAREFAS_ROLES.includes(user?.role)) {
     return (
       <RestrictedAccessCard
-        description="Apenas usuários com perfil admin, head, social media ou editor podem acessar Tarefas."
+        description="Apenas usuários com perfil admin, head, cs, social media, editor ou designer podem acessar Tarefas."
       />
     );
   }
@@ -716,7 +716,7 @@ function MinhasTarefasPageContent() {
   const { user } = useAuth();
   const qc = useQueryClient();
 
-  const isEditor = user?.role === 'editor';
+  const isEditor = user?.role === 'editor' || user?.role === 'designer';
   const isOwnOnly = isEditor || user?.role === 'social media';
 
   const [busca, setBusca] = useState('');

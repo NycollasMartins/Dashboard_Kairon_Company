@@ -34,7 +34,7 @@ export default function ContratosSection({ clienteId, contratos, sectionIndex = 
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const canManage = user?.role === 'admin' || user?.role === 'head';
+  const canManage = user?.role === 'admin' || user?.role === 'head' || user?.role === 'cs';
 
   const [modalCriar, setModalCriar] = useState(false);
   const [modalRenovar, setModalRenovar] = useState(false);

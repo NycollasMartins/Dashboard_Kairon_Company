@@ -15,10 +15,11 @@ export default function DashboardLayout() {
   const role = user?.role;
   const isAdmin = role === 'admin';
   const isHead = role === 'head';
-  const podeVerTarefas = ['admin', 'social media', 'editor', 'head'].includes(role);
-  const podeUsarClientesSquads = ['admin', 'social media', 'head'].includes(role);
-  const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr', 'head'].includes(role);
-  const podeUsarSquads = isAdmin || isHead;
+  const isCs = role === 'cs';
+  const podeVerTarefas = ['admin', 'social media', 'editor', 'designer', 'head', 'cs'].includes(role);
+  const podeUsarClientesSquads = ['admin', 'social media', 'head', 'cs'].includes(role);
+  const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr'].includes(role);
+  const podeUsarSquads = isAdmin || isHead || isCs;
 
   return (
     <div className="min-h-screen bg-background font-inter">

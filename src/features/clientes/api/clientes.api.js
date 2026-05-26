@@ -34,4 +34,11 @@ export const clientesApi = {
       .select(LIST_SELECT)
       .single()
       .then(unwrap),
+
+  remove: async (id) => {
+    const { error } = await supabase.rpc('apagar_cliente_completo', {
+      p_cliente_id: id,
+    });
+    if (error) throw error;
+  },
 };

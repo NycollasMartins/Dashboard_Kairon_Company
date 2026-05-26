@@ -60,15 +60,13 @@ export default function LeadDetalheModal({
 
   const canEdit =
     currentUser?.role === 'admin' ||
-    currentUser?.role === 'head' ||
     currentUser?.role === 'closer' ||
     ((currentUser?.role === 'sdr' || currentUser?.role === 'bdr') &&
       (lead.status === 'pendente' || lead.responsavel_id === currentUser.id));
 
-  const isAdminOrHead = currentUser?.role === 'admin' || currentUser?.role === 'head';
   const jaConvertido = Boolean(lead.cliente_id);
   const canDecide =
-    isAdminOrHead && lead.status === 'reuniao_marcada' && !jaConvertido;
+    isAdmin && lead.status === 'reuniao_marcada' && !jaConvertido;
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -230,7 +228,7 @@ export default function LeadDetalheModal({
 
           {canDecide && (
             <div className="pt-2 mt-2 border-t border-white/5">
-              <FieldLabel>Decisão (admin/head)</FieldLabel>
+              <FieldLabel>Decisão (admin)</FieldLabel>
               <p className="text-[11px] text-muted-foreground/80 mb-2.5">
                 Após a reunião, decida o desfecho deste lead.
               </p>

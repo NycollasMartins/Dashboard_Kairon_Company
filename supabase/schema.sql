@@ -1235,6 +1235,34 @@ CREATE TRIGGER clientes_block_churn_if_active_contract
   FOR EACH ROW EXECUTE FUNCTION public.clientes_block_churn_if_active_contract();
 
 -- ------------------------------------------------------------------
+-- Carimba clientes.churned_at quando status muda para 'churn'.
+-- Reseta para NULL quando o cliente volta para 'ativo'.
+-- Habilita calculo de churn mensal sem depender de proxies de contrato.
+-- ------------------------------------------------------------------
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS churned_at timestamptz;
+
+CREATE INDEX IF NOT EXISTS idx_clientes_churned_at
+  ON public.clientes (churned_at)
+  WHERE churned_at IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION public.clientes_stamp_churned_at()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.status = 'churn' AND OLD.status IS DISTINCT FROM 'churn' THEN
+    NEW.churned_at := now();
+  ELSIF NEW.status = 'ativo' AND OLD.status = 'churn' THEN
+    NEW.churned_at := NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS clientes_stamp_churned_at ON public.clientes;
+CREATE TRIGGER clientes_stamp_churned_at
+  BEFORE UPDATE ON public.clientes
+  FOR EACH ROW EXECUTE FUNCTION public.clientes_stamp_churned_at();
+
+-- ------------------------------------------------------------------
 -- RPC: criar contrato (admin/head)
 -- ------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.criar_contrato(
@@ -1414,6 +1442,58 @@ $$;
 
 REVOKE ALL  ON FUNCTION public.cancelar_contrato(uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.cancelar_contrato(uuid, text) TO authenticated;
+
+-- ==================================================================
+-- RPC: apagar cliente completo (admin/head)
+--
+-- Remove o cliente e TUDO que aponta para ele (contratos, projetos,
+-- tarefas e leads vinculados) em uma unica transacao. Nada referente
+-- ao cliente permanece no banco apos a execucao.
+--
+-- Necessario porque contratos.cliente_id e ON DELETE RESTRICT — um
+-- DELETE direto em clientes falha sempre que existir qualquer
+-- contrato (ativo, expirado, cancelado ou renovado).
+-- ==================================================================
+CREATE OR REPLACE FUNCTION public.apagar_cliente_completo(p_cliente_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, private
+AS $$
+BEGIN
+  IF NOT private.is_admin_or_head() THEN
+    RAISE EXCEPTION 'Apenas admin ou head podem excluir clientes.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.clientes WHERE id = p_cliente_id) THEN
+    RAISE EXCEPTION 'Cliente % nao encontrado.', p_cliente_id
+      USING ERRCODE = 'P0002';
+  END IF;
+
+  -- 1) Tarefas: tudo que aponta para o cliente OU para algum projeto dele.
+  DELETE FROM public.tarefas
+   WHERE cliente_id = p_cliente_id
+      OR projeto_id IN (
+        SELECT id FROM public.projetos WHERE cliente_id = p_cliente_id
+      );
+
+  -- 2) Projetos do cliente.
+  DELETE FROM public.projetos WHERE cliente_id = p_cliente_id;
+
+  -- 3) Contratos (FK RESTRICT obriga deletar antes do cliente).
+  DELETE FROM public.contratos WHERE cliente_id = p_cliente_id;
+
+  -- 4) Leads vinculados (apagados junto, sem preservar historico).
+  DELETE FROM public.leads WHERE cliente_id = p_cliente_id;
+
+  -- 5) Cliente.
+  DELETE FROM public.clientes WHERE id = p_cliente_id;
+END;
+$$;
+
+REVOKE ALL  ON FUNCTION public.apagar_cliente_completo(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.apagar_cliente_completo(uuid) TO authenticated;
 
 -- ==================================================================
 -- PROMOTE FIRST ADMIN

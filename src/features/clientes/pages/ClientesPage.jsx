@@ -9,12 +9,12 @@ import {
   Phone,
   Mail,
   Building2,
-  ChevronRight,
-  Users as UsersIcon,
   UserCheck,
+  UserPlus,
   Filter,
   ArrowUpRight,
   ArrowUpDown,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,7 +30,7 @@ const statusConfig = {
   churn: { label: 'Churn', color: 'text-slate-300', bg: 'bg-slate-500/10 border-slate-500/20', dot: 'bg-slate-400' },
 };
 
-function StatCard({ icon: Icon, label, value, trend, trendLabel, accent = 'text-[#EA3935]', bgAccent = 'bg-[#EA3935]/10' }) {
+function StatCard({ icon: Icon, label, value, trend = null, trendLabel = null, accent = 'text-[#EA3935]', bgAccent = 'bg-[#EA3935]/10' }) {
   return (
     <div className="glass-card rounded-2xl border border-white/5 p-5 hover:border-white/10 transition-colors">
       <div className="flex items-start justify-between mb-4">
@@ -58,6 +58,7 @@ export default function ClientesPage({ onVerCliente }) {
   const [showForm, setShowForm] = useState(false);
   const [editando, setEditando] = useState(null);
   const [arquivando, setArquivando] = useState(null);
+  const [excluindo, setExcluindo] = useState(null);
   const [filtroStatus, setFiltroStatus] = useState('ativos');
   const [ordenacao, setOrdenacao] = useState('nome-asc');
   const { toast } = useToast();
@@ -108,16 +109,48 @@ export default function ClientesPage({ onVerCliente }) {
     },
   });
 
+  const excluir = useMutation({
+    mutationFn: clientesApi.remove,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.clientes.all });
+      qc.invalidateQueries({ queryKey: queryKeys.tarefas.all });
+      qc.invalidateQueries({ queryKey: queryKeys.projetos.all });
+      qc.invalidateQueries({ queryKey: queryKeys.contratos.all });
+      qc.invalidateQueries({ queryKey: queryKeys.leads.all });
+      setExcluindo(null);
+      toast({ title: 'Cliente excluído permanentemente.' });
+    },
+    onError: (err) => {
+      toast({
+        variant: 'destructive',
+        title: 'Não foi possível excluir o cliente',
+        description: err?.message ?? 'Tente novamente em instantes.',
+      });
+    },
+  });
+
   const handleSave = (form) => {
     if (editando) atualizar.mutate({ id: editando.id, data: form });
     else criar.mutate(form);
   };
 
   const stats = useMemo(() => {
-    const total = clientes.length;
     const ativos = clientes.filter((c) => c.status === 'ativo').length;
-    const churns = clientes.filter((c) => c.status === 'churn').length;
-    return { total, ativos, churns };
+    const agora = new Date();
+    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+    const inicioProximoMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 1);
+    const dentroDoMes = (iso) => {
+      if (!iso) return false;
+      const d = new Date(iso);
+      return d >= inicioMes && d < inicioProximoMes;
+    };
+    const ativosNoMes = clientes.filter(
+      (c) => c.status === 'ativo' && dentroDoMes(c.created_at),
+    ).length;
+    const churnsMes = clientes.filter(
+      (c) => c.status === 'churn' && dentroDoMes(c.churned_at),
+    ).length;
+    return { ativos, ativosNoMes, churnsMes };
   }, [clientes]);
 
   const filtered = clientes
@@ -164,25 +197,23 @@ export default function ClientesPage({ onVerCliente }) {
     <div className="space-y-6 animate-fade-in">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
-          icon={UsersIcon}
-          label="Total de clientes"
-          value={stats.total}
-          trend={stats.total > 0 ? `${Math.round((stats.ativos / Math.max(stats.total, 1)) * 100)}%` : null}
-          trendLabel="ativos"
-          accent="text-[#EA3935]"
-          bgAccent="bg-[#EA3935]/10"
-        />
-        <StatCard
           icon={UserCheck}
-          label="Clientes ativos"
+          label="Total de clientes ativos"
           value={stats.ativos}
           accent="text-emerald-300"
           bgAccent="bg-emerald-500/10"
         />
         <StatCard
+          icon={UserPlus}
+          label="Clientes ativos no mês"
+          value={stats.ativosNoMes}
+          accent="text-[#EA3935]"
+          bgAccent="bg-[#EA3935]/10"
+        />
+        <StatCard
           icon={Archive}
-          label="Clientes em churn"
-          value={stats.churns}
+          label="Churns no mês"
+          value={stats.churnsMes}
           accent="text-slate-300"
           bgAccent="bg-slate-500/10"
         />
@@ -237,9 +268,8 @@ export default function ClientesPage({ onVerCliente }) {
               </SelectTrigger>
               <SelectContent className="bg-[#1a1a2e] border-white/10">
                 <SelectItem value="ativos">Ativos</SelectItem>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="ativo">Ativo</SelectItem>
                 <SelectItem value="churn">Churn</SelectItem>
+                <SelectItem value="todos">Todos</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -367,7 +397,15 @@ export default function ClientesPage({ onVerCliente }) {
                             <Archive className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-white group-hover:translate-x-0.5 transition-all ml-1" />
+                        {c.status === 'churn' && (
+                          <button
+                            onClick={() => setExcluindo(c)}
+                            title="Excluir cliente permanentemente"
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-300 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -394,6 +432,20 @@ export default function ClientesPage({ onVerCliente }) {
           onConfirm={() => arquivar.mutate(arquivando.id)}
           onCancel={() => setArquivando(null)}
           isLoading={arquivar.isPending}
+        />
+      )}
+
+      {excluindo && (
+        <ConfirmArchiveDialog
+          title={`Excluir ${excluindo.nome} permanentemente?`}
+          description="Esta ação é irreversível. O cliente, seus contratos, tarefas e todo o histórico associado serão apagados em definitivo."
+          confirmLabel="Excluir definitivamente"
+          loadingLabel="Excluindo..."
+          ConfirmIcon={Trash2}
+          tone="danger"
+          onConfirm={() => excluir.mutate(excluindo.id)}
+          onCancel={() => setExcluindo(null)}
+          isLoading={excluir.isPending}
         />
       )}
     </div>

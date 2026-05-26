@@ -11,7 +11,7 @@ import LeadNovoModal from '../components/LeadNovoModal';
 
 export default function ComercialPage() {
   const { user } = useAuth();
-  const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr', 'head'].includes(user?.role);
+  const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr'].includes(user?.role);
   const { toast } = useToast();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);

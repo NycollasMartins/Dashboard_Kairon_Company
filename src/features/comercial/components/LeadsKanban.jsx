@@ -19,7 +19,7 @@ const columns = [
 
 export default function LeadsKanban() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'head';
+  const isAdmin = user?.role === 'admin';
   const { toast } = useToast();
   const qc = useQueryClient();
   const [leadAberto, setLeadAberto] = useState(null);
