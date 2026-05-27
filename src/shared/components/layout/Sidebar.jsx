@@ -21,8 +21,8 @@ const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsar
     ? [{
         label: 'Operacional', icon: Briefcase,
         children: [
-          ...(podeUsarClientesSquads ? [{ to: '/clientes', label: 'Clientes', icon: Users }] : []),
           { to: '/tarefas', label: 'Tarefas', icon: CheckSquare },
+          ...(podeUsarClientesSquads ? [{ to: '/clientes', label: 'Clientes', icon: Users }] : []),
           ...(podeUsarSquads ? [{ to: '/squads', label: 'Squads', icon: Layers }] : []),
         ],
       }]
@@ -31,7 +31,7 @@ const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsar
     ? [{
         label: 'Gestão', icon: Settings,
         children: [
-          { to: '/administrativo', label: 'Administrativo', icon: Shield },
+          { to: '/administrativo', label: 'Membros', icon: Shield },
         ],
       }]
     : []),

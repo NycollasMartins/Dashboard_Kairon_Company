@@ -40,7 +40,10 @@ function buildCrumbs(pathname) {
   if (pathname === '/' || pathname === '') return [];
 
   if (pathname === '/administrativo') {
-    return [{ key: 'administrativo', label: 'Administrativo' }];
+    return [
+      { key: 'gestao', label: 'Gestão' },
+      { key: 'membros', label: 'Membros' },
+    ];
   }
 
   if (pathname === '/comercial') {

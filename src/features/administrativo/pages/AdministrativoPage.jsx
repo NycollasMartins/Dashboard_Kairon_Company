@@ -201,7 +201,7 @@ function AdministrativoPageContent() {
         </div>
 
         <div className="px-6 mt-4">
-          <h1 className="text-[1.7rem] font-bold text-white tracking-tight">Administrativo</h1>
+          <h1 className="text-[1.7rem] font-bold text-white tracking-tight">Membros</h1>
           <p className="text-sm text-muted-foreground mt-2">
             Controle de níveis de acesso, convites e gestão de usuários do sistema.
           </p>

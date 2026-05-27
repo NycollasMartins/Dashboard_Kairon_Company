@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { TrendingUp, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -9,38 +9,12 @@ import { queryKeys } from '@/entities/query-keys';
 import LeadsKanban from '../components/LeadsKanban';
 import LeadNovoModal from '../components/LeadNovoModal';
 
-function LeadStat({ label, value, total = null, accent = 'text-white', dotColor = null }) {
-  const pct = total > 0 ? Math.round((value / total) * 100) : null;
-  return (
-    <div className="flex flex-col gap-1.5 min-w-0">
-      <div className="flex items-center gap-1.5">
-        {dotColor && <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />}
-        <span className="text-[10px] uppercase tracking-wider text-white/55 truncate">{label}</span>
-        {pct != null && (
-          <span className="text-[10px] font-medium text-white/70 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">
-            {pct}%
-          </span>
-        )}
-      </div>
-      <span className={`text-2xl sm:text-3xl font-semibold tracking-tight ${accent}`}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
 export default function ComercialPage() {
   const { user } = useAuth();
   const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr'].includes(user?.role);
   const { toast } = useToast();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-
-  const { data: leads = [] } = useQuery({
-    queryKey: queryKeys.leads.all,
-    queryFn: leadsApi.list,
-    enabled: podeUsarCrm,
-  });
 
   const criar = useMutation({
     mutationFn: leadsApi.create,
@@ -73,14 +47,6 @@ export default function ComercialPage() {
       </div>
     );
   }
-
-  const totals = leads.reduce(
-    (acc, l) => {
-      acc[l.status] = (acc[l.status] || 0) + 1;
-      return acc;
-    },
-    {}
-  );
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -117,38 +83,6 @@ export default function ComercialPage() {
         >
           <Plus className="w-4 h-4 mr-1.5" /> Novo Lead
         </Button>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 sm:gap-6 glass-card rounded-2xl border border-white/10 p-5 sm:p-6">
-        <LeadStat label="No funil" value={leads.length} />
-        <LeadStat
-          label="Pendentes"
-          value={totals.pendente || 0}
-          total={leads.length}
-          accent="text-slate-200"
-          dotColor="bg-slate-400"
-        />
-        <LeadStat
-          label="Em atendimento"
-          value={totals.em_atendimento || 0}
-          total={leads.length}
-          accent="text-blue-200"
-          dotColor="bg-blue-400"
-        />
-        <LeadStat
-          label="Follow up"
-          value={totals.follow_up || 0}
-          total={leads.length}
-          accent="text-amber-200"
-          dotColor="bg-amber-400"
-        />
-        <LeadStat
-          label="Reunião"
-          value={totals.reuniao_marcada || 0}
-          total={leads.length}
-          accent="text-emerald-200"
-          dotColor="bg-emerald-400"
-        />
       </div>
 
       <LeadsKanban />
