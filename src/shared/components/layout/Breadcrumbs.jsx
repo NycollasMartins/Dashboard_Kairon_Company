@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Home, ChevronRight } from 'lucide-react';
 import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { projetosApi } from '@/features/projetos/api/projetos.api';
+import { squadsApi } from '@/features/squads/api/squads.api';
 import { queryKeys } from '@/entities/query-keys';
 
 function ClienteCrumbLabel({ id }) {
@@ -23,6 +24,16 @@ function ProjetoCrumbLabel({ id }) {
     staleTime: 60_000,
   });
   return <span className="truncate max-w-[180px]">{data?.nome ?? 'Projeto'}</span>;
+}
+
+function SquadCrumbLabel({ id }) {
+  const { data } = useQuery({
+    queryKey: queryKeys.squads.detail(id),
+    queryFn: () => squadsApi.get(id),
+    enabled: !!id,
+    staleTime: 60_000,
+  });
+  return <span className="truncate max-w-[180px]">{data?.nome ?? 'Squad'}</span>;
 }
 
 function buildCrumbs(pathname) {
@@ -50,6 +61,16 @@ function buildCrumbs(pathname) {
     return [
       { key: 'operacional', label: 'Operacional' },
       { key: 'squads', label: 'Squads' },
+    ];
+  }
+
+  const squadMatch = pathname.match(/^\/squads\/([^/]+)$/);
+  if (squadMatch) {
+    const [, squadId] = squadMatch;
+    return [
+      { key: 'operacional', label: 'Operacional' },
+      { key: 'squads', label: 'Squads', to: '/squads' },
+      { key: `squad-${squadId}`, label: <SquadCrumbLabel id={squadId} /> },
     ];
   }
 

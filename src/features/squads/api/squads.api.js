@@ -15,6 +15,14 @@ export const squadsApi = {
       .order('created_at', { ascending: false })
       .then(unwrap),
 
+  get: (id) =>
+    supabase
+      .from(TABLE)
+      .select('*, squad_membros(profile_id, profiles(id, email, full_name, role))')
+      .eq('id', id)
+      .single()
+      .then(unwrap),
+
   create: (data) =>
     supabase.from(TABLE).insert(data).select().single().then(unwrap),
 

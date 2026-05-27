@@ -11,7 +11,7 @@ import VisaoGeralPage from '@/features/dashboard/pages/VisaoGeralPage';
 import AdministrativoPage from '@/features/administrativo/pages/AdministrativoPage';
 import ClientesPageWrapper from '@/features/clientes/pages/ClientesPageWrapper';
 import MinhasTarefasPage from '@/features/tarefas/pages/MinhasTarefasPage';
-import SquadsPage from '@/features/squads/pages/SquadsPage';
+import SquadsPageWrapper from '@/features/squads/pages/SquadsPageWrapper';
 import ComercialPage from '@/features/comercial/pages/ComercialPage';
 import PageNotFound from '@/shared/components/PageNotFound';
 
@@ -39,7 +39,7 @@ function AppContent() {
           <Route path="administrativo" element={<AdministrativoPage />} />
           <Route path="clientes/*" element={<ClientesPageWrapper />} />
           <Route path="tarefas" element={<MinhasTarefasPage />} />
-          <Route path="squads" element={<SquadsPage />} />
+          <Route path="squads/*" element={<SquadsPageWrapper />} />
           <Route path="comercial" element={<ComercialPage />} />
         </Route>
       </Route>

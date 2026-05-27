@@ -15,6 +15,7 @@ export const queryKeys = {
   },
   squads: {
     all: ['squads'],
+    detail: (id) => ['squads', id],
   },
   usuarios: {
     all: ['usuarios'],
