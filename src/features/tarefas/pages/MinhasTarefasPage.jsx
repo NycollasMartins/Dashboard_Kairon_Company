@@ -22,6 +22,7 @@ import {
   ArrowUpDown,
   Users,
   ChevronDown,
+  ChevronRight,
   AlertTriangle,
   CheckCircle2,
   Filter,
@@ -99,6 +100,30 @@ const loadStoredFilters = (userId) => {
 };
 
 const todayStr = () => new Date().toISOString().split('T')[0];
+
+const dataConclusaoKey = (tarefa) => {
+  const raw = tarefa.updated_at || tarefa.created_at;
+  if (!raw) return 'sem-data';
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return 'sem-data';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const formatarDataGrupo = (key) => {
+  if (key === 'sem-data') return 'Sem data';
+  const hoje = new Date();
+  const hojeKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+  if (key === hojeKey) return 'Hoje';
+  const ontem = new Date(hoje);
+  ontem.setDate(ontem.getDate() - 1);
+  const ontemKey = `${ontem.getFullYear()}-${String(ontem.getMonth() + 1).padStart(2, '0')}-${String(ontem.getDate()).padStart(2, '0')}`;
+  if (key === ontemKey) return 'Ontem';
+  const [y, m, d] = key.split('-');
+  const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const mesNome = meses[Number(m) - 1] || m;
+  const anoAtual = hoje.getFullYear();
+  return Number(y) === anoAtual ? `${Number(d)} de ${mesNome}` : `${Number(d)} de ${mesNome}, ${y}`;
+};
 
 const tagColorFor = (key) => {
   const palette = [
@@ -710,6 +735,68 @@ export default function MinhasTarefasPage() {
   return <MinhasTarefasPageContent />;
 }
 
+function ConcluidasAgrupadas({ tarefas, onOpen }) {
+  const grupos = useMemo(() => {
+    const map = new Map();
+    tarefas.forEach((t) => {
+      const key = dataConclusaoKey(t);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(t);
+    });
+    return Array.from(map.entries()).sort((a, b) => {
+      if (a[0] === 'sem-data') return 1;
+      if (b[0] === 'sem-data') return -1;
+      return b[0].localeCompare(a[0]);
+    });
+  }, [tarefas]);
+
+  const [expandidos, setExpandidos] = useState(() => new Set());
+  const toggle = (key) => {
+    setExpandidos((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  let indexGlobal = 0;
+  return (
+    <div className="space-y-1.5">
+      {grupos.map(([key, items]) => {
+        const isExpanded = expandidos.has(key);
+        return (
+          <div key={key}>
+            <button
+              type="button"
+              onClick={() => toggle(key)}
+              className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-[11px] text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
+              aria-expanded={isExpanded}
+            >
+              <span className="flex items-center gap-1.5">
+                <ChevronRight
+                  className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                />
+                <span className="font-medium">{formatarDataGrupo(key)}</span>
+              </span>
+              <span className="text-[10px] font-medium text-muted-foreground/60">{items.length}</span>
+            </button>
+            {isExpanded && (
+              <div className="mt-1">
+                {items.map((t) => {
+                  const card = <TarefaCard key={t.id} tarefa={t} index={indexGlobal} onOpen={onOpen} />;
+                  indexGlobal += 1;
+                  return card;
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function MinhasTarefasPageContent() {
   const [showForm, setShowForm] = useState(false);
   const [editandoTarefa, setEditandoTarefa] = useState(null);
@@ -1155,6 +1242,8 @@ function MinhasTarefasPageContent() {
                         <div className="h-full min-h-[80px] flex items-center justify-center text-[11px] text-muted-foreground/60 italic">
                           {col.id === 'concluida' ? 'Nada concluído ainda' : 'Vazio'}
                         </div>
+                      ) : col.id === 'concluida' ? (
+                        <ConcluidasAgrupadas tarefas={colTarefas} onOpen={setEditandoTarefa} />
                       ) : (
                         colTarefas.map((t, i) => (
                           <TarefaCard key={t.id} tarefa={t} index={i} onOpen={setEditandoTarefa} />
