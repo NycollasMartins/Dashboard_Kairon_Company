@@ -98,7 +98,7 @@ export default function Breadcrumbs() {
         className={`flex items-center justify-center w-7 h-7 rounded-md transition-colors shrink-0 ${
           isRoot
             ? 'bg-white/10 text-white'
-            : 'text-muted-foreground hover:text-white hover:bg-white/5'
+            : 'text-white/80 hover:text-white hover:bg-white/5'
         }`}
       >
         <Home className="w-3.5 h-3.5" />
@@ -108,7 +108,7 @@ export default function Breadcrumbs() {
         const isLast = i === crumbs.length - 1;
         return (
           <div key={crumb.key} className="flex items-center gap-1.5 min-w-0">
-            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+            <ChevronRight className="w-3.5 h-3.5 text-white/40 shrink-0" />
             {isLast ? (
               <span className="bg-white/10 text-white px-2 py-1 rounded-md font-medium truncate">
                 {crumb.label}
@@ -116,12 +116,12 @@ export default function Breadcrumbs() {
             ) : crumb.to ? (
               <Link
                 to={crumb.to}
-                className="text-muted-foreground hover:text-white px-2 py-1 rounded-md hover:bg-white/5 transition-colors truncate"
+                className="text-white/80 hover:text-white px-2 py-1 rounded-md hover:bg-white/5 transition-colors truncate"
               >
                 {crumb.label}
               </Link>
             ) : (
-              <span className="text-muted-foreground px-2 py-1 truncate">{crumb.label}</span>
+              <span className="text-white/80 px-2 py-1 truncate">{crumb.label}</span>
             )}
           </div>
         );

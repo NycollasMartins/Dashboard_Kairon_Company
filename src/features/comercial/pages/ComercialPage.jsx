@@ -9,6 +9,26 @@ import { queryKeys } from '@/entities/query-keys';
 import LeadsKanban from '../components/LeadsKanban';
 import LeadNovoModal from '../components/LeadNovoModal';
 
+function LeadStat({ label, value, total, accent = 'text-white', dotColor }) {
+  const pct = total > 0 ? Math.round((value / total) * 100) : null;
+  return (
+    <div className="flex flex-col gap-1.5 min-w-0">
+      <div className="flex items-center gap-1.5">
+        {dotColor && <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />}
+        <span className="text-[10px] uppercase tracking-wider text-white/55 truncate">{label}</span>
+        {pct != null && (
+          <span className="text-[10px] font-medium text-white/70 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">
+            {pct}%
+          </span>
+        )}
+      </div>
+      <span className={`text-2xl sm:text-3xl font-semibold tracking-tight ${accent}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
 export default function ComercialPage() {
   const { user } = useAuth();
   const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr'].includes(user?.role);
@@ -64,33 +84,56 @@ export default function ComercialPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/80 mb-1">
-            <Target className="w-3 h-3" />
-            <span>Comercial</span>
-            <span className="opacity-40">·</span>
-            <span>CRM</span>
+      <div className="rounded-2xl glass-card border border-white/10 px-5 sm:px-7 py-5 sm:py-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-5 sm:mb-6">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-[11px] text-white/70 mb-1.5">
+                <Target className="w-3 h-3" />
+                <span>Comercial</span>
+                <span className="opacity-40">·</span>
+                <span>CRM</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">Leads</h2>
+            </div>
+            <Button
+              onClick={() => setShowForm(true)}
+              className="bg-[#EA3935] hover:bg-[#C12D29] text-white border-0 text-sm h-10 px-5 rounded-xl self-start sm:self-auto font-semibold shadow-lg shadow-black/30"
+            >
+              <Plus className="w-4 h-4 mr-1.5" /> Novo Lead
+            </Button>
           </div>
-          <h2 className="text-xl font-semibold text-white tracking-tight">Leads</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {leads.length} lead{leads.length === 1 ? '' : 's'} no funil
-            {' · '}
-            {totals.pendente || 0} pendente{(totals.pendente || 0) === 1 ? '' : 's'}
-            {' · '}
-            {totals.em_atendimento || 0} em atendimento
-            {' · '}
-            {totals.follow_up || 0} em follow up
-            {' · '}
-            {totals.reuniao_marcada || 0} com reunião
-          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 sm:gap-6 pt-4 border-t border-white/10">
+            <LeadStat label="No funil" value={leads.length} />
+            <LeadStat
+              label="Pendentes"
+              value={totals.pendente || 0}
+              total={leads.length}
+              accent="text-slate-200"
+              dotColor="bg-slate-400"
+            />
+            <LeadStat
+              label="Em atendimento"
+              value={totals.em_atendimento || 0}
+              total={leads.length}
+              accent="text-blue-200"
+              dotColor="bg-blue-400"
+            />
+            <LeadStat
+              label="Follow up"
+              value={totals.follow_up || 0}
+              total={leads.length}
+              accent="text-amber-200"
+              dotColor="bg-amber-400"
+            />
+            <LeadStat
+              label="Reunião"
+              value={totals.reuniao_marcada || 0}
+              total={leads.length}
+              accent="text-emerald-200"
+              dotColor="bg-emerald-400"
+            />
         </div>
-        <Button
-          onClick={() => setShowForm(true)}
-          className="bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white text-sm h-9 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4 mr-1.5" /> Novo Lead
-        </Button>
       </div>
 
       <LeadsKanban />

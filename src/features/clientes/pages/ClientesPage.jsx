@@ -9,10 +9,9 @@ import {
   Phone,
   Mail,
   Building2,
+  Users,
   UserCheck,
   UserPlus,
-  Filter,
-  ArrowUpRight,
   ArrowUpDown,
   Trash2,
 } from 'lucide-react';
@@ -30,25 +29,18 @@ const statusConfig = {
   churn: { label: 'Churn', color: 'text-slate-300', bg: 'bg-slate-500/10 border-slate-500/20', dot: 'bg-slate-400' },
 };
 
-function StatCard({ icon: Icon, label, value, trend = null, trendLabel = null, accent = 'text-[#EA3935]', bgAccent = 'bg-[#EA3935]/10' }) {
+function StatCard({ icon: Icon, label, value, accent = 'text-[#EA3935]' }) {
   return (
-    <div className="glass-card rounded-2xl border border-white/5 p-5 hover:border-white/10 transition-colors">
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bgAccent}`}>
-          <Icon className={`w-4 h-4 ${accent}`} />
-        </div>
-        {trend != null && (
-          <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-2 py-0.5">
-            <ArrowUpRight className="w-3 h-3" />
-            {trend}
-          </span>
-        )}
+    <div className="glass-card rounded-2xl border border-white/5 p-6 hover:border-white/10 transition-colors">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className={`w-3.5 h-3.5 ${accent}`} />
+        <p className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground">
+          {label}
+        </p>
       </div>
-      <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <div className="flex items-baseline gap-2">
-        <p className="text-2xl font-semibold text-white tracking-tight">{value}</p>
-        {trendLabel && <p className="text-[11px] text-muted-foreground">{trendLabel}</p>}
-      </div>
+      <p className="text-4xl font-semibold text-white tracking-tight leading-none tabular-nums">
+        {value}
+      </p>
     </div>
   );
 }
@@ -195,47 +187,76 @@ export default function ClientesPage({ onVerCliente }) {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <div className="-mt-24 -mx-6">
+        <div
+          className="relative h-44 rounded-b-3xl overflow-hidden"
+          style={{
+            backgroundImage: "url('/login-bg.png')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/45 to-black/65 pointer-events-none" />
+        </div>
+
+        <div className="px-6 -mt-10 relative">
+          <div className="w-20 h-20 rounded-full bg-[#0d0d0d] border-2 border-white/10 flex items-center justify-center shadow-xl shadow-black/50">
+            <Users className="w-8 h-8 text-white" />
+          </div>
+        </div>
+
+        <div className="px-6 mt-4">
+          <h1 className="text-[1.7rem] font-bold text-white tracking-tight">Clientes</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            Gerencie sua carteira de clientes, acompanhe contratos, churn no mês e tarefas pendentes de cada conta.
+          </p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           icon={UserCheck}
           label="Total de clientes ativos"
           value={stats.ativos}
           accent="text-emerald-300"
-          bgAccent="bg-emerald-500/10"
         />
         <StatCard
           icon={UserPlus}
           label="Clientes ativos no mês"
           value={stats.ativosNoMes}
           accent="text-[#EA3935]"
-          bgAccent="bg-[#EA3935]/10"
         />
         <StatCard
           icon={Archive}
           label="Churns no mês"
           value={stats.churnsMes}
           accent="text-slate-300"
-          bgAccent="bg-slate-500/10"
         />
       </div>
 
-      <div className="glass-card rounded-2xl border border-white/5 overflow-hidden">
-        <div className="flex flex-col gap-3 p-5 border-b border-white/5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-white">
-                Clientes <span className="text-muted-foreground font-normal">({filtered.length})</span>
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Gerencie sua carteira, acompanhe status e tarefas pendentes.
-              </p>
-            </div>
-            <Button
-              onClick={() => setShowForm(true)}
-              className="bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white text-sm h-9 self-start sm:self-auto"
-            >
-              <Plus className="w-4 h-4 mr-1.5" /> Novo Cliente
-            </Button>
+      <div className="mt-16">
+        <div className="flex flex-col gap-4 mb-5">
+          <div className="flex items-center gap-6 border-b border-white/10">
+            {[
+              { id: 'ativos', label: 'Ativos' },
+              { id: 'churn', label: 'Churn' },
+            ].map((tab) => {
+              const active = filtroStatus === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setFiltroStatus(tab.id)}
+                  className={`relative pb-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                    active
+                      ? 'text-white border-[#EA3935]'
+                      : 'text-muted-foreground border-transparent hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
@@ -261,20 +282,16 @@ export default function ClientesPage({ onVerCliente }) {
                 <SelectItem value="antigos">Mais antigos</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-              <SelectTrigger className="w-full sm:w-44 bg-white/5 border-white/10 text-white">
-                <Filter className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#1a1a2e] border-white/10">
-                <SelectItem value="ativos">Ativos</SelectItem>
-                <SelectItem value="churn">Churn</SelectItem>
-                <SelectItem value="todos">Todos</SelectItem>
-              </SelectContent>
-            </Select>
+            <Button
+              onClick={() => setShowForm(true)}
+              className="bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white text-sm h-9 self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4 mr-1.5" /> Novo Cliente
+            </Button>
           </div>
         </div>
 
+        <div className="glass-card rounded-2xl border border-white/5 overflow-hidden">
         {filtered.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-muted-foreground text-sm">Nenhum cliente encontrado.</p>
@@ -414,6 +431,7 @@ export default function ClientesPage({ onVerCliente }) {
             </div>
           </>
         )}
+        </div>
       </div>
 
       {(showForm || editando) && (

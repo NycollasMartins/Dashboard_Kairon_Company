@@ -1,13 +1,27 @@
-import { Bell, Search, Menu } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Menu } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import Breadcrumbs from '@/shared/components/layout/Breadcrumbs';
 
 export default function Header({ onMenuClick }) {
   const { user } = useAuth();
+  const [scrolled, setScrolled] = useState(false);
   const initials = user?.full_name?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <header className="glass-card border-b border-white/5 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
+    <header
+      className={`relative px-6 py-4 flex items-center justify-between sticky top-0 z-20 transition-colors duration-200 ${
+        scrolled ? 'glass-card' : 'bg-transparent'
+      }`}
+    >
+      <div className="pointer-events-none absolute bottom-0 left-6 right-6 h-px bg-white/10" />
       <div className="flex items-center gap-4 min-w-0">
         <button
           onClick={onMenuClick}
@@ -19,24 +33,7 @@ export default function Header({ onMenuClick }) {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="hidden sm:flex items-center gap-2 glass-card rounded-xl px-3 py-2 border border-white/5">
-          <Search className="w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Buscar..."
-            className="bg-transparent text-sm text-white placeholder:text-muted-foreground outline-none w-32"
-          />
-        </div>
-
-        <button className="relative glass-card rounded-xl p-2.5 border border-white/5 hover:border-purple-500/30 transition-colors">
-          <Bell className="w-4 h-4 text-muted-foreground" />
-          <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-pink-500" />
-        </button>
-
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-semibold cursor-pointer"
-          style={{ background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' }}
-        >
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white text-zinc-900 text-sm font-semibold cursor-pointer shadow-sm">
           {initials}
         </div>
       </div>
