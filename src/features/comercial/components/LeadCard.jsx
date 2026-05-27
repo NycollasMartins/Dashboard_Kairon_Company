@@ -127,10 +127,10 @@ export default function LeadCard({ lead, index, onOpen }) {
 
             <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.04]">
               <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">
-                {lead.origem === 'landing_page'
-                  ? 'Landing Page'
-                  : lead.origem === 'manual'
-                    ? 'Manual (CRM)'
+                {lead.origem === 'inbound' || lead.origem === 'landing_page'
+                  ? 'Inbound'
+                  : lead.origem === 'outbound' || lead.origem === 'manual'
+                    ? 'Outbound'
                     : lead.origem}
               </span>
               {responsavelNome ? (

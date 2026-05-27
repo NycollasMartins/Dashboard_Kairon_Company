@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  X, Check, Loader2, Sparkles, Mail, Phone, Building2, Target, User, AlignLeft, DollarSign,
+  X, Check, Loader2, Sparkles, Mail, Phone, Building2, Target, User, AlignLeft, DollarSign, Compass,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,7 @@ export default function LeadNovoModal({ isSubmitting = false, onClose, onSave })
     momento_empresa: '',
     faturamento_mensal: '',
     objetivo_principal: '',
+    origem: 'outbound',
   });
   const [submitted, setSubmitted] = useState(false);
   const nomeRef = useRef(null);
@@ -56,7 +57,7 @@ export default function LeadNovoModal({ isSubmitting = false, onClose, onSave })
     e?.preventDefault?.();
     setSubmitted(true);
     if (!canSubmit) return;
-    onSave({ ...form, nome: nomeTrim, origem: 'manual' });
+    onSave({ ...form, nome: nomeTrim });
   };
 
   return (
@@ -118,6 +119,22 @@ export default function LeadNovoModal({ isSubmitting = false, onClose, onSave })
               onChange={(e) => setForm({ ...form, empresa: e.target.value })}
               className="bg-white/5 border-white/10 text-white placeholder:text-muted-foreground/70 h-10"
             />
+          </div>
+
+          <div>
+            <FieldLabel icon={Compass}>Origem</FieldLabel>
+            <Select
+              value={form.origem}
+              onValueChange={(v) => setForm({ ...form, origem: v })}
+            >
+              <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a2e] border-white/10">
+                <SelectItem value="inbound">Inbound</SelectItem>
+                <SelectItem value="outbound">Outbound</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
