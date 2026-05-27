@@ -1,11 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, XCircle, AlertTriangle, Loader2, Check } from 'lucide-react';
+import { X, XCircle, AlertTriangle, Loader2, Check, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { formatBRL, formatDateBR } from '../utils/contrato.format';
 
 const MOTIVO_MAX = 300;
+
+// Meses inteiros entre data_inicio do contrato e hoje, capeado em
+// duracao_meses. Usado para sugerir quantas parcelas MRR ja entraram.
+function mesesDecorridos(dataInicioISO) {
+  if (!dataInicioISO) return 0;
+  const [y, m, d] = String(dataInicioISO).slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return 0;
+  const inicio = new Date(y, m - 1, d);
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const diffMs = hoje.getTime() - inicio.getTime();
+  if (diffMs <= 0) return 0;
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24 * 30.4375));
+}
+
+function sugestaoTotalRecebido(contrato) {
+  if (!contrato) return 0;
+  const valor = Number(contrato.valor) || 0;
+  if (contrato.tipo === 'TCV') return valor;
+  const duracao = Number(contrato.duracao_meses) || 0;
+  const meses = Math.min(duracao, mesesDecorridos(contrato.data_inicio));
+  return Math.max(0, meses * valor);
+}
 
 export default function CancelarContratoModal({
   contrato,
@@ -14,6 +38,8 @@ export default function CancelarContratoModal({
   onConfirm,
 }) {
   const [motivo, setMotivo] = useState('');
+  const sugestao = useMemo(() => sugestaoTotalRecebido(contrato), [contrato]);
+  const [totalRecebido, setTotalRecebido] = useState(() => String(sugestao));
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
@@ -24,13 +50,22 @@ export default function CancelarContratoModal({
 
   const motivoTrim = motivo.trim();
   const motivoInvalid = submitted && motivoTrim.length === 0;
-  const canSubmit = motivoTrim.length > 0 && !isSubmitting;
+  const totalNum = Number(totalRecebido);
+  const totalInvalid =
+    submitted && (totalRecebido === '' || !Number.isFinite(totalNum) || totalNum < 0);
+  const canSubmit =
+    motivoTrim.length > 0 &&
+    totalRecebido !== '' &&
+    Number.isFinite(totalNum) &&
+    totalNum >= 0 &&
+    !isSubmitting;
 
   const handleSubmit = (e) => {
     e?.preventDefault?.();
     setSubmitted(true);
     if (!motivoTrim) return;
-    onConfirm({ motivo: motivoTrim });
+    if (totalRecebido === '' || !Number.isFinite(totalNum) || totalNum < 0) return;
+    onConfirm({ motivo: motivoTrim, total_recebido: totalNum });
   };
 
   return (
@@ -103,6 +138,33 @@ export default function CancelarContratoModal({
             <p className="text-[10px] text-muted-foreground/70 text-right mt-1">
               {motivo.length}/{MOTIVO_MAX}
             </p>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
+              <Coins className="w-3.5 h-3.5" />
+              Total recebido neste contrato <span className="text-[#EA3935]">*</span>
+            </label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0,00"
+              value={totalRecebido}
+              onChange={(e) => setTotalRecebido(e.target.value)}
+              aria-invalid={totalInvalid}
+              className={`bg-white/5 border-white/10 text-white placeholder:text-muted-foreground/70 h-10 ${
+                totalInvalid ? 'border-red-500/60 focus-visible:ring-red-500/30' : ''
+              }`}
+            />
+            <p className="text-[10px] text-muted-foreground/70 mt-1">
+              Sugestão: {formatBRL(sugestao)}
+              {contrato?.tipo === 'MRR' ? ' (parcelas já pagas até hoje)' : ' (valor cheio do TCV)'}.
+              Ajuste se a empresa recebeu um valor diferente.
+            </p>
+            {totalInvalid && (
+              <p className="text-[11px] text-red-400 mt-1">Informe o total recebido (use 0 se nada foi pago).</p>
+            )}
           </div>
         </div>
 

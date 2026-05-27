@@ -1093,10 +1093,12 @@ GRANT EXECUTE ON FUNCTION public.convert_lead_to_cliente(uuid, uuid, uuid, text[
 -- Cada cliente pode ter múltiplos contratos ao longo do tempo, mas
 -- apenas UM com status='ativo' por vez (índice único parcial).
 -- Tipos: MRR (mensalidade recorrente) ou TCV (valor total do contrato).
--- Renovação cria um novo registro com FK renovacao_de e marca o
--- anterior como 'renovado'. Expiração é automática quando data_fim
--- passou (função expire_due_contracts). Cancelamento exige motivo.
--- Cliente só pode virar 'churn' sem contrato ativo (trigger guard).
+-- Expiração é automática quando data_fim passou (função
+-- expire_due_contracts). Cancelamento exige motivo. Cliente só pode
+-- virar 'churn' sem contrato ativo (trigger guard).
+-- Obs: status='renovado' e coluna renovacao_de permanecem para preservar
+-- contratos antigos criados antes da remocao da feature de renovacao —
+-- o fluxo atual e cancelar contrato existente e criar um novo do zero.
 -- ==================================================================
 
 CREATE TABLE IF NOT EXISTS public.contratos (
@@ -1128,6 +1130,37 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_contratos_ativo_unico
 CREATE INDEX IF NOT EXISTS idx_contratos_cliente   ON public.contratos (cliente_id);
 CREATE INDEX IF NOT EXISTS idx_contratos_status    ON public.contratos (status);
 CREATE INDEX IF NOT EXISTS idx_contratos_data_fim  ON public.contratos (data_fim);
+
+-- total_recebido: quanto entrou de fato por este contrato. Permite que
+-- métricas reflitam a receita real (ex.: MRR de 6m cancelado no 4o mes
+-- deve contar 3 parcelas, nao 6 * valor).
+ALTER TABLE public.contratos
+  ADD COLUMN IF NOT EXISTS total_recebido numeric(12, 2) NOT NULL DEFAULT 0
+    CHECK (total_recebido >= 0);
+
+-- Backfill idempotente: so atualiza registros que ainda estao em 0
+-- (default da coluna). Contratos novos populados pelas RPCs ja nascem
+-- com o valor correto e nao serao tocados em reruns.
+UPDATE public.contratos
+   SET total_recebido = CASE
+     WHEN tipo = 'MRR' THEN valor * duracao_meses
+     ELSE valor
+   END
+ WHERE status IN ('expirado', 'renovado')
+   AND total_recebido = 0;
+
+UPDATE public.contratos
+   SET total_recebido = CASE
+     WHEN tipo = 'MRR' THEN
+       valor * GREATEST(0, LEAST(
+         duracao_meses,
+         (EXTRACT(YEAR  FROM age(COALESCE(data_cancelamento, CURRENT_DATE), data_inicio)) * 12
+        + EXTRACT(MONTH FROM age(COALESCE(data_cancelamento, CURRENT_DATE), data_inicio)))::int
+       ))
+     ELSE valor
+   END
+ WHERE status = 'cancelado'
+   AND total_recebido = 0;
 
 -- Trigger updated_at (reusa touch_updated_at)
 DROP TRIGGER IF EXISTS contratos_touch_updated_at ON public.contratos;
@@ -1197,8 +1230,14 @@ AS $$
 DECLARE
   v_count integer;
 BEGIN
+  -- Expiracao natural: cliente cumpriu o contrato ate o fim. Assume
+  -- recebimento total (MRR: valor * meses; TCV: valor cheio).
   UPDATE public.contratos
      SET status = 'expirado',
+         total_recebido = CASE
+           WHEN tipo = 'MRR' THEN valor * duracao_meses
+           ELSE valor
+         END,
          updated_at = now()
    WHERE status = 'ativo'
      AND data_fim < CURRENT_DATE;
@@ -1329,93 +1368,25 @@ REVOKE ALL  ON FUNCTION public.criar_contrato(uuid, text, numeric, integer, date
 GRANT EXECUTE ON FUNCTION public.criar_contrato(uuid, text, numeric, integer, date, text[], text) TO authenticated;
 
 -- ------------------------------------------------------------------
--- RPC: renovar contrato (admin/head)
--- Marca o anterior como 'renovado' e cria novo apontando para ele.
--- ------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.renovar_contrato(
-  p_contrato_anterior_id uuid,
-  p_tipo                 text,
-  p_valor                numeric,
-  p_duracao_meses        integer,
-  p_data_inicio          date,
-  p_entregaveis          text[] DEFAULT NULL,
-  p_notas                text   DEFAULT NULL
-)
-RETURNS uuid
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, private
-AS $$
-DECLARE
-  v_anterior public.contratos%ROWTYPE;
-  v_novo_id  uuid;
-  v_data_fim date;
-BEGIN
-  IF NOT private.is_admin_or_head() THEN
-    RAISE EXCEPTION 'Apenas admin ou head podem renovar contratos.'
-      USING ERRCODE = '42501';
-  END IF;
-
-  IF p_tipo NOT IN ('MRR', 'TCV') THEN
-    RAISE EXCEPTION 'Tipo de contrato inválido: %', p_tipo USING ERRCODE = '22023';
-  END IF;
-  IF p_valor IS NULL OR p_valor <= 0 THEN
-    RAISE EXCEPTION 'Valor deve ser maior que zero.' USING ERRCODE = '22023';
-  END IF;
-  IF p_duracao_meses IS NULL OR p_duracao_meses <= 0 THEN
-    RAISE EXCEPTION 'Duração em meses deve ser maior que zero.' USING ERRCODE = '22023';
-  END IF;
-  IF p_data_inicio IS NULL THEN
-    RAISE EXCEPTION 'Data de início é obrigatória.' USING ERRCODE = '22023';
-  END IF;
-
-  SELECT * INTO v_anterior FROM public.contratos
-    WHERE id = p_contrato_anterior_id FOR UPDATE;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Contrato % não encontrado.', p_contrato_anterior_id USING ERRCODE = 'P0002';
-  END IF;
-
-  IF v_anterior.status NOT IN ('ativo', 'expirado') THEN
-    RAISE EXCEPTION 'Apenas contratos ativos ou expirados podem ser renovados (status atual: %).', v_anterior.status
-      USING ERRCODE = '22023';
-  END IF;
-
-  v_data_fim := (p_data_inicio + (p_duracao_meses || ' months')::interval)::date - 1;
-
-  -- Marca o anterior como 'renovado' primeiro: libera o índice único parcial.
-  UPDATE public.contratos
-     SET status = 'renovado',
-         updated_at = now()
-   WHERE id = p_contrato_anterior_id;
-
-  INSERT INTO public.contratos (
-    cliente_id, tipo, valor, duracao_meses, data_inicio, data_fim,
-    entregaveis, notas, status, renovacao_de, created_by
-  ) VALUES (
-    v_anterior.cliente_id, p_tipo, p_valor, p_duracao_meses, p_data_inicio, v_data_fim,
-    p_entregaveis, NULLIF(TRIM(p_notas), ''), 'ativo', p_contrato_anterior_id, auth.uid()
-  )
-  RETURNING id INTO v_novo_id;
-
-  RETURN v_novo_id;
-END;
-$$;
-
-REVOKE ALL  ON FUNCTION public.renovar_contrato(uuid, text, numeric, integer, date, text[], text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.renovar_contrato(uuid, text, numeric, integer, date, text[], text) TO authenticated;
-
--- ------------------------------------------------------------------
 -- RPC: cancelar contrato (admin/head)
+-- p_total_recebido NULL -> backend calcula (meses_decorridos * valor
+-- para MRR, valor cheio para TCV). Frontend pode passar valor editado.
 -- ------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.cancelar_contrato(uuid, text);
+
 CREATE OR REPLACE FUNCTION public.cancelar_contrato(
-  p_contrato_id uuid,
-  p_motivo      text
+  p_contrato_id    uuid,
+  p_motivo         text,
+  p_total_recebido numeric DEFAULT NULL
 )
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, private
 AS $$
+DECLARE
+  v_contrato public.contratos%ROWTYPE;
+  v_total    numeric(12, 2);
 BEGIN
   IF NOT private.is_admin_or_head() THEN
     RAISE EXCEPTION 'Apenas admin ou head podem cancelar contratos.'
@@ -1426,22 +1397,40 @@ BEGIN
     RAISE EXCEPTION 'Motivo do cancelamento é obrigatório.' USING ERRCODE = '22023';
   END IF;
 
+  IF p_total_recebido IS NOT NULL AND p_total_recebido < 0 THEN
+    RAISE EXCEPTION 'Total recebido não pode ser negativo.' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_contrato FROM public.contratos
+    WHERE id = p_contrato_id AND status = 'ativo'
+    FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Contrato % não encontrado ou não está ativo.', p_contrato_id
+      USING ERRCODE = 'P0002';
+  END IF;
+
+  v_total := COALESCE(p_total_recebido, CASE
+    WHEN v_contrato.tipo = 'MRR' THEN
+      v_contrato.valor * GREATEST(0, LEAST(
+        v_contrato.duracao_meses,
+        (EXTRACT(YEAR  FROM age(CURRENT_DATE, v_contrato.data_inicio)) * 12
+       + EXTRACT(MONTH FROM age(CURRENT_DATE, v_contrato.data_inicio)))::int
+      ))
+    ELSE v_contrato.valor
+  END);
+
   UPDATE public.contratos
      SET status = 'cancelado',
          data_cancelamento = CURRENT_DATE,
          motivo_cancelamento = trim(p_motivo),
+         total_recebido = v_total,
          updated_at = now()
-   WHERE id = p_contrato_id
-     AND status = 'ativo';
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Contrato % não encontrado ou não está ativo.', p_contrato_id USING ERRCODE = 'P0002';
-  END IF;
+   WHERE id = p_contrato_id;
 END;
 $$;
 
-REVOKE ALL  ON FUNCTION public.cancelar_contrato(uuid, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.cancelar_contrato(uuid, text) TO authenticated;
+REVOKE ALL  ON FUNCTION public.cancelar_contrato(uuid, text, numeric) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.cancelar_contrato(uuid, text, numeric) TO authenticated;
 
 -- ==================================================================
 -- RPC: apagar cliente completo (admin/head)

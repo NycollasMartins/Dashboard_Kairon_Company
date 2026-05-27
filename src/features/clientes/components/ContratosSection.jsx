@@ -37,7 +37,6 @@ export default function ContratosSection({ clienteId, contratos, sectionIndex = 
   const canManage = user?.role === 'admin' || user?.role === 'head' || user?.role === 'cs';
 
   const [modalCriar, setModalCriar] = useState(false);
-  const [modalRenovar, setModalRenovar] = useState(false);
   const [modalCancelar, setModalCancelar] = useState(false);
 
   const ativo = useMemo(() => getContratoAtivo(contratos), [contratos]);
@@ -66,26 +65,9 @@ export default function ContratosSection({ clienteId, contratos, sectionIndex = 
     },
   });
 
-  const renovar = useMutation({
-    mutationFn: (payload) =>
-      contratosApi.renovar({ contrato_anterior_id: ativo?.id, ...payload }),
-    onSuccess: () => {
-      invalidate();
-      setModalRenovar(false);
-      toast({ title: 'Contrato renovado.' });
-    },
-    onError: (err) => {
-      toast({
-        variant: 'destructive',
-        title: 'Não foi possível renovar o contrato',
-        description: err?.message ?? 'Tente novamente em instantes.',
-      });
-    },
-  });
-
   const cancelar = useMutation({
-    mutationFn: ({ motivo }) =>
-      contratosApi.cancelar({ contrato_id: ativo?.id, motivo }),
+    mutationFn: ({ motivo, total_recebido }) =>
+      contratosApi.cancelar({ contrato_id: ativo?.id, motivo, total_recebido }),
     onSuccess: () => {
       invalidate();
       setModalCancelar(false);
@@ -101,7 +83,7 @@ export default function ContratosSection({ clienteId, contratos, sectionIndex = 
   });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
           <span className="w-0.5 h-5 rounded-full bg-[#EA3935]" />
@@ -134,53 +116,52 @@ export default function ContratosSection({ clienteId, contratos, sectionIndex = 
         />
       </div>
 
-      {ativo ? (
-        <ContratoCard
-          contrato={ativo}
-          canManage={canManage}
-          onRenovar={() => setModalRenovar(true)}
-          onCancelar={() => setModalCancelar(true)}
-        />
-      ) : (
-        <div className="glass-card rounded-2xl border border-white/5 p-10 flex flex-col items-center justify-center gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center">
-            <FileText className="w-7 h-7 text-muted-foreground" />
-          </div>
-          <p className="text-sm font-medium text-white">Nenhum contrato ativo</p>
-          <p className="text-xs text-muted-foreground text-center max-w-sm">
-            {canManage
-              ? 'Cadastre o contrato deste cliente para que ele passe a contar nas métricas financeiras.'
-              : 'Quando um admin ou head cadastrar o contrato, ele aparecerá aqui.'}
-          </p>
-          {canManage && (
-            <Button
-              onClick={() => setModalCriar(true)}
-              className="mt-2 bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white h-9 px-4 text-xs gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5" /> Criar contrato
-            </Button>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-white">Contrato ativo</h3>
+          {ativo && canManage && (
+            <span className="text-[11px] text-muted-foreground">
+              Cancele o atual para criar um novo.
+            </span>
           )}
         </div>
-      )}
+
+        {ativo ? (
+          <ContratoCard
+            contrato={ativo}
+            canManage={canManage}
+            onCancelar={() => setModalCancelar(true)}
+          />
+        ) : (
+          <div className="glass-card rounded-2xl border border-white/5 p-10 flex flex-col items-center justify-center gap-3">
+            <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center">
+              <FileText className="w-7 h-7 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-medium text-white">Nenhum contrato ativo</p>
+            <p className="text-xs text-muted-foreground text-center max-w-sm">
+              {canManage
+                ? 'Cadastre o contrato deste cliente para que ele passe a contar nas métricas financeiras.'
+                : 'Quando um admin ou head cadastrar o contrato, ele aparecerá aqui.'}
+            </p>
+            {canManage && (
+              <Button
+                onClick={() => setModalCriar(true)}
+                className="mt-2 bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white h-9 px-4 text-xs gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" /> Criar contrato
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
 
       <HistoricoContratos contratos={contratos} />
 
       {modalCriar && (
         <ContratoFormModal
-          mode="criar"
           isSubmitting={criar.isPending}
           onClose={() => setModalCriar(false)}
           onConfirm={(payload) => criar.mutate(payload)}
-        />
-      )}
-
-      {modalRenovar && ativo && (
-        <ContratoFormModal
-          mode="renovar"
-          contratoAnterior={ativo}
-          isSubmitting={renovar.isPending}
-          onClose={() => setModalRenovar(false)}
-          onConfirm={(payload) => renovar.mutate(payload)}
         />
       )}
 

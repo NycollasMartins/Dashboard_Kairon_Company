@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   X, Check, Plus, Coins, Calendar, Clock, Package, AlignLeft,
-  FileText, Repeat2, Loader2, AlertCircle,
+  FileText, Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { formatBRL, formatDateBR } from '../utils/contrato.format';
+import { formatDateBR } from '../utils/contrato.format';
 
 const ENTREGAVEIS_SUGERIDOS = [
   'Feed Instagram', 'Stories Instagram', 'Reels', 'Posts LinkedIn',
@@ -49,20 +49,16 @@ function computeDataFim(inicioISO, meses) {
 }
 
 export default function ContratoFormModal({
-  mode = 'criar',
-  contratoAnterior = null,
   isSubmitting = false,
   onClose,
   onConfirm,
 }) {
-  const isRenovacao = mode === 'renovar';
-
   const [form, setForm] = useState(() => ({
-    tipo: contratoAnterior?.tipo ?? 'MRR',
-    valor: contratoAnterior?.valor != null ? String(contratoAnterior.valor) : '',
-    duracao_meses: contratoAnterior?.duracao_meses != null ? String(contratoAnterior.duracao_meses) : '12',
+    tipo: 'MRR',
+    valor: '',
+    duracao_meses: '12',
     data_inicio: todayISO(),
-    entregaveis: Array.isArray(contratoAnterior?.entregaveis) ? [...contratoAnterior.entregaveis] : [],
+    entregaveis: [],
     notas: '',
   }));
   const [novoEntregavel, setNovoEntregavel] = useState('');
@@ -138,21 +134,15 @@ export default function ContratoFormModal({
       >
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/5">
           <div className="flex items-center gap-2.5">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isRenovacao ? 'bg-blue-500/15' : 'bg-[#EA3935]/15'}`}>
-              {isRenovacao ? (
-                <Repeat2 className="w-4 h-4 text-blue-300" />
-              ) : (
-                <FileText className="w-4 h-4 text-[#EA3935]" />
-              )}
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#EA3935]/15">
+              <FileText className="w-4 h-4 text-[#EA3935]" />
             </div>
             <div>
               <h3 className="text-sm font-semibold text-white leading-tight">
-                {isRenovacao ? 'Renovar contrato' : 'Novo contrato'}
+                Novo contrato
               </h3>
               <p className="text-[11px] text-muted-foreground">
-                {isRenovacao
-                  ? 'O contrato anterior será marcado como Renovado e este passa a vigorar.'
-                  : 'Defina o formato, valor e vigência do contrato.'}
+                Defina o formato, valor e vigência do contrato.
               </p>
             </div>
           </div>
@@ -167,18 +157,6 @@ export default function ContratoFormModal({
         </div>
 
         <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
-          {isRenovacao && contratoAnterior && (
-            <div className="flex items-start gap-2 text-[11px] text-blue-200/90 bg-blue-500/10 border border-blue-500/25 rounded-lg px-3 py-2">
-              <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              <span>
-                Renovando contrato {contratoAnterior.tipo} de {formatBRL(contratoAnterior.valor)}
-                {contratoAnterior.tipo === 'MRR' ? '/mês' : ''}, vigente de{' '}
-                {formatDateBR(contratoAnterior.data_inicio)} a {formatDateBR(contratoAnterior.data_fim)}.
-                Ajuste os valores abaixo se necessário.
-              </span>
-            </div>
-          )}
-
           <div>
             <FieldLabel required>Formato do contrato</FieldLabel>
             <div className="grid grid-cols-2 gap-2">
@@ -351,14 +329,12 @@ export default function ContratoFormModal({
           <Button
             type="submit"
             disabled={!canSubmit}
-            className={`flex-1 border-0 text-white h-10 disabled:opacity-50 disabled:cursor-not-allowed ${
-              isRenovacao ? 'bg-blue-500 hover:bg-blue-600' : 'bg-[#EA3935] hover:bg-[#C12D29]'
-            }`}
+            className="flex-1 border-0 text-white h-10 disabled:opacity-50 disabled:cursor-not-allowed bg-[#EA3935] hover:bg-[#C12D29]"
           >
             {isSubmitting ? (
-              <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> {isRenovacao ? 'Renovando...' : 'Criando...'}</>
+              <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Criando...</>
             ) : (
-              <><Check className="w-4 h-4 mr-1.5" /> {isRenovacao ? 'Renovar contrato' : 'Criar contrato'}</>
+              <><Check className="w-4 h-4 mr-1.5" /> Criar contrato</>
             )}
           </Button>
         </div>

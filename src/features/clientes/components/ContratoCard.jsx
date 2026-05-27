@@ -1,33 +1,40 @@
 import {
-  FileText, Calendar, Coins, Repeat2, XCircle, AlertTriangle, Package,
+  FileText, XCircle, AlertTriangle, Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatBRL, formatDateBR, diasAteFim, statusContratoConfig } from '../utils/contrato.format';
 
 const ALERTA_DIAS = 30;
 
-export default function ContratoCard({ contrato, canManage, onRenovar, onCancelar }) {
+export default function ContratoCard({ contrato, canManage, onCancelar }) {
   if (!contrato) return null;
 
   const cfg = statusContratoConfig(contrato.status);
   const dias = diasAteFim(contrato.data_fim);
   const proximoFim = contrato.status === 'ativo' && dias != null && dias <= ALERTA_DIAS;
   const isAtivo = contrato.status === 'ativo';
+  const isMRR = contrato.tipo === 'MRR';
 
-  const valorLabel = contrato.tipo === 'MRR'
-    ? `${formatBRL(contrato.valor)}/mês`
-    : `${formatBRL(contrato.valor)} (total)`;
+  const tipoSubtitle = isMRR ? 'Mensalidade recorrente' : 'Pagamento único';
+  const valorSubtitle = isMRR ? 'por mês' : 'valor total';
+  const restanteLabel = dias == null
+    ? '—'
+    : dias <= 0
+      ? 'Encerrado'
+      : `${dias} ${dias === 1 ? 'dia' : 'dias'}`;
 
   return (
-    <div className="glass-card rounded-2xl border border-white/10 p-6 space-y-5">
-      <div className="flex items-start justify-between gap-4">
+    <div className="glass-card rounded-2xl border border-white/10 p-6 hover:border-white/15 transition-colors">
+      <div className="flex items-start justify-between gap-4 pb-5 border-b border-white/5">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-[#EA3935]/15 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-[#EA3935]/15 border border-[#EA3935]/25 flex items-center justify-center shrink-0">
             <FileText className="w-5 h-5 text-[#EA3935]" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base font-semibold text-white">Contrato {contrato.tipo}</h3>
+              <h3 className="text-base font-semibold text-white tracking-tight">
+                Contrato {contrato.tipo}
+              </h3>
               <span className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full border font-medium ${cfg.bg} ${cfg.color}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                 {cfg.label}
@@ -39,45 +46,36 @@ export default function ContratoCard({ contrato, canManage, onRenovar, onCancela
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Vigência: {formatDateBR(contrato.data_inicio)} → {formatDateBR(contrato.data_fim)} · {contrato.duracao_meses} {contrato.duracao_meses === 1 ? 'mês' : 'meses'}
-            </p>
+            <p className="text-[11px] text-muted-foreground mt-1">{tipoSubtitle}</p>
           </div>
         </div>
-
-        {canManage && (
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              type="button"
-              onClick={onRenovar}
-              variant="outline"
-              className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white h-9 px-3 text-xs gap-1.5"
-            >
-              <Repeat2 className="w-3.5 h-3.5" /> Renovar
-            </Button>
-            {isAtivo && (
-              <Button
-                type="button"
-                onClick={onCancelar}
-                variant="outline"
-                className="border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:text-red-200 h-9 px-3 text-xs gap-1.5"
-              >
-                <XCircle className="w-3.5 h-3.5" /> Cancelar
-              </Button>
-            )}
-          </div>
-        )}
+        <div className="text-right shrink-0">
+          <p className="text-2xl font-bold text-white tracking-tight leading-none">
+            {formatBRL(contrato.valor)}
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-1.5">{valorSubtitle}</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <InfoTile icon={Coins} label="Valor" value={valorLabel} accent="text-emerald-300" />
-        <InfoTile icon={Calendar} label="Início" value={formatDateBR(contrato.data_inicio)} />
-        <InfoTile icon={Calendar} label="Encerra em" value={formatDateBR(contrato.data_fim)} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 pt-5">
+        <Field
+          label="Vigência"
+          value={`${formatDateBR(contrato.data_inicio)} → ${formatDateBR(contrato.data_fim)}`}
+        />
+        <Field
+          label="Duração"
+          value={`${contrato.duracao_meses} ${contrato.duracao_meses === 1 ? 'mês' : 'meses'}`}
+        />
+        <Field
+          label={dias != null && dias <= 0 ? 'Status' : 'Restante'}
+          value={restanteLabel}
+          accent={proximoFim ? 'text-amber-300' : 'text-white'}
+        />
       </div>
 
       {Array.isArray(contrato.entregaveis) && contrato.entregaveis.length > 0 && (
-        <div>
-          <p className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+        <div className="pt-5 mt-5 border-t border-white/5">
+          <p className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground mb-2 uppercase tracking-wider">
             <Package className="w-3 h-3" /> Entregáveis
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -94,21 +92,36 @@ export default function ContratoCard({ contrato, canManage, onRenovar, onCancela
       )}
 
       {contrato.notas && (
-        <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-white/10 pl-3 italic">
+        <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-white/10 pl-3 italic mt-5">
           {contrato.notas}
         </p>
+      )}
+
+      {canManage && isAtivo && (
+        <div className="flex justify-end pt-5 mt-5 border-t border-white/5">
+          <Button
+            type="button"
+            onClick={onCancelar}
+            variant="outline"
+            className="border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:text-red-200 h-9 px-3.5 text-xs gap-1.5"
+          >
+            <XCircle className="w-3.5 h-3.5" /> Cancelar contrato
+          </Button>
+        </div>
       )}
     </div>
   );
 }
 
-function InfoTile({ icon: Icon, label, value, accent = 'text-white' }) {
+function Field({ label, value, accent = 'text-white' }) {
   return (
-    <div className="bg-white/5 border border-white/5 rounded-xl px-3 py-2.5">
-      <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/80 font-medium mb-0.5">
-        <Icon className="w-3 h-3" /> {label}
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1">
+        {label}
       </p>
-      <p className={`text-sm font-semibold ${accent}`}>{value}</p>
+      <p className={`text-sm font-medium truncate ${accent}`} title={typeof value === 'string' ? value : undefined}>
+        {value}
+      </p>
     </div>
   );
 }
