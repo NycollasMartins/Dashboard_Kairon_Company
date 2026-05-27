@@ -182,11 +182,34 @@ function AdministrativoPageContent() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <div className="-mt-24 -mx-6">
+        <div
+          className="relative h-44 rounded-b-3xl overflow-hidden"
+          style={{
+            backgroundImage: "url('/kairon-company-dark.png')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/60 to-black/75 pointer-events-none" />
+        </div>
+
+        <div className="px-6 -mt-10 relative">
+          <div className="w-20 h-20 rounded-full bg-[#0d0d0d] border-2 border-white/10 flex items-center justify-center shadow-xl shadow-black/50">
+            <Shield className="w-8 h-8 text-white" />
+          </div>
+        </div>
+
+        <div className="px-6 mt-4">
+          <h1 className="text-[1.7rem] font-bold text-white tracking-tight">Administrativo</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            Controle de níveis de acesso, convites e gestão de usuários do sistema.
+          </p>
+        </div>
+      </div>
+
       <div>
-        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-          <h2 className="text-base font-semibold text-white flex items-center gap-2">
-            <Shield className="w-4 h-4 text-[#EA3935]" /> Controle de Níveis de Acesso
-          </h2>
+        <div className="flex items-center justify-end mb-4 gap-3 flex-wrap">
           {isAdmin && (
             <button
               onClick={() => setInviteOpen(true)}

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   CheckSquare, Folder, TrendingUp, Clock, AlertTriangle,
-  CheckCircle2, Calendar, Flag, Zap, Target, Star,
+  CheckCircle2, Calendar, Flag, Zap, Target, Star, LayoutDashboard,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { tarefasApi } from '@/features/tarefas/api/tarefas.api';
@@ -104,34 +104,39 @@ export default function VisaoGeralPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div
-        className="relative -mt-24 -mx-6 h-44 rounded-b-3xl overflow-hidden"
-        style={{
-          backgroundImage: "url('/kairon-company.png')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/40 pointer-events-none" />
-      </div>
+      <div className="-mt-24 -mx-6">
+        <div
+          className="relative h-44 rounded-b-3xl overflow-hidden"
+          style={{
+            backgroundImage: "url('/kairon-company-dark.png')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/60 to-black/75 pointer-events-none" />
+        </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl glass-card border border-white/10 p-6"
-      >
-        <p className="text-xs text-muted-foreground mb-1">{hojeCapitalized}</p>
-        <h1 className="text-2xl font-bold text-white mb-1">
-          {saudacao()}, <span className="text-gradient">{primeiroNome}!</span> 👋
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {tarefasHoje.length > 0
-            ? `Você tem ${tarefasHoje.length} tarefa${tarefasHoje.length > 1 ? 's' : ''} para hoje${tarefasAtrasadas.length > 0 ? ` e ${tarefasAtrasadas.length} em atraso` : ''}. Foco total!`
-            : tarefasPendentes.length > 0
-            ? `Nenhuma tarefa vence hoje, mas há ${tarefasPendentes.length} pendente${tarefasPendentes.length > 1 ? 's' : ''}. Bom trabalho!`
-            : 'Tudo em dia! Nenhuma tarefa pendente por agora. 🎉'}
-        </p>
-      </motion.div>
+        <div className="px-6 -mt-10 relative">
+          <div className="w-20 h-20 rounded-full bg-[#0d0d0d] border-2 border-white/10 flex items-center justify-center shadow-xl shadow-black/50">
+            <LayoutDashboard className="w-8 h-8 text-white" />
+          </div>
+        </div>
+
+        <div className="px-6 mt-4">
+          <h1 className="text-[1.7rem] font-bold text-white tracking-tight">
+            {saudacao()}, <span className="text-gradient">{primeiroNome}!</span> 👋
+          </h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            {hojeCapitalized}
+            {' · '}
+            {tarefasHoje.length > 0
+              ? `${tarefasHoje.length} tarefa${tarefasHoje.length > 1 ? 's' : ''} para hoje${tarefasAtrasadas.length > 0 ? ` e ${tarefasAtrasadas.length} em atraso` : ''}.`
+              : tarefasPendentes.length > 0
+              ? `${tarefasPendentes.length} pendente${tarefasPendentes.length > 1 ? 's' : ''} no escopo.`
+              : 'Tudo em dia. 🎉'}
+          </p>
+        </div>
+      </div>
 
       {alertas.length > 0 && (
         <div className="space-y-2">

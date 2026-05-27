@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import ConfirmArchiveDialog from '@/shared/ui/ConfirmArchiveDialog';
 import ClienteForm from '@/features/clientes/components/ClienteForm';
 import ContratosSection from '@/features/clientes/components/ContratosSection';
@@ -32,7 +33,10 @@ function formatMesAno(iso) {
 export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) {
   const [showEdit, setShowEdit] = useState(false);
   const [showConfirmArchive, setShowConfirmArchive] = useState(false);
+  const [tab, setTab] = useState('projetos');
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const qc = useQueryClient();
 
   const { data: cliente, isLoading } = useQuery({
@@ -100,10 +104,17 @@ export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) 
 
   return (
     <div className="space-y-16 animate-fade-in">
-      <div>
-        <div className="relative h-36 w-full rounded-2xl overflow-hidden bg-gradient-to-br from-[#EA3935]/30 via-purple-500/15 to-blue-500/25">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(234,57,53,0.25),transparent_55%)]" />
-          <div className="absolute inset-0 flex items-start justify-between p-4">
+      <div className="-mt-24 -mx-6">
+        <div
+          className="relative h-44 rounded-b-3xl overflow-hidden"
+          style={{
+            backgroundImage: "url('/K-Kairon-Company.png')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/60 to-black/75 pointer-events-none" />
+          <div className="absolute inset-0 flex items-start justify-between p-4 pt-24">
             <button
               onClick={onBack}
               className="p-2 rounded-xl bg-black/30 hover:bg-black/50 border border-white/10 text-white/80 hover:text-white backdrop-blur transition-colors"
@@ -130,20 +141,17 @@ export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) 
           </div>
         </div>
 
-        <div className="px-6 pb-2">
-          <div className="-mt-12 mb-5 flex items-end gap-4">
-            <div
-              className="w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-4xl shrink-0 ring-4 ring-background shadow-xl"
-              style={{ background: 'linear-gradient(135deg, #EA3935, #B91C1C)' }}
-            >
-              {cliente.nome?.[0]?.toUpperCase() || '?'}
-            </div>
+        <div className="px-6 -mt-10 relative">
+          <div className="w-20 h-20 rounded-full bg-[#0d0d0d] border-2 border-white/10 flex items-center justify-center text-white font-bold text-3xl shrink-0 shadow-xl shadow-black/50">
+            {cliente.nome?.[0]?.toUpperCase() || '?'}
           </div>
+        </div>
 
+        <div className="px-6 mt-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-3xl font-bold text-white truncate">{cliente.nome}</h2>
+                <h1 className="text-[1.7rem] font-bold text-white truncate tracking-tight">{cliente.nome}</h1>
                 <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${cfg.bg} ${cfg.color}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                   {cfg.label}
@@ -215,11 +223,35 @@ export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) 
         </div>
       </div>
 
-      <div className="h-px bg-white/5" />
+      <div className="flex items-center gap-6 border-b border-white/10">
+        {[
+          { id: 'projetos', label: 'Projetos' },
+          ...(isAdmin ? [{ id: 'financeiro', label: 'Financeiro' }] : []),
+        ].map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`relative pb-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                active
+                  ? 'text-white border-[#EA3935]'
+                  : 'text-muted-foreground border-transparent hover:text-white'
+              }`}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
 
-      <div className="space-y-10">
-        <ProjetosLista clienteId={clienteId} sectionIndex={1} onVerProjeto={onVerProjeto} />
-        <ContratosSection clienteId={clienteId} contratos={cliente.contratos} sectionIndex={2} />
+      <div>
+        {tab === 'financeiro' && isAdmin ? (
+          <ContratosSection clienteId={clienteId} contratos={cliente.contratos} sectionIndex={2} />
+        ) : (
+          <ProjetosLista clienteId={clienteId} sectionIndex={1} onVerProjeto={onVerProjeto} />
+        )}
       </div>
 
       {showEdit && (

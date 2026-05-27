@@ -15,6 +15,7 @@ import {
   Sparkles,
   Trash2,
   ListChecks,
+  CheckSquare,
   FolderKanban,
   Search,
   SlidersHorizontal,
@@ -970,17 +971,17 @@ function MinhasTarefasPageContent() {
         <div
           className="relative h-44 rounded-b-3xl overflow-hidden"
           style={{
-            backgroundImage: "url('/login-bg.png')",
+            backgroundImage: "url('/kairon-company-dark.png')",
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/45 to-black/65 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/60 to-black/75 pointer-events-none" />
         </div>
 
         <div className="px-6 -mt-10 relative">
           <div className="w-20 h-20 rounded-full bg-[#0d0d0d] border-2 border-white/10 flex items-center justify-center shadow-xl shadow-black/50">
-            <ListChecks className="w-8 h-8 text-white" />
+            <CheckSquare className="w-8 h-8 text-white" />
           </div>
         </div>
 

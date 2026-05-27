@@ -17,11 +17,10 @@ export default function Header({ onMenuClick }) {
 
   return (
     <header
-      className={`relative px-6 py-4 flex items-center justify-between sticky top-0 z-20 transition-colors duration-200 ${
+      className={`px-6 py-4 flex items-center justify-between sticky top-0 z-20 transition-colors duration-200 ${
         scrolled ? 'glass-card' : 'bg-transparent'
       }`}
     >
-      <div className="pointer-events-none absolute bottom-0 left-6 right-6 h-px bg-white/10" />
       <div className="flex items-center gap-4 min-w-0">
         <button
           onClick={onMenuClick}

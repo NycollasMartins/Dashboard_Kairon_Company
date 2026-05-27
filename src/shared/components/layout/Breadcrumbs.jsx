@@ -35,7 +35,7 @@ function buildCrumbs(pathname) {
   if (pathname === '/comercial') {
     return [
       { key: 'comercial', label: 'Comercial' },
-      { key: 'pipeline-sdr', label: 'Pipeline SDR' },
+      { key: 'pipeline-leads', label: 'Pipeline Leads' },
     ];
   }
 

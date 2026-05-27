@@ -14,6 +14,9 @@ import {
   UserPlus,
   ArrowUpDown,
   Trash2,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -24,10 +27,6 @@ import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { tarefasApi } from '@/features/tarefas/api/tarefas.api';
 import { queryKeys } from '@/entities/query-keys';
 
-const statusConfig = {
-  ativo: { label: 'Ativo', color: 'text-emerald-300', bg: 'bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
-  churn: { label: 'Churn', color: 'text-slate-300', bg: 'bg-slate-500/10 border-slate-500/20', dot: 'bg-slate-400' },
-};
 
 function StatCard({ icon: Icon, label, value, accent = 'text-[#EA3935]' }) {
   return (
@@ -171,9 +170,6 @@ export default function ClientesPage({ onVerCliente }) {
       }
     });
 
-  const getTarefasPendentes = (clienteId) =>
-    tarefas.filter((t) => t.cliente_id === clienteId && t.status !== 'concluida');
-
   const handleRowClick = (id) => {
     if (onVerCliente) onVerCliente(id);
   };
@@ -191,12 +187,12 @@ export default function ClientesPage({ onVerCliente }) {
         <div
           className="relative h-44 rounded-b-3xl overflow-hidden"
           style={{
-            backgroundImage: "url('/login-bg.png')",
+            backgroundImage: "url('/kairon-company-dark.png')",
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/45 to-black/65 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/60 to-black/75 pointer-events-none" />
         </div>
 
         <div className="px-6 -mt-10 relative">
@@ -298,20 +294,34 @@ export default function ClientesPage({ onVerCliente }) {
           </div>
         ) : (
           <>
-            <div className="hidden md:grid grid-cols-[minmax(0,2fr)_140px_minmax(0,1.4fr)_160px_120px] gap-4 px-5 py-3 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-white/5 bg-white/[0.02]">
+            <div className="hidden md:grid grid-cols-[minmax(0,1.8fr)_minmax(0,1.2fr)_180px_140px_110px] gap-4 px-5 py-3 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-white/5 bg-white/[0.02]">
               <div>Cliente</div>
-              <div>Status</div>
               <div>Empresa</div>
-              <div>Tarefas pendentes</div>
+              <div>Onboarding</div>
+              <div>Contrato</div>
               <div className="text-right">Ações</div>
             </div>
 
             <div className="divide-y divide-white/5">
               {filtered.map((c, i) => {
-                const cfg = statusConfig[c.status] || statusConfig.ativo;
-                const pendentes = getTarefasPendentes(c.id);
-                const pendentesTotal = pendentes.length;
-                const pendentesPct = Math.min(100, pendentesTotal * 20);
+                const onboardingTasks = tarefas.filter(
+                  (t) => t.cliente_id === c.id && t.projetos?.nome === 'Onboarding',
+                );
+                const onboardingTotal = onboardingTasks.length;
+                const onboardingDone = onboardingTasks.filter((t) => t.status === 'concluida').length;
+                const onboardingPct = onboardingTotal > 0
+                  ? Math.round((onboardingDone / onboardingTotal) * 100)
+                  : 0;
+                const contratoAtivo = c.contratos?.find((co) => co.status === 'ativo') ?? null;
+                const expiraEsteMes = (() => {
+                  if (!contratoAtivo?.data_fim) return false;
+                  const fim = new Date(contratoAtivo.data_fim);
+                  const agora = new Date();
+                  return (
+                    fim.getFullYear() === agora.getFullYear() &&
+                    fim.getMonth() === agora.getMonth()
+                  );
+                })();
                 return (
                   <motion.div
                     key={c.id}
@@ -324,12 +334,9 @@ export default function ClientesPage({ onVerCliente }) {
                     onKeyDown={(e) => handleRowKeyDown(e, c.id)}
                     className="group cursor-pointer hover:bg-white/[0.03] transition-colors focus:outline-none focus:bg-white/[0.04]"
                   >
-                    <div className="md:grid md:grid-cols-[minmax(0,2fr)_140px_minmax(0,1.4fr)_160px_120px] gap-4 px-5 py-4 flex flex-col">
+                    <div className="md:grid md:grid-cols-[minmax(0,1.8fr)_minmax(0,1.2fr)_180px_140px_110px] gap-4 px-5 py-4 flex flex-col">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-semibold text-sm shrink-0"
-                          style={{ background: 'rgba(234, 57, 53, 0.2)' }}
-                        >
+                        <div className="w-9 h-9 rounded-full bg-[#EA3935]/15 border border-[#EA3935]/60 flex items-center justify-center text-white font-semibold text-sm shrink-0 shadow-md shadow-black/40">
                           {c.nome?.[0]?.toUpperCase() || '?'}
                         </div>
                         <div className="min-w-0">
@@ -354,13 +361,6 @@ export default function ClientesPage({ onVerCliente }) {
                         </div>
                       </div>
 
-                      <div className="flex items-center">
-                        <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-lg border font-medium ${cfg.bg} ${cfg.color}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                          {cfg.label}
-                        </span>
-                      </div>
-
                       <div className="flex items-center min-w-0">
                         {c.empresa ? (
                           <p className="text-sm text-white/80 flex items-center gap-1.5 truncate">
@@ -377,20 +377,44 @@ export default function ClientesPage({ onVerCliente }) {
                       </div>
 
                       <div className="flex items-center gap-2 min-w-0">
-                        {pendentesTotal > 0 ? (
+                        {onboardingTotal > 0 ? (
                           <>
-                            <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden max-w-[100px]">
+                            <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden max-w-[110px]">
                               <div
-                                className="h-full bg-[#EA3935] rounded-full"
-                                style={{ width: `${pendentesPct}%` }}
+                                className={`h-full rounded-full transition-all ${
+                                  onboardingPct === 100 ? 'bg-emerald-400' : 'bg-[#EA3935]'
+                                }`}
+                                style={{ width: `${onboardingPct}%` }}
                               />
                             </div>
-                            <span className="text-xs text-white font-medium shrink-0">
-                              {pendentesTotal}
+                            <span className="text-xs text-white font-medium shrink-0 tabular-nums">
+                              {onboardingDone}/{onboardingTotal}
                             </span>
                           </>
                         ) : (
-                          <span className="text-xs text-muted-foreground/60">Nenhuma</span>
+                          <span className="text-xs text-muted-foreground/60">—</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center">
+                        {!contratoAtivo ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-lg border font-medium bg-amber-500/10 border-amber-500/20 text-amber-300">
+                            <AlertCircle className="w-3 h-3" />
+                            Pendente
+                          </span>
+                        ) : expiraEsteMes ? (
+                          <span
+                            title={`Vence em ${new Date(contratoAtivo.data_fim).toLocaleDateString('pt-BR')}`}
+                            className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-lg border font-medium bg-red-500/10 border-red-500/20 text-red-300"
+                          >
+                            <Clock className="w-3 h-3" />
+                            Expira {new Date(contratoAtivo.data_fim).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-lg border font-medium bg-emerald-500/10 border-emerald-500/20 text-emerald-300">
+                            <CheckCircle2 className="w-3 h-3" />
+                            OK
+                          </span>
                         )}
                       </div>
 

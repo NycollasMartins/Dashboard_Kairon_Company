@@ -3,20 +3,17 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Shield, Briefcase, Users, CheckSquare,
-  ChevronDown, X, Layers, LogOut, Target, TrendingUp,
+  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
 const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads }) => [
   { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
-  ...(isAdmin
-    ? [{ to: '/administrativo', label: 'Administrativo', icon: Shield }]
-    : []),
   ...(podeUsarCrm
     ? [{
         label: 'Comercial', icon: Target,
         children: [
-          { to: '/comercial', label: 'Pipeline SDR', icon: TrendingUp },
+          { to: '/comercial', label: 'Pipeline Leads', icon: TrendingUp },
         ],
       }]
     : []),
@@ -27,6 +24,14 @@ const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsar
           ...(podeUsarClientesSquads ? [{ to: '/clientes', label: 'Clientes', icon: Users }] : []),
           { to: '/tarefas', label: 'Tarefas', icon: CheckSquare },
           ...(podeUsarSquads ? [{ to: '/squads', label: 'Squads', icon: Layers }] : []),
+        ],
+      }]
+    : []),
+  ...(isAdmin
+    ? [{
+        label: 'Gestão', icon: Settings,
+        children: [
+          { to: '/administrativo', label: 'Administrativo', icon: Shield },
         ],
       }]
     : []),
@@ -70,21 +75,22 @@ export default function Sidebar({
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1">
-        {navItems.map((item) => {
+      <nav className="flex-1 flex flex-col">
+        {(() => {
+          const firstGroupIdx = navItems.findIndex((i) => i.children);
+          return navItems.map((item, idx) => {
           const Icon = item.icon;
 
           if (item.children) {
             const isOpen = openGroups[item.label] ?? true;
             return (
-              <div key={item.label}>
+              <div key={item.label} className={idx === firstGroupIdx ? 'mt-7' : 'mt-5'}>
                 <button
                   onClick={() => toggleGroup(item.label)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 text-muted-foreground hover:text-white"
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider font-semibold transition-colors duration-200 text-muted-foreground/60 hover:text-muted-foreground"
                 >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span className="flex-1 text-left font-medium">{item.label}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? '' : '-rotate-90'}`} />
+                  <span className="flex-1 text-left">{item.label}</span>
                 </button>
                 <AnimatePresence>
                   {isOpen && (
@@ -93,7 +99,7 @@ export default function Sidebar({
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.2 }}
-                      className="overflow-hidden ml-3 pl-3 border-l border-white/10 mt-1 space-y-1"
+                      className="overflow-hidden mt-1 space-y-1"
                     >
                       {item.children.map((child) => {
                         const ChildIcon = child.icon;
@@ -152,7 +158,8 @@ export default function Sidebar({
               )}
             </NavLink>
           );
-        })}
+        });
+        })()}
       </nav>
 
       <div className="mt-4 space-y-2">
