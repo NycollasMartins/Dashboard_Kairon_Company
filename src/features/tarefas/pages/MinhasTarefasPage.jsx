@@ -966,23 +966,33 @@ function MinhasTarefasPageContent() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/80 mb-1">
-            <Users className="w-3 h-3" />
-            <span className="truncate">
-              {meusSquadsNome || 'Sem squad atribuído'}
-            </span>
-            <span className="opacity-40">·</span>
-            <span>Board</span>
-          </div>
-          <h2 className="text-xl font-semibold text-white tracking-tight">Tarefas</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {tarefasOrdenadas.length} de {totalEscopo} tarefa{totalEscopo === 1 ? '' : 's'} visíveis
-          </p>
+      <div className="-mt-24 -mx-6">
+        <div
+          className="relative h-44 rounded-b-3xl overflow-hidden"
+          style={{
+            backgroundImage: "url('/login-bg.png')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/45 to-black/65 pointer-events-none" />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="px-6 -mt-10 relative">
+          <div className="w-20 h-20 rounded-full bg-[#0d0d0d] border-2 border-white/10 flex items-center justify-center shadow-xl shadow-black/50">
+            <ListChecks className="w-8 h-8 text-white" />
+          </div>
+        </div>
+
+        <div className="px-6 mt-4">
+          <h1 className="text-[1.7rem] font-bold text-white tracking-tight">Tarefas</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            {tarefasOrdenadas.length} de {totalEscopo} tarefa{totalEscopo === 1 ? '' : 's'} visíveis no escopo do seu squad.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2 flex-wrap">
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -1026,7 +1036,6 @@ function MinhasTarefasPageContent() {
             </Button>
           )}
         </div>
-      </div>
 
       <div className="glass-card border border-white/5 rounded-2xl p-3 flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
