@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { TrendingUp, Plus } from 'lucide-react';
+import { useMutation, useQueryClient, useIsFetching } from '@tanstack/react-query';
+import { TrendingUp, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -14,6 +14,7 @@ export default function ComercialPage() {
   const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr'].includes(user?.role);
   const { toast } = useToast();
   const qc = useQueryClient();
+  const atualizando = useIsFetching({ queryKey: queryKeys.leads.all });
   const [showForm, setShowForm] = useState(false);
 
   const criar = useMutation({
@@ -76,7 +77,14 @@ export default function ComercialPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={() => qc.invalidateQueries({ queryKey: queryKeys.leads.all })}
+          className="border-white/15 bg-black/30 backdrop-blur text-white hover:bg-black/50 hover:text-white text-sm h-9"
+        >
+          <RefreshCw className={`w-4 h-4 mr-1.5 ${atualizando ? 'animate-spin' : ''}`} /> Atualizar
+        </Button>
         <Button
           onClick={() => setShowForm(true)}
           className="bg-[#EA3935] hover:bg-[#C12D29] text-white border-0 text-sm h-9 font-semibold"

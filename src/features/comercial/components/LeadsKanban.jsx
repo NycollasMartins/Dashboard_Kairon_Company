@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { supabase } from '@/infrastructure/supabase/client';
 import { leadsApi } from '@/features/comercial/api/leads.api';
 import { usersApi } from '@/features/administrativo/api/users.api';
 import { queryKeys } from '@/entities/query-keys';
@@ -34,6 +35,20 @@ export default function LeadsKanban() {
     queryKey: queryKeys.usuarios.all,
     queryFn: usersApi.list,
   });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('leads-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'leads' },
+        () => qc.invalidateQueries({ queryKey: queryKeys.leads.all })
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
 
   const responsaveis = useMemo(
     () =>

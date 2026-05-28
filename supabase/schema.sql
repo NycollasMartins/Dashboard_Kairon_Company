@@ -703,6 +703,20 @@ GRANT EXECUTE ON FUNCTION public.create_lead_from_webhook(
   text, text, text, text, text, text, text, text
 ) TO anon, authenticated;
 
+-- Realtime: publica mudanças da tabela leads para assinaturas no front.
+-- Idempotente. Respeita RLS: cada usuário só recebe eventos das linhas
+-- que tem permissão de SELECT.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public' AND tablename = 'leads'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.leads;
+  END IF;
+END $$;
+
 -- ==================================================================
 -- CRM-ONLY LOCKDOWN
 -- SDR/BDR/Closer não têm acesso a tabelas operacionais nem administrativas.
