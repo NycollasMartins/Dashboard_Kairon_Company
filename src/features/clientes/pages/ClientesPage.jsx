@@ -214,13 +214,13 @@ export default function ClientesPage({ onVerCliente }) {
           icon={UserCheck}
           label="Total de clientes ativos"
           value={stats.ativos}
-          accent="text-emerald-300"
+          accent="text-white"
         />
         <StatCard
           icon={UserPlus}
-          label="Clientes ativos no mês"
+          label="Novos Clientes no Mês"
           value={stats.ativosNoMes}
-          accent="text-[#EA3935]"
+          accent="text-emerald-300"
         />
         <StatCard
           icon={Archive}
