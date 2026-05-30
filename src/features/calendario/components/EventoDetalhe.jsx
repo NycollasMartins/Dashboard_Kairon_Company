@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Edit2, Trash2, MapPin, AlignLeft, CalendarDays } from 'lucide-react';
+import {
+  X, Edit2, Trash2, MapPin, AlignLeft, CalendarDays,
+  Users as UsersIcon, Layers, UserCircle2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { eventTypeConfig } from '@/features/calendario/lib/eventConfig';
 import { formatEventTime } from '@/features/calendario/lib/datetime';
@@ -17,6 +20,17 @@ export default function EventoDetalhe({ event, canManage, onClose, onEdit, onDel
   if (!event) return null;
   const cfg = eventTypeConfig(event.type);
   const TypeIcon = cfg.icon;
+
+  const audience = (() => {
+    if (event.audience_type === 'squad') {
+      return { Icon: Layers, text: `Squad ${event.squad?.nome ?? '—'}` };
+    }
+    if (event.audience_type === 'user') {
+      return { Icon: UserCircle2, text: event.assignee?.full_name || event.assignee?.email || '—' };
+    }
+    return { Icon: UsersIcon, text: 'Todos no dashboard' };
+  })();
+  const AudienceIcon = audience.Icon;
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
@@ -55,6 +69,10 @@ export default function EventoDetalhe({ event, canManage, onClose, onEdit, onDel
           <div className="flex items-center gap-2.5 text-white/90">
             <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
             <span>{formatEventTime(event)}</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-white/90">
+            <AudienceIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span>{audience.text}</span>
           </div>
           {event.location && (
             <div className="flex items-center gap-2.5 text-white/90">

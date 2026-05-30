@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   X, Check, CalendarPlus, CalendarClock, Type, AlignLeft, MapPin, Tag, Clock,
+  Users as UsersIcon, Layers, UserCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,10 +11,19 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { squadsApi } from '@/features/squads/api/squads.api';
+import { calendarioApi } from '@/features/calendario/api/calendario.api';
+import { queryKeys } from '@/entities/query-keys';
 import { EVENT_TYPE_LIST, eventTypeConfig } from '@/features/calendario/lib/eventConfig';
 import {
   toLocalDateTimeInput, toLocalDateInput, localDateTimeToISO, localDateToISO,
 } from '@/features/calendario/lib/datetime';
+
+const AUDIENCE_OPTIONS = [
+  { value: 'all', label: 'Todos no dashboard', icon: UsersIcon },
+  { value: 'squad', label: 'Um squad', icon: Layers },
+  { value: 'user', label: 'Uma pessoa', icon: UserCircle2 },
+];
 
 const TITLE_MAX = 140;
 const DESC_MAX = 1000;
@@ -42,6 +53,9 @@ function buildInitialState(event, initialDate) {
       endDate: toLocalDateInput(end),
       location: event.location ?? '',
       description: event.description ?? '',
+      audience_type: event.audience_type ?? 'all',
+      squad_id: event.squad_id ?? '',
+      assignee_id: event.assignee_id ?? '',
     };
   }
   const base = initialDate ? new Date(initialDate) : new Date();
@@ -59,6 +73,9 @@ function buildInitialState(event, initialDate) {
     endDate: toLocalDateInput(base),
     location: '',
     description: '',
+    audience_type: 'all',
+    squad_id: '',
+    assignee_id: '',
   };
 }
 
@@ -68,6 +85,15 @@ export default function EventoForm({ onClose, onSave, event, initialDate, isSavi
   const [submitted, setSubmitted] = useState(false);
   const [erroData, setErroData] = useState('');
   const titleRef = useRef(null);
+
+  const { data: squads = [] } = useQuery({
+    queryKey: queryKeys.squads.all,
+    queryFn: squadsApi.list,
+  });
+  const { data: people = [] } = useQuery({
+    queryKey: queryKeys.calendario.people,
+    queryFn: calendarioApi.listPeople,
+  });
 
   useEffect(() => {
     titleRef.current?.focus();
@@ -116,6 +142,15 @@ export default function EventoForm({ onClose, onSave, event, initialDate, isSavi
       return;
     }
 
+    if (form.audience_type === 'squad' && !form.squad_id) {
+      setErroData('Selecione o squad.');
+      return;
+    }
+    if (form.audience_type === 'user' && !form.assignee_id) {
+      setErroData('Selecione a pessoa.');
+      return;
+    }
+
     onSave({
       title: titleTrim,
       type: form.type,
@@ -124,6 +159,9 @@ export default function EventoForm({ onClose, onSave, event, initialDate, isSavi
       description: form.description,
       start_at,
       end_at,
+      audience_type: form.audience_type,
+      squad_id: form.squad_id,
+      assignee_id: form.assignee_id,
     });
   };
 
@@ -204,6 +242,73 @@ export default function EventoForm({ onClose, onSave, event, initialDate, isSavi
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <FieldLabel icon={UsersIcon}>Atribuir para</FieldLabel>
+            <Select
+              value={form.audience_type}
+              onValueChange={(v) => set({ audience_type: v })}
+            >
+              <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a2e] border-white/10">
+                {AUDIENCE_OPTIONS.map((o) => {
+                  const OptIcon = o.icon;
+                  return (
+                    <SelectItem key={o.value} value={o.value}>
+                      <span className="flex items-center gap-2">
+                        <OptIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                        {o.label}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+
+            {form.audience_type === 'squad' && (
+              <Select
+                value={form.squad_id || ''}
+                onValueChange={(v) => set({ squad_id: v })}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 mt-2">
+                  <SelectValue placeholder="Selecionar squad" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {squads.length === 0 ? (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum squad</div>
+                  ) : (
+                    squads.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            )}
+
+            {form.audience_type === 'user' && (
+              <Select
+                value={form.assignee_id || ''}
+                onValueChange={(v) => set({ assignee_id: v })}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 mt-2">
+                  <SelectValue placeholder="Selecionar pessoa" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10 max-h-60">
+                  {people.length === 0 ? (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhuma pessoa</div>
+                  ) : (
+                    people.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.full_name || p.email}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <label className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 cursor-pointer">

@@ -38,5 +38,6 @@ export const queryKeys = {
   calendario: {
     all: ['calendario'],
     googleStatus: ['calendario', 'google-status'],
+    people: ['calendario', 'people'],
   },
 };

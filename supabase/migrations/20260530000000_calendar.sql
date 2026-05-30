@@ -31,14 +31,21 @@ CREATE TABLE IF NOT EXISTS public.calendar_events (
   all_day         boolean NOT NULL DEFAULT false,
   location        text,
   google_event_id text,                                   -- id do evento no Google (nullable)
+  -- Atribuição: para todos, para um squad, ou para uma pessoa.
+  audience_type   text NOT NULL DEFAULT 'all'
+                    CHECK (audience_type IN ('all', 'squad', 'user')),
+  squad_id        uuid REFERENCES public.squads(id)   ON DELETE SET NULL,
+  assignee_id     uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_by      uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT calendar_events_time_valid CHECK (end_at >= start_at)
 );
 
-CREATE INDEX IF NOT EXISTS idx_calendar_events_start ON public.calendar_events (start_at);
-CREATE INDEX IF NOT EXISTS idx_calendar_events_type  ON public.calendar_events (type);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_start    ON public.calendar_events (start_at);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_type     ON public.calendar_events (type);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_squad    ON public.calendar_events (squad_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_assignee ON public.calendar_events (assignee_id);
 -- google_event_id único quando presente (evita duplicar eventos no pull do Google)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_calendar_events_google_uid
   ON public.calendar_events (google_event_id)
