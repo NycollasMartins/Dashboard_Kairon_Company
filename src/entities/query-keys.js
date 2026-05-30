@@ -30,4 +30,9 @@ export const queryKeys = {
     all: ['contratos'],
     byCliente: (clienteId) => ['contratos', 'cliente', clienteId],
   },
+  campanhas: {
+    all: ['campanhas'],
+    detail: (id) => ['campanhas', id],
+    metrics: (id) => ['campanhas', id, 'metrics'],
+  },
 };

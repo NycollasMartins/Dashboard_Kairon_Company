@@ -20,6 +20,7 @@ export default function DashboardLayout() {
   const podeUsarClientesSquads = ['admin', 'social media', 'head', 'cs'].includes(role);
   const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr'].includes(role);
   const podeUsarSquads = isAdmin || isHead || isCs;
+  const podeVerCampanhas = isAdmin || isHead;
 
   return (
     <div className="min-h-screen bg-background font-inter">
@@ -29,6 +30,7 @@ export default function DashboardLayout() {
         podeUsarClientesSquads={podeUsarClientesSquads}
         podeUsarCrm={podeUsarCrm}
         podeUsarSquads={podeUsarSquads}
+        podeVerCampanhas={podeVerCampanhas}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
       />

@@ -3,11 +3,11 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Shield, Briefcase, Users, CheckSquare,
-  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings,
+  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
-const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads }) => [
+const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas }) => [
   { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
   ...(podeUsarCrm
     ? [{
@@ -17,11 +17,12 @@ const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsar
         ],
       }]
     : []),
-  ...(podeVerTarefas
+  ...(podeVerTarefas || podeVerCampanhas
     ? [{
         label: 'Operacional', icon: Briefcase,
         children: [
-          { to: '/tarefas', label: 'Tarefas', icon: CheckSquare },
+          ...(podeVerCampanhas ? [{ to: '/campanhas', label: 'Campanhas', icon: Megaphone }] : []),
+          ...(podeVerTarefas ? [{ to: '/tarefas', label: 'Tarefas', icon: CheckSquare }] : []),
           ...(podeUsarClientesSquads ? [{ to: '/clientes', label: 'Clientes', icon: Users }] : []),
           ...(podeUsarSquads ? [{ to: '/squads', label: 'Squads', icon: Layers }] : []),
         ],
