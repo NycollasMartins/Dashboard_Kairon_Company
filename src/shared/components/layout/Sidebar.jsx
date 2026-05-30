@@ -47,13 +47,14 @@ export default function Sidebar({
   podeUsarClientesSquads = false,
   podeUsarCrm = false,
   podeUsarSquads = false,
+  podeVerCampanhas = false,
   mobileOpen,
   setMobileOpen,
 }) {
   const [openGroups, setOpenGroups] = useState({ Comercial: true, Operacional: true });
   const toggleGroup = (label) =>
     setOpenGroups((s) => ({ ...s, [label]: !s[label] }));
-  const navItems = getNavItems({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads });
+  const navItems = getNavItems({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas });
   const { logout } = useAuth();
   const navigate = useNavigate();
 
