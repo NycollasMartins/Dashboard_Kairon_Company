@@ -1,0 +1,313 @@
+import { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import {
+  X, Check, CalendarPlus, CalendarClock, Type, AlignLeft, MapPin, Tag, Clock,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { EVENT_TYPE_LIST, eventTypeConfig } from '@/features/calendario/lib/eventConfig';
+import {
+  toLocalDateTimeInput, toLocalDateInput, localDateTimeToISO, localDateToISO,
+} from '@/features/calendario/lib/datetime';
+
+const TITLE_MAX = 140;
+const DESC_MAX = 1000;
+
+function FieldLabel({ icon: Icon, children, required }) {
+  return (
+    <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
+      {Icon && <Icon className="w-3.5 h-3.5" />}
+      {children}
+      {required && <span className="text-[#EA3935]">*</span>}
+    </label>
+  );
+}
+
+// Defaults: início na data sugerida (ou agora arredondado) e fim 1h depois.
+function buildInitialState(event, initialDate) {
+  if (event) {
+    const start = new Date(event.start_at);
+    const end = new Date(event.end_at);
+    return {
+      title: event.title ?? '',
+      type: event.type ?? 'meeting',
+      all_day: !!event.all_day,
+      startDateTime: toLocalDateTimeInput(start),
+      endDateTime: toLocalDateTimeInput(end),
+      startDate: toLocalDateInput(start),
+      endDate: toLocalDateInput(end),
+      location: event.location ?? '',
+      description: event.description ?? '',
+    };
+  }
+  const base = initialDate ? new Date(initialDate) : new Date();
+  if (!initialDate) base.setMinutes(0, 0, 0);
+  base.setHours(base.getHours() < 23 ? Math.max(base.getHours(), 9) : 9);
+  const end = new Date(base);
+  end.setHours(end.getHours() + 1);
+  return {
+    title: '',
+    type: 'meeting',
+    all_day: false,
+    startDateTime: toLocalDateTimeInput(base),
+    endDateTime: toLocalDateTimeInput(end),
+    startDate: toLocalDateInput(base),
+    endDate: toLocalDateInput(base),
+    location: '',
+    description: '',
+  };
+}
+
+export default function EventoForm({ onClose, onSave, event, initialDate, isSaving }) {
+  const isEdit = !!event;
+  const [form, setForm] = useState(() => buildInitialState(event, initialDate));
+  const [submitted, setSubmitted] = useState(false);
+  const [erroData, setErroData] = useState('');
+  const titleRef = useRef(null);
+
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+
+  const titleTrim = form.title.trim();
+  const titleInvalid = submitted && !titleTrim;
+  const typeCfg = eventTypeConfig(form.type);
+
+  const handleSubmit = (e) => {
+    e?.preventDefault?.();
+    setSubmitted(true);
+    setErroData('');
+    if (!titleTrim) return;
+
+    let start_at;
+    let end_at;
+    if (form.all_day) {
+      if (!form.startDate || !form.endDate) {
+        setErroData('Informe as datas.');
+        return;
+      }
+      start_at = localDateToISO(form.startDate, 0, 0);
+      end_at = localDateToISO(form.endDate, 23, 59);
+    } else {
+      if (!form.startDateTime || !form.endDateTime) {
+        setErroData('Informe data e hora de início e fim.');
+        return;
+      }
+      start_at = localDateTimeToISO(form.startDateTime);
+      end_at = localDateTimeToISO(form.endDateTime);
+    }
+
+    if (new Date(end_at) < new Date(start_at)) {
+      setErroData('O fim não pode ser antes do início.');
+      return;
+    }
+
+    onSave({
+      title: titleTrim,
+      type: form.type,
+      all_day: form.all_day,
+      location: form.location,
+      description: form.description,
+      start_at,
+      end_at,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <motion.form
+        onSubmit={handleSubmit}
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+        className="relative glass-card border border-white/10 rounded-2xl w-full max-w-lg z-10 shadow-2xl shadow-black/40"
+      >
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#EA3935]/10 flex items-center justify-center">
+              {isEdit ? (
+                <CalendarClock className="w-4 h-4 text-[#EA3935]" />
+              ) : (
+                <CalendarPlus className="w-4 h-4 text-[#EA3935]" />
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white leading-tight">
+                {isEdit ? 'Editar Evento' : 'Novo Evento'}
+              </h3>
+              <p className="text-[11px] text-muted-foreground">
+                {isEdit ? 'Atualize os detalhes do evento' : 'Adicione um evento ao calendário'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
+            aria-label="Fechar"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div>
+            <FieldLabel icon={Type} required>Título</FieldLabel>
+            <Input
+              ref={titleRef}
+              placeholder="Ex.: Reunião de alinhamento"
+              value={form.title}
+              maxLength={TITLE_MAX}
+              onChange={(e) => set({ title: e.target.value })}
+              aria-invalid={titleInvalid}
+              className={`bg-white/5 border-white/10 text-white placeholder:text-muted-foreground/70 h-10 transition-colors ${
+                titleInvalid ? 'border-red-500/60 focus-visible:ring-red-500/30' : ''
+              }`}
+            />
+            {titleInvalid && <p className="text-[11px] text-red-400 mt-1">Informe o título do evento.</p>}
+          </div>
+
+          <div>
+            <FieldLabel icon={Tag}>Tipo</FieldLabel>
+            <Select value={form.type} onValueChange={(v) => set({ type: v })}>
+              <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                <SelectValue>
+                  <span className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${typeCfg.dot}`} />
+                    <span>{typeCfg.label}</span>
+                  </span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a2e] border-white/10">
+                {EVENT_TYPE_LIST.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    <span className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${t.dot}`} />
+                      <span>{t.label}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <label className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 cursor-pointer">
+            <span className="flex items-center gap-2 text-sm text-white">
+              <Clock className="w-4 h-4 text-muted-foreground" /> Dia inteiro
+            </span>
+            <input
+              type="checkbox"
+              checked={form.all_day}
+              onChange={(e) => set({ all_day: e.target.checked })}
+              className="h-4 w-4 accent-[#EA3935]"
+            />
+          </label>
+
+          {form.all_day ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel required>Início</FieldLabel>
+                <Input
+                  type="date"
+                  value={form.startDate}
+                  onChange={(e) => set({ startDate: e.target.value, endDate: form.endDate < e.target.value ? e.target.value : form.endDate })}
+                  className="bg-white/5 border-white/10 text-white h-10 [color-scheme:dark]"
+                />
+              </div>
+              <div>
+                <FieldLabel required>Fim</FieldLabel>
+                <Input
+                  type="date"
+                  value={form.endDate}
+                  min={form.startDate}
+                  onChange={(e) => set({ endDate: e.target.value })}
+                  className="bg-white/5 border-white/10 text-white h-10 [color-scheme:dark]"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel required>Início</FieldLabel>
+                <Input
+                  type="datetime-local"
+                  value={form.startDateTime}
+                  onChange={(e) => set({ startDateTime: e.target.value, endDateTime: form.endDateTime < e.target.value ? e.target.value : form.endDateTime })}
+                  className="bg-white/5 border-white/10 text-white h-10 [color-scheme:dark]"
+                />
+              </div>
+              <div>
+                <FieldLabel required>Fim</FieldLabel>
+                <Input
+                  type="datetime-local"
+                  value={form.endDateTime}
+                  min={form.startDateTime}
+                  onChange={(e) => set({ endDateTime: e.target.value })}
+                  className="bg-white/5 border-white/10 text-white h-10 [color-scheme:dark]"
+                />
+              </div>
+            </div>
+          )}
+          {erroData && <p className="text-[11px] text-red-400 -mt-2">{erroData}</p>}
+
+          <div>
+            <FieldLabel icon={MapPin}>Local</FieldLabel>
+            <Input
+              placeholder="Sala, link da call, endereço..."
+              value={form.location}
+              onChange={(e) => set({ location: e.target.value })}
+              className="bg-white/5 border-white/10 text-white placeholder:text-muted-foreground/70 h-10"
+            />
+          </div>
+
+          <div>
+            <FieldLabel icon={AlignLeft}>Descrição</FieldLabel>
+            <Textarea
+              placeholder="Pauta, contexto, observações..."
+              value={form.description}
+              maxLength={DESC_MAX}
+              onChange={(e) => set({ description: e.target.value })}
+              className="bg-white/5 border-white/10 text-white placeholder:text-muted-foreground/70 min-h-[80px] resize-none"
+            />
+            <p className="text-[10px] text-muted-foreground/70 text-right mt-1">
+              {form.description.length}/{DESC_MAX}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 px-6 pb-5 pt-1">
+          <Button
+            type="button"
+            onClick={onClose}
+            variant="outline"
+            className="flex-1 border-white/10 bg-transparent text-muted-foreground hover:bg-white/5 hover:text-white h-10"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            disabled={isSaving}
+            className="flex-1 bg-[#EA3935] hover:bg-[#C12D29] border-0 text-white h-10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Check className="w-4 h-4 mr-1.5" /> {isEdit ? 'Salvar alterações' : 'Criar evento'}
+          </Button>
+        </div>
+      </motion.form>
+    </div>
+  );
+}

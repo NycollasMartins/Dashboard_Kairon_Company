@@ -35,4 +35,8 @@ export const queryKeys = {
     detail: (id) => ['campanhas', id],
     metrics: (id) => ['campanhas', id, 'metrics'],
   },
+  calendario: {
+    all: ['calendario'],
+    googleStatus: ['calendario', 'google-status'],
+  },
 };

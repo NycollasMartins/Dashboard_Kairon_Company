@@ -1,0 +1,11 @@
+project_id = "tguefaugsocobaawoueq"
+
+# O callback OAuth do Google Calendar é um GET feito pelo próprio Google,
+# sem header Authorization — por isso a verificação automática de JWT precisa
+# ficar desligada. A função faz sua própria checagem (admin) nas rotas POST.
+[functions.google-calendar-oauth]
+verify_jwt = false
+
+# A sincronização exige usuário autenticado (admin/head). Mantém o JWT ligado.
+[functions.google-calendar-sync]
+verify_jwt = true

@@ -3,12 +3,13 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Shield, Briefcase, Users, CheckSquare,
-  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone,
+  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
 const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas }) => [
   { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
+  { to: '/calendario', label: 'Calendário', icon: Calendar },
   ...(podeUsarCrm
     ? [{
         label: 'Comercial', icon: Target,
