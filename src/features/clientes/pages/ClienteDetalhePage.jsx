@@ -9,6 +9,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import ConfirmArchiveDialog from '@/shared/ui/ConfirmArchiveDialog';
 import ClienteForm from '@/features/clientes/components/ClienteForm';
 import ContratosSection from '@/features/clientes/components/ContratosSection';
+import ClienteArquivos from '@/features/clientes/components/ClienteArquivos';
 import ProjetosLista from '@/features/projetos/components/ProjetosLista';
 import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { queryKeys } from '@/entities/query-keys';
@@ -226,6 +227,7 @@ export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) 
       <div className="flex items-center gap-6 border-b border-white/10">
         {[
           { id: 'projetos', label: 'Projetos' },
+          { id: 'arquivos', label: 'Arquivos' },
           ...(isAdmin ? [{ id: 'financeiro', label: 'Financeiro' }] : []),
         ].map((t) => {
           const active = tab === t.id;
@@ -249,6 +251,8 @@ export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) 
       <div>
         {tab === 'financeiro' && isAdmin ? (
           <ContratosSection clienteId={clienteId} contratos={cliente.contratos} sectionIndex={2} />
+        ) : tab === 'arquivos' ? (
+          <ClienteArquivos clienteId={clienteId} />
         ) : (
           <ProjetosLista clienteId={clienteId} sectionIndex={1} onVerProjeto={onVerProjeto} />
         )}

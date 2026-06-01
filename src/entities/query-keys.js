@@ -40,4 +40,7 @@ export const queryKeys = {
     googleStatus: ['calendario', 'google-status'],
     people: ['calendario', 'people'],
   },
+  arquivos: {
+    folder: (clienteId, folderId) => ['arquivos', clienteId, folderId ?? 'root'],
+  },
 };
