@@ -12,6 +12,7 @@ import {
   Pause,
   Play,
   Square,
+  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -154,6 +155,56 @@ export default function CampanhasPage({ onVerCampanha }) {
     },
   });
 
+  // Importa campanhas reais da conta Meta e grava/atualiza no Supabase.
+  const importar = useMutation({
+    mutationFn: async () => {
+      const remote = await getAdsService('meta').listCampaigns();
+      const byExternal = new Map(
+        campanhas.filter((c) => c.external_id).map((c) => [c.external_id, c]),
+      );
+      let novas = 0;
+      let atualizadas = 0;
+      for (const r of remote) {
+        const existing = byExternal.get(r.external_id);
+        if (existing) {
+          await campanhasApi.update(existing.id, {
+            name: r.name,
+            status: r.status,
+            objective: r.objective ?? existing.objective ?? null,
+            budget: r.budget ?? existing.budget ?? null,
+            budget_type: r.budget_type ?? existing.budget_type ?? 'daily',
+            account_id: r.account_id ?? existing.account_id ?? null,
+          });
+          atualizadas += 1;
+        } else {
+          await campanhasApi.create({
+            name: r.name,
+            platform: 'meta',
+            status: r.status,
+            objective: r.objective ?? null,
+            budget: r.budget ?? null,
+            budget_type: r.budget_type ?? 'daily',
+            external_id: r.external_id,
+            account_id: r.account_id ?? null,
+            created_by: user?.id ?? null,
+          });
+          novas += 1;
+        }
+      }
+      return { novas, atualizadas };
+    },
+    onSuccess: (res) => {
+      invalidate();
+      toast({
+        title: 'Importação concluída',
+        description: `${res.novas} nova(s), ${res.atualizadas} atualizada(s).`,
+      });
+    },
+    onError: (err) => {
+      toast({ variant: 'destructive', title: 'Não foi possível importar do Meta', description: err?.message });
+    },
+  });
+
   const handleSave = (form) => {
     if (editando) atualizar.mutate({ id: editando.id, data: form });
     else criar.mutate(form);
@@ -256,6 +307,17 @@ export default function CampanhasPage({ onVerCampanha }) {
                 <SelectItem value="google">Google Ads</SelectItem>
               </SelectContent>
             </Select>
+            {podeGerenciar && (
+              <Button
+                onClick={() => importar.mutate()}
+                disabled={importar.isPending}
+                variant="outline"
+                className="border-white/10 bg-transparent text-white hover:bg-white/5 text-sm h-9 self-start sm:self-auto"
+              >
+                <Download className={`w-4 h-4 mr-1.5 ${importar.isPending ? 'animate-pulse' : ''}`} />
+                {importar.isPending ? 'Importando...' : 'Importar do Meta'}
+              </Button>
+            )}
             {podeGerenciar && (
               <Button
                 onClick={() => setShowForm(true)}
