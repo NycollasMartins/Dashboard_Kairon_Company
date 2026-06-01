@@ -1,4 +1,4 @@
-import { Crown, Briefcase, Edit2, User, UserCheck, Star, Palette, HeartHandshake } from 'lucide-react';
+import { Crown, Briefcase, Edit2, User, UserCheck, Star, Palette, HeartHandshake, Code2 } from 'lucide-react';
 
 export const roleConfig = {
   admin: {
@@ -7,6 +7,13 @@ export const roleConfig = {
     color: 'text-yellow-400',
     bg: 'bg-yellow-500/10 border-yellow-500/20',
     desc: 'Acesso total ao sistema',
+  },
+  dev: {
+    label: 'Dev',
+    icon: Code2,
+    color: 'text-teal-400',
+    bg: 'bg-teal-500/10 border-teal-500/20',
+    desc: 'Acesso amplo, exceto Campanhas e gestão de usuários',
   },
   head: {
     label: 'Head',

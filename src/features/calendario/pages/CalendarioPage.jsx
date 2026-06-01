@@ -32,7 +32,7 @@ function StatCard({ icon: Icon, label, value, accent = 'text-[#EA3935]' }) {
 
 export default function CalendarioPage() {
   const { user } = useAuth();
-  const canManage = ['admin', 'head'].includes(user?.role);
+  const canManage = ['admin', 'head', 'dev'].includes(user?.role);
   const isAdmin = user?.role === 'admin';
   const { toast } = useToast();
   const qc = useQueryClient();

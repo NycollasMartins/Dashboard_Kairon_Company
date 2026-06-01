@@ -24,10 +24,10 @@ function SquadDetalheRoute() {
 export default function SquadsPageWrapper() {
   const { user } = useAuth();
 
-  if (user?.role !== 'admin' && user?.role !== 'head') {
+  if (!['admin', 'head', 'dev'].includes(user?.role)) {
     return (
       <RestrictedAccessCard
-        description="Apenas usuários com perfil admin ou head podem gerenciar Squads."
+        description="Apenas usuários com perfil admin, head ou dev podem gerenciar Squads."
       />
     );
   }

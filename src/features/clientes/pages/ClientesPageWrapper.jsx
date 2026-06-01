@@ -8,7 +8,7 @@ import ProjetoKanban from '@/features/projetos/components/ProjetoKanban';
 import { projetosApi } from '@/features/projetos/api/projetos.api';
 import { queryKeys } from '@/entities/query-keys';
 
-const OPERACIONAL_ROLES = ['admin', 'social media', 'head', 'cs'];
+const OPERACIONAL_ROLES = ['admin', 'social media', 'head', 'cs', 'dev'];
 
 function ClientesListaRoute() {
   const navigate = useNavigate();

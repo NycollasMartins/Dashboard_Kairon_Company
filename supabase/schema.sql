@@ -17,14 +17,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email      text,
   full_name  text,
   role       text NOT NULL DEFAULT 'sdr'
-               CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr', 'head', 'editor')),
+               CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr', 'head', 'editor', 'dev')),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- Idempotent: ajusta o CHECK constraint em bancos ja existentes
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
-  CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr', 'head', 'editor'));
+  CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr', 'head', 'editor', 'dev'));
 
 -- Automatically create a profile row on every new sign-up
 -- Note: raw_user_meta_data is used only for display (full_name), never for authorization.

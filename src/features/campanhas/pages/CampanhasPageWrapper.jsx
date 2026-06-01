@@ -4,7 +4,7 @@ import RestrictedAccessCard from '@/shared/components/RestrictedAccessCard';
 import CampanhasPage from '@/features/campanhas/pages/CampanhasPage';
 import CampanhaDetalhePage from '@/features/campanhas/pages/CampanhaDetalhePage';
 
-const CAMPANHAS_ROLES = ['admin', 'head'];
+const CAMPANHAS_ROLES = ['admin'];
 
 function CampanhasListaRoute() {
   const navigate = useNavigate();
@@ -28,7 +28,7 @@ export default function CampanhasPageWrapper() {
   if (!CAMPANHAS_ROLES.includes(user?.role)) {
     return (
       <RestrictedAccessCard
-        description="Apenas usuários com perfil admin ou head podem acessar Campanhas."
+        description="Apenas administradores podem acessar Campanhas."
       />
     );
   }

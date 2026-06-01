@@ -26,6 +26,7 @@ const ALLOWED_ROLES = [
   'sdr',
   'bdr',
   'head',
+  'dev',
 ];
 
 Deno.serve(async (req) => {

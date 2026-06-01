@@ -78,8 +78,8 @@ Deno.serve(async (req) => {
     .select('role')
     .eq('id', caller.id)
     .single();
-  if (!profile || !['admin', 'head'].includes(profile.role)) {
-    return jsonResponse({ error: 'Forbidden: admin/head only.' }, 403);
+  if (!profile || profile.role !== 'admin') {
+    return jsonResponse({ error: 'Forbidden: admin only.' }, 403);
   }
 
   // 2) Body.

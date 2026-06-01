@@ -16,11 +16,12 @@ export default function DashboardLayout() {
   const isAdmin = role === 'admin';
   const isHead = role === 'head';
   const isCs = role === 'cs';
-  const podeVerTarefas = ['admin', 'social media', 'editor', 'designer', 'head', 'cs'].includes(role);
-  const podeUsarClientesSquads = ['admin', 'social media', 'head', 'cs'].includes(role);
-  const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr'].includes(role);
-  const podeUsarSquads = isAdmin || isHead || isCs;
-  const podeVerCampanhas = isAdmin || isHead;
+  const isDev = role === 'dev';
+  const podeVerTarefas = ['admin', 'social media', 'editor', 'designer', 'head', 'cs', 'dev'].includes(role);
+  const podeUsarClientesSquads = ['admin', 'social media', 'head', 'cs', 'dev'].includes(role);
+  const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr', 'dev'].includes(role);
+  const podeUsarSquads = isAdmin || isHead || isCs || isDev;
+  const podeVerCampanhas = isAdmin; // Campanhas: somente admin
 
   return (
     <div className="min-h-screen bg-background font-inter">
