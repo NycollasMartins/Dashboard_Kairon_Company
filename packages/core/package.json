@@ -1,0 +1,18 @@
+{
+  "name": "@kairon/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./supabase/client": "./src/supabase/client.js",
+    "./entities/query-keys": "./src/entities/query-keys.js",
+    "./lib/query-client": "./src/lib/query-client.js",
+    "./auth/session": "./src/auth/session.js",
+    "./api/*": "./src/api/*.js"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "@tanstack/react-query": "^5.84.1"
+  }
+}
