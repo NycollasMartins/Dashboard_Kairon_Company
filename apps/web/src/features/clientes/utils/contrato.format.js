@@ -1,9 +1,14 @@
-import { formatMoney } from '@/shared/lib/money';
+const BRL = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
 
-// Mantém o nome formatBRL (usado em todo o app), mas formata na moeda
-// escolhida pelo usuário, convertendo pela cotação.
 export function formatBRL(value) {
-  return formatMoney(value);
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 'R$ 0';
+  return BRL.format(n);
 }
 
 export function formatDateBR(iso) {

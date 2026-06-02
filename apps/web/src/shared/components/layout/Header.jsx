@@ -2,12 +2,10 @@ import { useEffect, useState } from 'react';
 import { Menu } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import Breadcrumbs from '@/shared/components/layout/Breadcrumbs';
-import SettingsModal from '@/features/settings/SettingsModal';
 
 export default function Header({ onMenuClick }) {
   const { user } = useAuth();
   const [scrolled, setScrolled] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const initials = user?.full_name?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
   useEffect(() => {
@@ -34,19 +32,10 @@ export default function Header({ onMenuClick }) {
       </div>
 
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          title="Perfil e configurações"
-          className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-white text-zinc-900 text-sm font-semibold cursor-pointer shadow-sm hover:ring-2 hover:ring-[#EA3935]/40 transition"
-        >
-          {user?.avatar_url ? (
-            <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-          ) : initials}
-        </button>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white text-zinc-900 text-sm font-semibold cursor-pointer shadow-sm">
+          {initials}
+        </div>
       </div>
-
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </header>
   );
 }

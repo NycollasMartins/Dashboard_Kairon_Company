@@ -6,36 +6,35 @@ import {
   ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar, DollarSign,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { usePreferences } from '@/features/settings/PreferencesContext';
 
-const getNavItems = (t, { isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas }) => [
-  { to: '/', label: t('nav.visaoGeral'), icon: LayoutDashboard, end: true },
-  { to: '/calendario', label: t('nav.calendario'), icon: Calendar },
+const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas }) => [
+  { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
+  { to: '/calendario', label: 'Calendário', icon: Calendar },
   ...(podeUsarCrm
     ? [{
-        id: 'comercial', label: t('nav.comercial'), icon: Target,
+        label: 'Comercial', icon: Target,
         children: [
-          { to: '/comercial', label: t('nav.pipelineLeads'), icon: TrendingUp },
+          { to: '/comercial', label: 'Pipeline Leads', icon: TrendingUp },
         ],
       }]
     : []),
   ...(podeVerTarefas || podeVerCampanhas
     ? [{
-        id: 'operacional', label: t('nav.operacional'), icon: Briefcase,
+        label: 'Operacional', icon: Briefcase,
         children: [
-          ...(podeVerCampanhas ? [{ to: '/campanhas', label: t('nav.campanhas'), icon: Megaphone }] : []),
-          ...(podeVerTarefas ? [{ to: '/tarefas', label: t('nav.tarefas'), icon: CheckSquare }] : []),
-          ...(podeUsarClientesSquads ? [{ to: '/clientes', label: t('nav.clientes'), icon: Users }] : []),
-          ...(podeUsarSquads ? [{ to: '/squads', label: t('nav.squads'), icon: Layers }] : []),
+          ...(podeVerCampanhas ? [{ to: '/campanhas', label: 'Campanhas', icon: Megaphone }] : []),
+          ...(podeVerTarefas ? [{ to: '/tarefas', label: 'Tarefas', icon: CheckSquare }] : []),
+          ...(podeUsarClientesSquads ? [{ to: '/clientes', label: 'Clientes', icon: Users }] : []),
+          ...(podeUsarSquads ? [{ to: '/squads', label: 'Squads', icon: Layers }] : []),
         ],
       }]
     : []),
   ...(isAdmin
     ? [{
-        id: 'gestao', label: t('nav.gestao'), icon: Settings,
+        label: 'Gestão', icon: Settings,
         children: [
-          { to: '/administrativo', label: t('nav.membros'), icon: Shield },
-          { to: '/financeiro', label: t('nav.financeiro'), icon: DollarSign },
+          { to: '/administrativo', label: 'Membros', icon: Shield },
+          { to: '/financeiro', label: 'Financeiro', icon: DollarSign },
         ],
       }]
     : []),
@@ -54,11 +53,10 @@ export default function Sidebar({
   mobileOpen,
   setMobileOpen,
 }) {
-  const { t } = usePreferences();
-  const [openGroups, setOpenGroups] = useState({ comercial: true, operacional: true, gestao: true });
-  const toggleGroup = (id) =>
-    setOpenGroups((s) => ({ ...s, [id]: !s[id] }));
-  const navItems = getNavItems(t, { isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas });
+  const [openGroups, setOpenGroups] = useState({ Comercial: true, Operacional: true });
+  const toggleGroup = (label) =>
+    setOpenGroups((s) => ({ ...s, [label]: !s[label] }));
+  const navItems = getNavItems({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas });
   const { logout } = useAuth();
   const navigate = useNavigate();
 
@@ -88,11 +86,11 @@ export default function Sidebar({
           const Icon = item.icon;
 
           if (item.children) {
-            const isOpen = openGroups[item.id] ?? true;
+            const isOpen = openGroups[item.label] ?? true;
             return (
-              <div key={item.id} className={idx === firstGroupIdx ? 'mt-7' : 'mt-5'}>
+              <div key={item.label} className={idx === firstGroupIdx ? 'mt-7' : 'mt-5'}>
                 <button
-                  onClick={() => toggleGroup(item.id)}
+                  onClick={() => toggleGroup(item.label)}
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider font-semibold transition-colors duration-200 text-muted-foreground/60 hover:text-muted-foreground"
                 >
                   <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? '' : '-rotate-90'}`} />
@@ -174,7 +172,7 @@ export default function Sidebar({
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-white hover:bg-white/5 transition-colors border border-transparent"
         >
           <LogOut className="w-4 h-4 shrink-0" />
-          <span className="font-medium">{t('nav.logout')}</span>
+          <span className="font-medium">Sair</span>
         </button>
         <div className="glass-card rounded-xl p-3">
           <p className="text-xs text-muted-foreground text-center">Marketing Ops v1.0</p>
