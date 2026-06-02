@@ -149,26 +149,48 @@ Deno.serve(async (req) => {
     // ---------------- listCampaigns ----------------
     if (action === 'listCampaigns') {
       const out: Array<Record<string, unknown>> = [];
+      // Inclui os ad sets para somar o orçamento quando ele está no nível do
+      // conjunto (CBO desligado) — senão daily/lifetime da campanha vêm vazios.
       const fields =
-        'id,name,status,effective_status,objective,daily_budget,lifetime_budget';
+        'id,name,status,effective_status,objective,daily_budget,lifetime_budget,' +
+        'start_time,stop_time,adsets.limit(500){daily_budget,lifetime_budget,effective_status}';
       let url =
-        `${base}/${AD_ACCOUNT_ID}/campaigns?fields=${fields}&limit=200` +
+        `${base}/${AD_ACCOUNT_ID}/campaigns?fields=${encodeURIComponent(fields)}&limit=100` +
         `&access_token=${encodeURIComponent(ACCESS_TOKEN)}`;
       // segue paginação
-      for (let guard = 0; guard < 20 && url; guard += 1) {
+      for (let guard = 0; guard < 30 && url; guard += 1) {
         const res = await fetch(url);
         if (!res.ok) return jsonResponse({ error: await graphError(res) }, 502);
         const json = await res.json();
         for (const c of json.data ?? []) {
           const daily = centsToValue(c.daily_budget);
           const lifetime = centsToValue(c.lifetime_budget);
+          let budget = daily ?? lifetime ?? null;
+          let budgetType = daily != null ? 'daily' : lifetime != null ? 'lifetime' : 'daily';
+
+          // Orçamento no nível do ad set: soma os ativos.
+          if (budget == null && Array.isArray(c.adsets?.data)) {
+            let adsetDaily = 0;
+            let adsetLifetime = 0;
+            for (const as of c.adsets.data) {
+              const ad = centsToValue(as.daily_budget);
+              const al = centsToValue(as.lifetime_budget);
+              if (ad) adsetDaily += ad;
+              if (al) adsetLifetime += al;
+            }
+            if (adsetDaily > 0) { budget = adsetDaily; budgetType = 'daily'; }
+            else if (adsetLifetime > 0) { budget = adsetLifetime; budgetType = 'lifetime'; }
+          }
+
           out.push({
             external_id: c.id,
             name: c.name ?? 'Campanha sem nome',
             status: mapStatusFromMeta(c.effective_status ?? c.status),
             objective: mapObjectiveFromMeta(c.objective),
-            budget: daily ?? lifetime ?? null,
-            budget_type: daily != null ? 'daily' : lifetime != null ? 'lifetime' : 'daily',
+            budget,
+            budget_type: budgetType,
+            start_date: c.start_time ? String(c.start_time).slice(0, 10) : null,
+            end_date: c.stop_time ? String(c.stop_time).slice(0, 10) : null,
             account_id: AD_ACCOUNT_ID,
           });
         }
@@ -181,7 +203,7 @@ Deno.serve(async (req) => {
     if (action === 'getMetrics') {
       const externalId = body.external_id;
       if (!externalId) return jsonResponse({ error: 'external_id ausente.' }, 400);
-      const days = Math.min(Math.max(Number(body.days) || 14, 1), 90);
+      const days = Math.min(Math.max(Number(body.days) || 30, 1), 400);
 
       const until = new Date();
       const since = new Date();

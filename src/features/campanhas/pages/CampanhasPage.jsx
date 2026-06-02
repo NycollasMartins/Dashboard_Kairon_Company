@@ -172,8 +172,10 @@ export default function CampanhasPage({ onVerCampanha }) {
             name: r.name,
             status: r.status,
             objective: r.objective ?? existing.objective ?? null,
-            budget: r.budget ?? existing.budget ?? null,
-            budget_type: r.budget_type ?? existing.budget_type ?? 'daily',
+            budget: r.budget ?? null,
+            budget_type: r.budget_type ?? 'daily',
+            start_date: r.start_date ?? existing.start_date ?? null,
+            end_date: r.end_date ?? existing.end_date ?? null,
             account_id: r.account_id ?? existing.account_id ?? null,
           });
           atualizadas += 1;
@@ -185,6 +187,8 @@ export default function CampanhasPage({ onVerCampanha }) {
             objective: r.objective ?? null,
             budget: r.budget ?? null,
             budget_type: r.budget_type ?? 'daily',
+            start_date: r.start_date ?? null,
+            end_date: r.end_date ?? null,
             external_id: r.external_id,
             account_id: r.account_id ?? null,
             created_by: user?.id ?? null,
@@ -207,14 +211,19 @@ export default function CampanhasPage({ onVerCampanha }) {
   });
 
   // Sincroniza as métricas de TODAS as campanhas (com external_id) de uma vez.
+  // Janela = início do ano até hoje (year-to-date), para alimentar o Financeiro
+  // com o ano completo.
   const sincronizarMetricas = useMutation({
     mutationFn: async () => {
       const comId = campanhas.filter((c) => c.external_id);
+      const hoje = new Date();
+      const inicioAno = new Date(hoje.getFullYear(), 0, 1);
+      const diasYTD = Math.floor((hoje - inicioAno) / 86400000) + 1;
       let ok = 0;
       let fail = 0;
       for (const c of comId) {
         try {
-          const rows = await getAdsService(c.platform).getMetrics(c.external_id, { days: 14 });
+          const rows = await getAdsService(c.platform).getMetrics(c.external_id, { days: diasYTD });
           await campanhasApi.upsertMetrics(c.id, rows);
           ok += 1;
         } catch {
