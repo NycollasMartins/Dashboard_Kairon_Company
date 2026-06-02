@@ -127,18 +127,19 @@ export function custoOperacionalSeriesYear(custos, year, now = new Date()) {
   const arr = new Array(12).fill(0);
   for (const c of custos || []) {
     if (!c.competencia) continue;
-    const d = new Date(c.competencia);
+    // Parse local (evita o off-by-one de fuso ao usar new Date('YYYY-MM-DD')).
+    const [startYear, mm] = String(c.competencia).slice(0, 10).split('-').map(Number);
+    const startMonth = mm - 1;
     const val = num(c.amount);
     if (c.recurring) {
-      const startYear = d.getFullYear();
-      const startMonth = d.getMonth();
       for (let m = 0; m < 12; m += 1) {
         const depoisDoInicio = year > startYear || (year === startYear && m >= startMonth);
         const naoFuturo = year < now.getFullYear() || (year === now.getFullYear() && m <= now.getMonth());
         if (depoisDoInicio && naoFuturo) arr[m] += val;
       }
-    } else if (d.getFullYear() === year) {
-      arr[d.getMonth()] += val;
+    } else if (startYear === year) {
+      // Custo único entra na despesa do mês de competência (mês em que foi lançado).
+      arr[startMonth] += val;
     }
   }
   return arr;
