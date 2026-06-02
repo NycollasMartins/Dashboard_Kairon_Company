@@ -47,7 +47,7 @@ export default function NotificationBell() {
         type="button"
         onClick={toggle}
         title="Notificações"
-        className="relative w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
+        className="relative w-9 h-9 rounded-xl flex items-center justify-center text-white/80 hover:text-white hover:bg-white/5 transition-colors"
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
