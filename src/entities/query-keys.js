@@ -45,5 +45,6 @@ export const queryKeys = {
   },
   financeiro: {
     metrics: ['financeiro', 'campaign-metrics'],
+    custos: ['financeiro', 'custos-operacionais'],
   },
 };

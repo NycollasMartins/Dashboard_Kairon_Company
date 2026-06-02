@@ -14,3 +14,21 @@ export const financeiroApi = {
       .order('date', { ascending: true })
       .then(unwrap),
 };
+
+const CUSTOS = 'operational_costs';
+
+export const custosApi = {
+  list: () =>
+    supabase.from(CUSTOS).select('*').order('competencia', { ascending: false }).then(unwrap),
+
+  create: (data) =>
+    supabase.from(CUSTOS).insert(data).select('*').single().then(unwrap),
+
+  update: (id, data) =>
+    supabase.from(CUSTOS).update(data).eq('id', id).select('*').single().then(unwrap),
+
+  remove: async (id) => {
+    const { error } = await supabase.from(CUSTOS).delete().eq('id', id);
+    if (error) throw error;
+  },
+};

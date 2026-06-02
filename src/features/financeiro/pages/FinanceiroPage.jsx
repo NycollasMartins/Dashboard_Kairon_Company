@@ -15,12 +15,14 @@ import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { leadsApi } from '@/features/comercial/api/leads.api';
 import { mrrDoCliente } from '@/features/clientes/api/contratos.api';
 import { formatBRL } from '@/features/clientes/utils/contrato.format';
-import { financeiroApi } from '@/features/financeiro/api/financeiro.api';
+import { financeiroApi, custosApi } from '@/features/financeiro/api/financeiro.api';
 import { queryKeys } from '@/entities/query-keys';
 import MetricaModal from '@/features/financeiro/components/MetricaModal';
+import CustosOperacionais from '@/features/financeiro/components/CustosOperacionais';
 import {
-  MES_LABELS, RECEITA_POR_CONVERSAO, flattenContratos, receitaSeriesYear, mrrSeriesYear,
-  leadsSeriesYear, adsSeriesYear, mrrAtual, novosClientesSeriesYear, contratosAVencer, sum,
+  MES_LABELS, flattenContratos, receitaSeriesYear, mrrSeriesYear,
+  leadsSeriesYear, adsSeriesYear, novosClientesSeriesYear, contratosAVencer,
+  custoOperacionalSeriesYear, sum,
 } from '@/features/financeiro/lib/financeiro.calc';
 
 const fmtInt = (v) => Math.round(Number(v) || 0).toLocaleString('pt-BR');
@@ -91,10 +93,13 @@ function Painel({ title, children, action }) {
 export default function FinanceiroPage() {
   const { user } = useAuth();
   const [metrica, setMetrica] = useState(null);
+  const [view, setView] = useState('visao'); // 'visao' | 'custos'
 
-  const { data: clientes = [] } = useQuery({ queryKey: queryKeys.clientes.all, queryFn: clientesApi.list, enabled: user?.role === 'admin' });
-  const { data: leads = [] } = useQuery({ queryKey: queryKeys.leads.all, queryFn: leadsApi.list, enabled: user?.role === 'admin' });
-  const { data: metrics = [] } = useQuery({ queryKey: queryKeys.financeiro.metrics, queryFn: financeiroApi.listCampaignMetrics, enabled: user?.role === 'admin' });
+  const isAdmin = user?.role === 'admin';
+  const { data: clientes = [] } = useQuery({ queryKey: queryKeys.clientes.all, queryFn: clientesApi.list, enabled: isAdmin });
+  const { data: leads = [] } = useQuery({ queryKey: queryKeys.leads.all, queryFn: leadsApi.list, enabled: isAdmin });
+  const { data: metrics = [] } = useQuery({ queryKey: queryKeys.financeiro.metrics, queryFn: financeiroApi.listCampaignMetrics, enabled: isAdmin });
+  const { data: custos = [] } = useQuery({ queryKey: queryKeys.financeiro.custos, queryFn: custosApi.list, enabled: isAdmin });
 
   const qc = useQueryClient();
   const refreshing = useIsFetching({
@@ -115,6 +120,7 @@ export default function FinanceiroPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, () => qc.invalidateQueries({ queryKey: queryKeys.clientes.all }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => qc.invalidateQueries({ queryKey: queryKeys.leads.all }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'campaign_metrics' }, () => qc.invalidateQueries({ queryKey: queryKeys.financeiro.metrics }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'operational_costs' }, () => qc.invalidateQueries({ queryKey: queryKeys.financeiro.custos }))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user?.role, qc]);
@@ -130,21 +136,27 @@ export default function FinanceiroPage() {
     const leadsSeries = leadsSeriesYear(leads, year);
     const ads = adsSeriesYear(metrics, year);
     const novosSeries = novosClientesSeriesYear(clientes, year);
+    const custoOpSeries = custoOperacionalSeriesYear(custos, year, now);
+
+    // Custos totais (ads + operacional) e ROI de NEGÓCIO = (receita − custos) / custos.
+    const custosSeries = ads.spend.map((s, i) => s + custoOpSeries[i]);
+    const roiSeries = receitaSeries.map((rec, i) => (custosSeries[i] > 0 ? ((rec - custosSeries[i]) / custosSeries[i]) * 100 : 0));
 
     const receitaAno = sum(receitaSeries);
     const leadsAno = sum(leadsSeries);
     const gastoAno = sum(ads.spend);
-    const convAno = sum(ads.conversions);
-    const roiAno = gastoAno > 0 ? ((convAno * RECEITA_POR_CONVERSAO - gastoAno) / gastoAno) * 100 : 0;
-    const mrrAtualVal = mrrAtual(clientes);
+    const custoOpAno = sum(custoOpSeries);
+    const custosAno = gastoAno + custoOpAno;
+    const roiAno = custosAno > 0 ? ((receitaAno - custosAno) / custosAno) * 100 : 0;
 
-    const clientesAtivos = clientes.filter((c) => c.status === 'ativo');
-    const ticketMedio = clientesAtivos.length ? mrrAtualVal / clientesAtivos.length : 0;
-    const margemMes = receitaSeries[cm] - ads.spend[cm];
-
-    // Receita por tipo (ano)
+    const mrrMes = mrrSeries[cm];
     const mrrAno = sum(mrrSeries);
     const pontualAno = Math.max(receitaAno - mrrAno, 0);
+
+    const clientesAtivos = clientes.filter((c) => c.status === 'ativo');
+    const ticketMedio = clientesAtivos.length ? mrrMes / clientesAtivos.length : 0;
+    const custosMes = custosSeries[cm];
+    const margemMes = receitaSeries[cm] - custosMes;
 
     // Gasto por plataforma (ano)
     const gastoPlat = { meta: 0, google: 0 };
@@ -164,12 +176,13 @@ export default function FinanceiroPage() {
     const aVencer = contratosAVencer(contratos, 30, now).slice(0, 6);
 
     return {
-      receitaSeries, mrrSeries, leadsSeries, ads, novosSeries,
-      receitaAno, leadsAno, gastoAno, roiAno, mrrAtualVal,
-      clientesAtivos: clientesAtivos.length, ticketMedio, margemMes,
-      mrrAno, pontualAno, gastoPlat, topMrr, aVencer,
+      receitaSeries, mrrSeries, leadsSeries, ads, novosSeries, custoOpSeries, roiSeries,
+      receitaAno, leadsAno, gastoAno, custoOpAno, custosAno, roiAno,
+      mrrMes, mrrAno, pontualAno,
+      clientesAtivos: clientesAtivos.length, ticketMedio, custosMes, margemMes,
+      gastoPlat, topMrr, aVencer,
     };
-  }, [clientes, leads, metrics, year, cm, now]);
+  }, [clientes, leads, metrics, custos, year, cm, now]);
 
   if (user?.role !== 'admin') {
     return <RestrictedAccessCard description="Apenas administradores podem acessar o Financeiro." />;
@@ -188,13 +201,13 @@ export default function FinanceiroPage() {
     },
     {
       key: 'roi', icon: TrendingUp, accent: 'red', label: 'ROI Geral (mês)',
-      value: fmtPct(calc.ads.roi[cm]), sub: `Gasto no mês: ${formatBRL(calc.ads.spend[cm])}`,
-      modal: { title: 'ROI Geral', icon: TrendingUp, accent: 'red', format: fmtPct, series: calc.ads.roi, chartType: 'bar', annualLabel: 'ROI no ano', annualValue: calc.roiAno, subtitle: 'ROI % mês a mês (receita estimada vs gasto)' },
+      value: fmtPct(calc.roiSeries[cm]), sub: `Custos do mês: ${formatBRL(calc.custosMes)}`,
+      modal: { title: 'ROI Geral', icon: TrendingUp, accent: 'red', format: fmtPct, series: calc.roiSeries, chartType: 'bar', annualLabel: 'ROI no ano', annualValue: calc.roiAno, subtitle: 'ROI % mês a mês = (receita − custos) / custos' },
     },
     {
-      key: 'mrr', icon: Wallet, accent: 'purple', label: 'MRR Total',
-      value: formatBRL(calc.mrrAtualVal), sub: `${calc.clientesAtivos} clientes ativos`,
-      modal: { title: 'MRR', icon: Wallet, accent: 'purple', format: formatBRL, series: calc.mrrSeries, chartType: 'area', annualLabel: 'MRR atual', annualValue: calc.mrrAtualVal, subtitle: 'MRR recorrente mês a mês' },
+      key: 'mrr', icon: Wallet, accent: 'purple', label: 'MRR do mês',
+      value: formatBRL(calc.mrrMes), sub: `${calc.clientesAtivos} clientes ativos`,
+      modal: { title: 'MRR', icon: Wallet, accent: 'purple', format: formatBRL, series: calc.mrrSeries, chartType: 'area', annualLabel: 'MRR total no ano', annualValue: calc.mrrAno, subtitle: 'MRR recorrente mês a mês' },
     },
   ];
 
@@ -245,6 +258,27 @@ export default function FinanceiroPage() {
         </div>
       </div>
 
+      {/* Sub-abas */}
+      <div className="flex items-center gap-6 border-b border-white/10">
+        {[{ id: 'visao', label: 'Visão Geral' }, { id: 'custos', label: 'Custos Operacionais' }].map((t) => {
+          const active = view === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setView(t.id)}
+              className={`relative pb-3 text-sm font-medium transition-colors border-b-2 -mb-px ${active ? 'text-white border-[#EA3935]' : 'text-muted-foreground border-transparent hover:text-white'}`}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {view === 'custos' ? (
+        <CustosOperacionais />
+      ) : (
+      <div className="space-y-6">
       {/* 4 KPIs principais (clicáveis) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((c) => (
@@ -254,10 +288,10 @@ export default function FinanceiroPage() {
 
       {/* KPIs secundários */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <MiniKpi icon={PiggyBank} label="Margem do mês (receita − ads)" value={formatBRL(calc.margemMes)} accent={calc.margemMes >= 0 ? 'emerald' : 'red'} />
-        <MiniKpi icon={Receipt} label="Ticket médio (MRR/cliente)" value={formatBRL(calc.ticketMedio)} accent="blue" />
-        <MiniKpi icon={UserPlus} label="Novos clientes no mês" value={fmtInt(calc.novosSeries[cm])} accent="emerald" />
-        <MiniKpi icon={BadgeDollarSign} label="Gasto em ads no ano" value={formatBRL(calc.gastoAno)} accent="red" />
+        <MiniKpi icon={PiggyBank} label="Margem do mês (receita − custos)" value={formatBRL(calc.margemMes)} accent={calc.margemMes >= 0 ? 'emerald' : 'red'} />
+        <MiniKpi icon={Receipt} label="Custo operacional (mês)" value={formatBRL(calc.custoOpSeries[cm])} accent="purple" />
+        <MiniKpi icon={BadgeDollarSign} label="Gasto em ads (mês)" value={formatBRL(calc.ads.spend[cm])} accent="red" />
+        <MiniKpi icon={UserPlus} label="Ticket médio (MRR/cliente)" value={formatBRL(calc.ticketMedio)} accent="blue" />
       </div>
 
       {/* Hero: receita mês a mês + composição/gasto */}
@@ -389,6 +423,8 @@ export default function FinanceiroPage() {
           )}
         </Painel>
       </div>
+      </div>
+      )}
 
       {metrica && <MetricaModal metrica={metrica} onClose={() => setMetrica(null)} />}
     </div>

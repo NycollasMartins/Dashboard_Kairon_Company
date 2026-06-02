@@ -24,11 +24,14 @@ export function flattenContratos(clientes) {
   return out;
 }
 
-// Último instante em que um contrato MRR ainda gera receita.
+// Último instante em que um contrato MRR ainda gerou receita REALIZADA.
+// Capamos em "agora" para não projetar receita de meses futuros.
 function fimEfetivo(ct, now) {
-  if (ct.status === 'cancelado' && ct.data_cancelamento) return new Date(ct.data_cancelamento);
-  if (ct.data_fim) return new Date(ct.data_fim);
-  return now;
+  let fim;
+  if (ct.status === 'cancelado' && ct.data_cancelamento) fim = new Date(ct.data_cancelamento);
+  else if (ct.data_fim) fim = new Date(ct.data_fim);
+  else fim = now;
+  return fim < now ? fim : now;
 }
 
 // Série de MRR (recorrente) por mês do ano: um contrato MRR soma seu valor
@@ -115,6 +118,29 @@ export function novosClientesSeriesYear(clientes, year) {
     if (!c.created_at) continue;
     const d = new Date(c.created_at);
     if (d.getFullYear() === year) arr[d.getMonth()] += 1;
+  }
+  return arr;
+}
+
+// Custos operacionais por mês: pontual entra só no mês de competência;
+// recorrente entra em todo mês a partir da competência (até o mês atual).
+export function custoOperacionalSeriesYear(custos, year, now = new Date()) {
+  const arr = new Array(12).fill(0);
+  for (const c of custos || []) {
+    if (!c.competencia) continue;
+    const d = new Date(c.competencia);
+    const val = num(c.amount);
+    if (c.recurring) {
+      const startYear = d.getFullYear();
+      const startMonth = d.getMonth();
+      for (let m = 0; m < 12; m += 1) {
+        const depoisDoInicio = year > startYear || (year === startYear && m >= startMonth);
+        const naoFuturo = year < now.getFullYear() || (year === now.getFullYear() && m <= now.getMonth());
+        if (depoisDoInicio && naoFuturo) arr[m] += val;
+      }
+    } else if (d.getFullYear() === year) {
+      arr[d.getMonth()] += val;
+    }
   }
   return arr;
 }
