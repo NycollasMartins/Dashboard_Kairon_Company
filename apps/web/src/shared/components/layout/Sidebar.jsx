@@ -6,6 +6,7 @@ import {
   ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar, DollarSign,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { useNotifications } from '@/features/notifications/NotificationsContext';
 
 const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas }) => [
   { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
@@ -58,6 +59,7 @@ export default function Sidebar({
     setOpenGroups((s) => ({ ...s, [label]: !s[label] }));
   const navItems = getNavItems({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas });
   const { logout } = useAuth();
+  const { leadUnreadCount } = useNotifications();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -125,7 +127,13 @@ export default function Sidebar({
                               <>
                                 <ChildIcon className="w-4 h-4 shrink-0" />
                                 <span className="font-medium">{child.label}</span>
-                                {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={activeDot} />}
+                                {child.to === '/comercial' && leadUnreadCount > 0 ? (
+                                  <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-[#EA3935] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                    {leadUnreadCount > 99 ? '99+' : leadUnreadCount}
+                                  </span>
+                                ) : isActive ? (
+                                  <div className="ml-auto w-1.5 h-1.5 rounded-full" style={activeDot} />
+                                ) : null}
                               </>
                             )}
                           </NavLink>

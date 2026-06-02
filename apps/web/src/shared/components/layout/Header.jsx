@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Menu } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import Breadcrumbs from '@/shared/components/layout/Breadcrumbs';
+import NotificationBell from '@/features/notifications/NotificationBell';
 
 export default function Header({ onMenuClick }) {
   const { user } = useAuth();
@@ -31,7 +32,8 @@ export default function Header({ onMenuClick }) {
         <Breadcrumbs />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
+        <NotificationBell />
         <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white text-zinc-900 text-sm font-semibold cursor-pointer shadow-sm">
           {initials}
         </div>
