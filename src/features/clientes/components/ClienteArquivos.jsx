@@ -3,13 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Folder, FolderPlus, Upload, Trash2, Download, ChevronRight,
-  FileImage, FileVideo, File as FileIcon, Loader2, X, Check, HardDrive,
+  FileImage, FileVideo, File as FileIcon, Loader2, X, Check, HardDrive, Play,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import ConfirmArchiveDialog from '@/shared/ui/ConfirmArchiveDialog';
+import FileViewerModal from '@/shared/ui/FileViewerModal';
 import { arquivosApi } from '@/features/clientes/api/arquivos.api';
 import { queryKeys } from '@/entities/query-keys';
 
@@ -82,6 +83,7 @@ export default function ClienteArquivos({ clienteId }) {
   const [excluindoArquivo, setExcluindoArquivo] = useState(null);
   const [uploads, setUploads] = useState([]); // { id, name, progress, error }
   const [thumbs, setThumbs] = useState({}); // storage_path -> signedUrl
+  const [viewing, setViewing] = useState(null);
   const fileInputRef = useRef(null);
 
   const folderKey = queryKeys.arquivos.folder(clienteId, currentFolderId);
@@ -96,10 +98,10 @@ export default function ClienteArquivos({ clienteId }) {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.arquivos.folder(clienteId, currentFolderId) });
 
-  // Thumbnails (links assinados) para imagens da pasta atual.
+  // Thumbnails/prévias (links assinados) para imagens e vídeos da pasta atual.
   useEffect(() => {
-    const imgs = files.filter((f) => isImage(f.mime_type)).map((f) => f.storage_path);
-    const missing = imgs.filter((p) => !thumbs[p]);
+    const previews = files.filter((f) => isImage(f.mime_type) || isVideo(f.mime_type)).map((f) => f.storage_path);
+    const missing = previews.filter((p) => !thumbs[p]);
     if (!missing.length) return;
     let active = true;
     arquivosApi.signedUrls(missing).then((map) => {
@@ -162,12 +164,17 @@ export default function ClienteArquivos({ clienteId }) {
     }
   };
 
-  const openFile = async (file) => {
+  const baixar = async (file) => {
     try {
-      const url = await arquivosApi.signedUrl(file.storage_path);
-      window.open(url, '_blank', 'noopener');
+      const url = await arquivosApi.downloadUrl(file.storage_path, file.name);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Não foi possível abrir o arquivo', description: err?.message });
+      toast({ variant: 'destructive', title: 'Não foi possível baixar o arquivo', description: err?.message });
     }
   };
 
@@ -286,11 +293,22 @@ export default function ClienteArquivos({ clienteId }) {
                     className="group glass-card rounded-2xl border border-white/5 overflow-hidden hover:border-white/10 transition-colors"
                   >
                     <div
-                      onClick={() => openFile(file)}
+                      onClick={() => setViewing(file)}
+                      title="Abrir"
                       className="h-28 bg-black/30 flex items-center justify-center cursor-pointer relative overflow-hidden"
                     >
-                      {thumb ? (
+                      {thumb && isImage(file.mime_type) ? (
                         <img src={thumb} alt={file.name} className="w-full h-full object-cover" loading="lazy" />
+                      ) : thumb && isVideo(file.mime_type) ? (
+                        <>
+                          {/* prévia: primeiro frame do vídeo (capa) */}
+                          <video src={`${thumb}#t=0.1`} muted preload="metadata" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                            <div className="w-9 h-9 rounded-full bg-black/50 border border-white/20 flex items-center justify-center">
+                              <Play className="w-4 h-4 text-white ml-0.5" />
+                            </div>
+                          </div>
+                        </>
                       ) : (
                         <Icon className={`w-8 h-8 ${isImage(file.mime_type) ? 'text-blue-300' : isVideo(file.mime_type) ? 'text-purple-300' : 'text-muted-foreground'}`} />
                       )}
@@ -302,8 +320,8 @@ export default function ClienteArquivos({ clienteId }) {
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() => openFile(file)}
-                            title="Abrir / baixar"
+                            onClick={() => baixar(file)}
+                            title="Baixar"
                             className="p-1 rounded-md text-muted-foreground hover:text-white hover:bg-white/10 transition-colors"
                           >
                             <Download className="w-3.5 h-3.5" />
@@ -359,6 +377,10 @@ export default function ClienteArquivos({ clienteId }) {
           onCancel={() => setExcluindoArquivo(null)}
           isLoading={excluirArquivo.isPending}
         />
+      )}
+
+      {viewing && (
+        <FileViewerModal file={viewing} bucket="client-files" onClose={() => setViewing(null)} />
       )}
     </div>
   );

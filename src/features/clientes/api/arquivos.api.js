@@ -143,9 +143,18 @@ export const arquivosApi = {
     if (error) throw error;
   },
 
-  // Link assinado temporário para visualizar/baixar.
+  // Link assinado temporário para visualizar inline.
   signedUrl: async (storagePath, expiresIn = 3600) => {
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, expiresIn);
+    if (error) throw error;
+    return data.signedUrl;
+  },
+
+  // Link assinado que força download (Content-Disposition attachment).
+  downloadUrl: async (storagePath, name) => {
+    const { data, error } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrl(storagePath, 3600, { download: name || true });
     if (error) throw error;
     return data.signedUrl;
   },

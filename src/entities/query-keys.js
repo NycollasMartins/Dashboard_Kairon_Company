@@ -19,6 +19,7 @@ export const queryKeys = {
   },
   usuarios: {
     all: ['usuarios'],
+    documentos: (profileId) => ['usuarios', 'documentos', profileId],
   },
   convitesPendentes: {
     all: ['convitesPendentes'],

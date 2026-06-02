@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Archive,
   Trash2,
+  FileText,
 } from 'lucide-react';
 import {
   Select,
@@ -26,6 +27,7 @@ import { invitesApi } from '@/features/administrativo/api/invites.api';
 import { roleConfig } from '@/features/administrativo/lib/roleConfig';
 import InviteUserDialog from '@/features/administrativo/components/InviteUserDialog';
 import DeleteUserDialog from '@/features/administrativo/components/DeleteUserDialog';
+import UserDocumentsDialog from '@/features/administrativo/components/UserDocumentsDialog';
 import { queryKeys } from '@/entities/query-keys';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import RestrictedAccessCard from '@/shared/components/RestrictedAccessCard';
@@ -65,6 +67,7 @@ function AdministrativoPageContent() {
   const [novoRole, setNovoRole] = useState('');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [docsUser, setDocsUser] = useState(null);
   const [aba, setAba] = useState('ativos');
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -358,9 +361,15 @@ function AdministrativoPageContent() {
                     >
                       {u.full_name?.[0]?.toUpperCase() || u.email?.[0]?.toUpperCase() || '?'}
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setDocsUser(u)}
+                      title="Ver documentos e contratos"
+                      className="flex-1 min-w-0 text-left group/doc"
+                    >
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-white truncate">{u.full_name || '—'}</p>
+                        <p className="text-sm font-medium text-white truncate group-hover/doc:text-[#EA3935] transition-colors">{u.full_name || '—'}</p>
+                        <FileText className="w-3 h-3 text-muted-foreground/0 group-hover/doc:text-muted-foreground transition-colors shrink-0" />
                         {isArchived && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-zinc-500/15 text-zinc-300 border border-zinc-500/20">
                             <Archive className="w-2.5 h-2.5" /> Arquivado em {formatDate(u.archived_at)}
@@ -368,7 +377,7 @@ function AdministrativoPageContent() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                    </div>
+                    </button>
 
                     {isEditando && isAdmin && !isArchived ? (
                       <div className="flex items-center gap-2">
@@ -445,6 +454,9 @@ function AdministrativoPageContent() {
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         user={deleteTarget || {}}
       />
+      {docsUser && (
+        <UserDocumentsDialog user={docsUser} onClose={() => setDocsUser(null)} />
+      )}
     </div>
   );
 }
