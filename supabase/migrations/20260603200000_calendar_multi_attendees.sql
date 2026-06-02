@@ -31,10 +31,10 @@ BEGIN
       FROM ev e JOIN public.event_attendees ea ON ea.event_id = e.id
       WHERE e.audience_type = 'user'
     UNION
-    -- somente C-levels (admin/head)
+    -- somente C-levels (apenas admin)
     SELECT e.id, e.title, e.start_at, p.id
       FROM ev e CROSS JOIN public.profiles p
-      WHERE e.audience_type = 'clevel' AND p.archived_at IS NULL AND p.role IN ('admin', 'head')
+      WHERE e.audience_type = 'clevel' AND p.archived_at IS NULL AND p.role = 'admin'
     UNION
     -- squad (todos os membros)
     SELECT e.id, e.title, e.start_at, sm.profile_id

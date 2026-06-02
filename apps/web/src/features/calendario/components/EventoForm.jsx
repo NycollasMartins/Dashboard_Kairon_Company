@@ -308,7 +308,7 @@ export default function EventoForm({ onClose, onSave, event, initialDate, isSavi
 
             {form.audience_type === 'clevel' && (
               <p className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1.5">
-                <Crown className="w-3.5 h-3.5 text-amber-300" /> Será atribuído a todos os C-levels (admin e head).
+                <Crown className="w-3.5 h-3.5 text-amber-300" /> Será atribuído somente aos C-levels (admin).
               </p>
             )}
 

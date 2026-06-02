@@ -23,7 +23,7 @@ export default function EventoDetalhe({ event, canManage, onClose, onEdit, onDel
 
   const audience = (() => {
     if (event.audience_type === 'clevel') {
-      return { Icon: Crown, text: 'Somente C-levels (admin e head)' };
+      return { Icon: Crown, text: 'Somente C-levels (admin)' };
     }
     if (event.audience_type === 'squad') {
       return { Icon: Layers, text: `Squad ${event.squad?.nome ?? '—'}` };
