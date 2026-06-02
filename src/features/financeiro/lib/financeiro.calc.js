@@ -24,18 +24,17 @@ export function flattenContratos(clientes) {
   return out;
 }
 
-// Último instante em que um contrato MRR ainda gerou receita REALIZADA.
-// Capamos em "agora" para não projetar receita de meses futuros.
+// Até quando o MRR do contrato vai: o TEMPO DE CONTRATO (data_inicio → data_fim)
+// é o que define até onde o MRR do cliente é contabilizado. Se cancelado antes,
+// vai só até a data de cancelamento.
 function fimEfetivo(ct, now) {
-  let fim;
-  if (ct.status === 'cancelado' && ct.data_cancelamento) fim = new Date(ct.data_cancelamento);
-  else if (ct.data_fim) fim = new Date(ct.data_fim);
-  else fim = now;
-  return fim < now ? fim : now;
+  if (ct.status === 'cancelado' && ct.data_cancelamento) return new Date(ct.data_cancelamento);
+  if (ct.data_fim) return new Date(ct.data_fim);
+  return now;
 }
 
 // Série de MRR (recorrente) por mês do ano: um contrato MRR soma seu valor
-// em todo mês que intersecta [data_inicio, fim efetivo].
+// em todo mês que intersecta [data_inicio, fim do contrato].
 export function mrrSeriesYear(contratos, year, now = new Date()) {
   const arr = new Array(12).fill(0);
   for (const ct of contratos) {
