@@ -123,7 +123,7 @@ export function novosClientesSeriesYear(clientes, year) {
 
 // Custos operacionais por mês: pontual entra só no mês de competência;
 // recorrente entra em todo mês a partir da competência (até o mês atual).
-export function custoOperacionalSeriesYear(custos, year, now = new Date()) {
+export function custoOperacionalSeriesYear(custos, year) {
   const arr = new Array(12).fill(0);
   for (const c of custos || []) {
     if (!c.competencia) continue;
@@ -132,10 +132,11 @@ export function custoOperacionalSeriesYear(custos, year, now = new Date()) {
     const startMonth = mm - 1;
     const val = num(c.amount);
     if (c.recurring) {
+      // Recorrente conta de janeiro a dezembro do ano (a partir do mês de início,
+      // se começou neste mesmo ano). Anos seguintes herdam automaticamente.
       for (let m = 0; m < 12; m += 1) {
-        const depoisDoInicio = year > startYear || (year === startYear && m >= startMonth);
-        const naoFuturo = year < now.getFullYear() || (year === now.getFullYear() && m <= now.getMonth());
-        if (depoisDoInicio && naoFuturo) arr[m] += val;
+        const aplica = year > startYear || (year === startYear && m >= startMonth);
+        if (aplica) arr[m] += val;
       }
     } else if (startYear === year) {
       // Custo único entra na despesa do mês de competência (mês em que foi lançado).

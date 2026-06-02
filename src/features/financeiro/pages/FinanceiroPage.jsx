@@ -5,9 +5,10 @@ import {
 } from 'recharts';
 import {
   DollarSign, Users, TrendingUp, Wallet, ChevronRight, PiggyBank, Receipt,
-  UserPlus, BadgeDollarSign, AlertTriangle, Megaphone, Landmark, RefreshCw,
+  UserPlus, BadgeDollarSign, AlertTriangle, Megaphone, Landmark, RefreshCw, CalendarRange,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { supabase } from '@/infrastructure/supabase/client';
 import RestrictedAccessCard from '@/shared/components/RestrictedAccessCard';
@@ -94,6 +95,7 @@ export default function FinanceiroPage() {
   const { user } = useAuth();
   const [metrica, setMetrica] = useState(null);
   const [view, setView] = useState('visao'); // 'visao' | 'custos'
+  const [year, setYear] = useState(() => new Date().getFullYear());
 
   const isAdmin = user?.role === 'admin';
   const { data: clientes = [] } = useQuery({ queryKey: queryKeys.clientes.all, queryFn: clientesApi.list, enabled: isAdmin });
@@ -126,7 +128,8 @@ export default function FinanceiroPage() {
   }, [user?.role, qc]);
 
   const now = new Date();
-  const year = now.getFullYear();
+  const currentYear = now.getFullYear();
+  const isCurrentYear = year === currentYear;
   const cm = now.getMonth();
 
   const calc = useMemo(() => {
@@ -175,39 +178,59 @@ export default function FinanceiroPage() {
 
     const aVencer = contratosAVencer(contratos, 30, now).slice(0, 6);
 
+    const margemAno = receitaAno - custosAno;
+
     return {
       receitaSeries, mrrSeries, leadsSeries, ads, novosSeries, custoOpSeries, roiSeries,
-      receitaAno, leadsAno, gastoAno, custoOpAno, custosAno, roiAno,
+      receitaAno, leadsAno, gastoAno, custoOpAno, custosAno, roiAno, margemAno,
       mrrMes, mrrAno, pontualAno,
       clientesAtivos: clientesAtivos.length, ticketMedio, custosMes, margemMes,
       gastoPlat, topMrr, aVencer,
     };
   }, [clientes, leads, metrics, custos, year, cm, now]);
 
+  const anosDisponiveis = useMemo(() => {
+    const set = new Set([currentYear]);
+    for (const c of custos) if (c.competencia) set.add(Number(String(c.competencia).slice(0, 4)));
+    for (const cl of clientes) for (const ct of cl.contratos || []) if (ct.data_inicio) set.add(Number(String(ct.data_inicio).slice(0, 4)));
+    for (const l of leads) if (l.created_at) set.add(new Date(l.created_at).getFullYear());
+    for (const m of metrics) if (m.date) set.add(Number(String(m.date).slice(0, 4)));
+    return Array.from(set).filter((y) => y <= currentYear).sort((a, b) => b - a);
+  }, [custos, clientes, leads, metrics, currentYear]);
+
   if (user?.role !== 'admin') {
     return <RestrictedAccessCard description="Apenas administradores podem acessar o Financeiro." />;
   }
 
+  // Ano atual: cards mostram o MÊS atual. Anos passados (fechados): mostram o total do ano.
   const cards = [
     {
-      key: 'receita', icon: DollarSign, accent: 'emerald', label: 'Receita do mês',
-      value: formatBRL(calc.receitaSeries[cm]), sub: `Acumulado no ano: ${formatBRL(calc.receitaAno)}`,
-      modal: { title: 'Receita', icon: DollarSign, accent: 'emerald', format: formatBRL, series: calc.receitaSeries, chartType: 'area', annualLabel: 'Receita no ano', annualValue: calc.receitaAno },
+      key: 'receita', icon: DollarSign, accent: 'emerald',
+      label: isCurrentYear ? 'Receita do mês' : `Receita · ${year}`,
+      value: isCurrentYear ? formatBRL(calc.receitaSeries[cm]) : formatBRL(calc.receitaAno),
+      sub: isCurrentYear ? `Acumulado no ano: ${formatBRL(calc.receitaAno)}` : `Média/mês: ${formatBRL(calc.receitaAno / 12)}`,
+      modal: { title: 'Receita', icon: DollarSign, accent: 'emerald', format: formatBRL, series: calc.receitaSeries, chartType: 'area', annualLabel: `Receita no ano (${year})`, annualValue: calc.receitaAno },
     },
     {
-      key: 'leads', icon: Users, accent: 'blue', label: 'Leads do mês',
-      value: fmtInt(calc.leadsSeries[cm]), sub: `Total no ano: ${fmtInt(calc.leadsAno)}`,
-      modal: { title: 'Leads', icon: Users, accent: 'blue', format: fmtInt, series: calc.leadsSeries, chartType: 'bar', annualLabel: 'Leads no ano', annualValue: calc.leadsAno },
+      key: 'leads', icon: Users, accent: 'blue',
+      label: isCurrentYear ? 'Leads do mês' : `Leads · ${year}`,
+      value: isCurrentYear ? fmtInt(calc.leadsSeries[cm]) : fmtInt(calc.leadsAno),
+      sub: isCurrentYear ? `Total no ano: ${fmtInt(calc.leadsAno)}` : `Média/mês: ${fmtInt(calc.leadsAno / 12)}`,
+      modal: { title: 'Leads', icon: Users, accent: 'blue', format: fmtInt, series: calc.leadsSeries, chartType: 'bar', annualLabel: `Leads no ano (${year})`, annualValue: calc.leadsAno },
     },
     {
-      key: 'roi', icon: TrendingUp, accent: 'red', label: 'ROI Geral (mês)',
-      value: fmtPct(calc.roiSeries[cm]), sub: `Custos do mês: ${formatBRL(calc.custosMes)}`,
-      modal: { title: 'ROI Geral', icon: TrendingUp, accent: 'red', format: fmtPct, series: calc.roiSeries, chartType: 'bar', annualLabel: 'ROI no ano', annualValue: calc.roiAno, subtitle: 'ROI % mês a mês = (receita − custos) / custos' },
+      key: 'roi', icon: TrendingUp, accent: 'red',
+      label: isCurrentYear ? 'ROI Geral (mês)' : `ROI Geral · ${year}`,
+      value: isCurrentYear ? fmtPct(calc.roiSeries[cm]) : fmtPct(calc.roiAno),
+      sub: isCurrentYear ? `Custos do mês: ${formatBRL(calc.custosMes)}` : `Custos no ano: ${formatBRL(calc.custosAno)}`,
+      modal: { title: 'ROI Geral', icon: TrendingUp, accent: 'red', format: fmtPct, series: calc.roiSeries, chartType: 'bar', annualLabel: `ROI no ano (${year})`, annualValue: calc.roiAno, subtitle: 'ROI % mês a mês = (receita − custos) / custos' },
     },
     {
-      key: 'mrr', icon: Wallet, accent: 'purple', label: 'MRR do mês',
-      value: formatBRL(calc.mrrMes), sub: `${calc.clientesAtivos} clientes ativos`,
-      modal: { title: 'MRR', icon: Wallet, accent: 'purple', format: formatBRL, series: calc.mrrSeries, chartType: 'area', annualLabel: 'MRR total no ano', annualValue: calc.mrrAno, subtitle: 'MRR recorrente mês a mês' },
+      key: 'mrr', icon: Wallet, accent: 'purple',
+      label: isCurrentYear ? 'MRR do mês' : `MRR total · ${year}`,
+      value: isCurrentYear ? formatBRL(calc.mrrMes) : formatBRL(calc.mrrAno),
+      sub: isCurrentYear ? `${calc.clientesAtivos} clientes ativos` : `Média/mês: ${formatBRL(calc.mrrAno / 12)}`,
+      modal: { title: 'MRR', icon: Wallet, accent: 'purple', format: formatBRL, series: calc.mrrSeries, chartType: 'area', annualLabel: `MRR total no ano (${year})`, annualValue: calc.mrrAno, subtitle: 'MRR recorrente mês a mês' },
     },
   ];
 
@@ -242,9 +265,22 @@ export default function FinanceiroPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border bg-emerald-500/10 border-emerald-500/20 text-emerald-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Tempo real
-            </span>
+            <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+              <SelectTrigger className="w-28 bg-white/5 border-white/10 text-white h-9">
+                <CalendarRange className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a2e] border-white/10">
+                {anosDisponiveis.map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}{y === currentYear ? ' (atual)' : ''}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isCurrentYear && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border bg-emerald-500/10 border-emerald-500/20 text-emerald-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Tempo real
+              </span>
+            )}
             <Button
               onClick={refresh}
               disabled={refreshing}
@@ -276,7 +312,7 @@ export default function FinanceiroPage() {
       </div>
 
       {view === 'custos' ? (
-        <CustosOperacionais />
+        <CustosOperacionais year={year} />
       ) : (
       <div className="space-y-6">
       {/* 4 KPIs principais (clicáveis) */}
@@ -286,11 +322,11 @@ export default function FinanceiroPage() {
         ))}
       </div>
 
-      {/* KPIs secundários */}
+      {/* KPIs secundários (mês para ano atual, ano para anos fechados) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <MiniKpi icon={PiggyBank} label="Margem do mês (receita − custos)" value={formatBRL(calc.margemMes)} accent={calc.margemMes >= 0 ? 'emerald' : 'red'} />
-        <MiniKpi icon={Receipt} label="Custo operacional (mês)" value={formatBRL(calc.custoOpSeries[cm])} accent="purple" />
-        <MiniKpi icon={BadgeDollarSign} label="Gasto em ads (mês)" value={formatBRL(calc.ads.spend[cm])} accent="red" />
+        <MiniKpi icon={PiggyBank} label={isCurrentYear ? 'Margem do mês (receita − custos)' : `Margem ${year} (receita − custos)`} value={formatBRL(isCurrentYear ? calc.margemMes : calc.margemAno)} accent={(isCurrentYear ? calc.margemMes : calc.margemAno) >= 0 ? 'emerald' : 'red'} />
+        <MiniKpi icon={Receipt} label={isCurrentYear ? 'Custo operacional (mês)' : `Custo operacional (${year})`} value={formatBRL(isCurrentYear ? calc.custoOpSeries[cm] : calc.custoOpAno)} accent="purple" />
+        <MiniKpi icon={BadgeDollarSign} label={isCurrentYear ? 'Gasto em ads (mês)' : `Gasto em ads (${year})`} value={formatBRL(isCurrentYear ? calc.ads.spend[cm] : calc.gastoAno)} accent="red" />
         <MiniKpi icon={UserPlus} label="Ticket médio (MRR/cliente)" value={formatBRL(calc.ticketMedio)} accent="blue" />
       </div>
 

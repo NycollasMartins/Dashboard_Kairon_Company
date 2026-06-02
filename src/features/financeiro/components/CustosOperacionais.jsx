@@ -150,11 +150,13 @@ function CustoEditModal({ custo, onClose, onSave, isSaving }) {
   );
 }
 
-export default function CustosOperacionais() {
+export default function CustosOperacionais({ year }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const now = new Date();
+  const anoRef = year ?? now.getFullYear();
+  const isCurrentYear = anoRef === now.getFullYear();
 
   const [form, setForm] = useState({
     description: '',
@@ -201,15 +203,15 @@ export default function CustosOperacionais() {
   });
 
   const totais = useMemo(() => {
-    const year = now.getFullYear();
-    const serie = custoOperacionalSeriesYear(custos, year, now);
-    const mes = serie[now.getMonth()];
+    const serie = custoOperacionalSeriesYear(custos, anoRef);
     const ano = serie.reduce((a, b) => a + b, 0);
+    // No ano atual mostra o mês corrente; em anos fechados mostra a média mensal.
+    const destaque = isCurrentYear ? serie[now.getMonth()] : ano / 12;
     const recorrenteMensal = custos
       .filter((c) => c.recurring)
       .reduce((s, c) => s + (Number(c.amount) || 0), 0);
-    return { mes, ano, recorrenteMensal };
-  }, [custos, now]);
+    return { destaque, ano, recorrenteMensal };
+  }, [custos, anoRef, isCurrentYear, now]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -233,11 +235,11 @@ export default function CustosOperacionais() {
       {/* Resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="glass-card rounded-2xl border border-white/5 p-6">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Custo operacional do mês</p>
-          <p className="text-3xl font-semibold text-white tracking-tight mt-2 tabular-nums">{formatBRL(totais.mes)}</p>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{isCurrentYear ? 'Custo operacional do mês' : 'Média mensal'}</p>
+          <p className="text-3xl font-semibold text-white tracking-tight mt-2 tabular-nums">{formatBRL(totais.destaque)}</p>
         </div>
         <div className="glass-card rounded-2xl border border-white/5 p-6">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Custo no ano</p>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Custo no ano ({anoRef})</p>
           <p className="text-3xl font-semibold text-white tracking-tight mt-2 tabular-nums">{formatBRL(totais.ano)}</p>
         </div>
         <div className="glass-card rounded-2xl border border-white/5 p-6">
