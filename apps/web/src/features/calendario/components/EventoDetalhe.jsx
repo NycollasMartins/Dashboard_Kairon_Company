@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   X, Edit2, Trash2, MapPin, AlignLeft, CalendarDays,
-  Users as UsersIcon, Layers, UserCircle2,
+  Users as UsersIcon, Layers, UserCircle2, Crown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { eventTypeConfig } from '@/features/calendario/lib/eventConfig';
@@ -22,11 +22,20 @@ export default function EventoDetalhe({ event, canManage, onClose, onEdit, onDel
   const TypeIcon = cfg.icon;
 
   const audience = (() => {
+    if (event.audience_type === 'clevel') {
+      return { Icon: Crown, text: 'Somente C-levels (admin e head)' };
+    }
     if (event.audience_type === 'squad') {
       return { Icon: Layers, text: `Squad ${event.squad?.nome ?? '—'}` };
     }
     if (event.audience_type === 'user') {
-      return { Icon: UserCircle2, text: event.assignee?.full_name || event.assignee?.email || '—' };
+      const nomes = (event.attendees || [])
+        .map((a) => a.profile?.full_name || a.profile?.email)
+        .filter(Boolean);
+      const texto = nomes.length
+        ? nomes.join(', ')
+        : (event.assignee?.full_name || event.assignee?.email || '—');
+      return { Icon: UserCircle2, text: texto };
     }
     return { Icon: UsersIcon, text: 'Todos no dashboard' };
   })();

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   X, Check, CalendarPlus, CalendarClock, Type, AlignLeft, MapPin, Tag, Clock,
-  Users as UsersIcon, Layers, UserCircle2,
+  Users as UsersIcon, Layers, UserCircle2, Crown, Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,8 +21,9 @@ import {
 
 const AUDIENCE_OPTIONS = [
   { value: 'all', label: 'Todos no dashboard', icon: UsersIcon },
+  { value: 'clevel', label: 'Somente C-levels', icon: Crown },
   { value: 'squad', label: 'Um squad', icon: Layers },
-  { value: 'user', label: 'Uma pessoa', icon: UserCircle2 },
+  { value: 'user', label: 'Pessoas específicas', icon: UserCircle2 },
 ];
 
 const TITLE_MAX = 140;
@@ -55,7 +56,9 @@ function buildInitialState(event, initialDate) {
       description: event.description ?? '',
       audience_type: event.audience_type ?? 'all',
       squad_id: event.squad_id ?? '',
-      assignee_id: event.assignee_id ?? '',
+      assignee_ids: Array.isArray(event.attendees) && event.attendees.length
+        ? event.attendees.map((a) => a.profile_id)
+        : (event.assignee_id ? [event.assignee_id] : []),
     };
   }
   const base = initialDate ? new Date(initialDate) : new Date();
@@ -75,7 +78,7 @@ function buildInitialState(event, initialDate) {
     description: '',
     audience_type: 'all',
     squad_id: '',
-    assignee_id: '',
+    assignee_ids: [],
   };
 }
 
@@ -84,6 +87,7 @@ export default function EventoForm({ onClose, onSave, event, initialDate, isSavi
   const [form, setForm] = useState(() => buildInitialState(event, initialDate));
   const [submitted, setSubmitted] = useState(false);
   const [erroData, setErroData] = useState('');
+  const [peopleSearch, setPeopleSearch] = useState('');
   const titleRef = useRef(null);
 
   const { data: squads = [] } = useQuery({
@@ -146,8 +150,8 @@ export default function EventoForm({ onClose, onSave, event, initialDate, isSavi
       setErroData('Selecione o squad.');
       return;
     }
-    if (form.audience_type === 'user' && !form.assignee_id) {
-      setErroData('Selecione a pessoa.');
+    if (form.audience_type === 'user' && form.assignee_ids.length === 0) {
+      setErroData('Selecione pelo menos uma pessoa.');
       return;
     }
 
@@ -161,9 +165,23 @@ export default function EventoForm({ onClose, onSave, event, initialDate, isSavi
       end_at,
       audience_type: form.audience_type,
       squad_id: form.squad_id,
-      assignee_id: form.assignee_id,
+      assignee_ids: form.assignee_ids,
     });
   };
+
+  const togglePerson = (id) =>
+    setForm((f) => ({
+      ...f,
+      assignee_ids: f.assignee_ids.includes(id)
+        ? f.assignee_ids.filter((x) => x !== id)
+        : [...f.assignee_ids, id],
+    }));
+
+  const filteredPeople = people.filter((p) => {
+    const q = peopleSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (p.full_name || '').toLowerCase().includes(q) || (p.email || '').toLowerCase().includes(q);
+  });
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
@@ -288,26 +306,65 @@ export default function EventoForm({ onClose, onSave, event, initialDate, isSavi
               </Select>
             )}
 
+            {form.audience_type === 'clevel' && (
+              <p className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1.5">
+                <Crown className="w-3.5 h-3.5 text-amber-300" /> Será atribuído a todos os C-levels (admin e head).
+              </p>
+            )}
+
             {form.audience_type === 'user' && (
-              <Select
-                value={form.assignee_id || ''}
-                onValueChange={(v) => set({ assignee_id: v })}
-              >
-                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 mt-2">
-                  <SelectValue placeholder="Selecionar pessoa" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a2e] border-white/10 max-h-60">
-                  {people.length === 0 ? (
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhuma pessoa</div>
+              <div className="mt-2 space-y-2">
+                {/* chips selecionados */}
+                {form.assignee_ids.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {form.assignee_ids.map((id) => {
+                      const p = people.find((x) => x.id === id);
+                      return (
+                        <span key={id} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#EA3935]/15 border border-[#EA3935]/30 text-[11px] text-white">
+                          {p?.full_name || p?.email || 'Pessoa'}
+                          <button type="button" onClick={() => togglePerson(id)} className="text-[#EA3935]/80 hover:text-white" aria-label="Remover">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* busca */}
+                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 h-10">
+                  <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Buscar pessoa..."
+                    value={peopleSearch}
+                    onChange={(e) => setPeopleSearch(e.target.value)}
+                    className="bg-transparent text-sm text-white placeholder:text-muted-foreground outline-none flex-1"
+                  />
+                </div>
+                {/* lista com checkbox */}
+                <div className="max-h-44 overflow-y-auto rounded-xl border border-white/10 bg-white/5 divide-y divide-white/5">
+                  {filteredPeople.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">Nenhuma pessoa encontrada.</div>
                   ) : (
-                    people.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.full_name || p.email}
-                      </SelectItem>
-                    ))
+                    filteredPeople.map((p) => {
+                      const checked = form.assignee_ids.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => togglePerson(p.id)}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-white/5 transition-colors"
+                        >
+                          <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? 'bg-[#EA3935] border-[#EA3935]' : 'border-white/20'}`}>
+                            {checked && <Check className="w-3 h-3 text-white" />}
+                          </span>
+                          <span className="text-sm text-white truncate">{p.full_name || p.email}</span>
+                        </button>
+                      );
+                    })
                   )}
-                </SelectContent>
-              </Select>
+                </div>
+              </div>
             )}
           </div>
 
