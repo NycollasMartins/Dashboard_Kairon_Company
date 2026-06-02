@@ -9,6 +9,7 @@ import AcceptInvitePage from '@/features/auth/pages/AcceptInvitePage';
 import DashboardLayout from '@/features/dashboard/pages/DashboardLayout';
 import VisaoGeralPage from '@/features/dashboard/pages/VisaoGeralPage';
 import CalendarioPageWrapper from '@/features/calendario/pages/CalendarioPageWrapper';
+import FinanceiroPage from '@/features/financeiro/pages/FinanceiroPage';
 import AdministrativoPage from '@/features/administrativo/pages/AdministrativoPage';
 import ClientesPageWrapper from '@/features/clientes/pages/ClientesPageWrapper';
 import MinhasTarefasPage from '@/features/tarefas/pages/MinhasTarefasPage';
@@ -40,6 +41,7 @@ function AppContent() {
           <Route index element={<VisaoGeralPage />} />
           <Route path="calendario" element={<CalendarioPageWrapper />} />
           <Route path="administrativo" element={<AdministrativoPage />} />
+          <Route path="financeiro" element={<FinanceiroPage />} />
           <Route path="clientes/*" element={<ClientesPageWrapper />} />
           <Route path="tarefas" element={<MinhasTarefasPage />} />
           <Route path="squads/*" element={<SquadsPageWrapper />} />

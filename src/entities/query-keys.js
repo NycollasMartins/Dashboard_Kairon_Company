@@ -43,4 +43,7 @@ export const queryKeys = {
   arquivos: {
     folder: (clienteId, folderId) => ['arquivos', clienteId, folderId ?? 'root'],
   },
+  financeiro: {
+    metrics: ['financeiro', 'campaign-metrics'],
+  },
 };

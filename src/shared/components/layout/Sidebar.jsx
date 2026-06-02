@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Shield, Briefcase, Users, CheckSquare,
-  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar,
+  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar, DollarSign,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
@@ -34,6 +34,7 @@ const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsar
         label: 'Gestão', icon: Settings,
         children: [
           { to: '/administrativo', label: 'Membros', icon: Shield },
+          { to: '/financeiro', label: 'Financeiro', icon: DollarSign },
         ],
       }]
     : []),
