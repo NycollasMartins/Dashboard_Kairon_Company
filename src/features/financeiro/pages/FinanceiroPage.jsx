@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient, useIsFetching } from '@tanstack/react-query';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 import {
   DollarSign, Users, TrendingUp, Wallet, ChevronRight, PiggyBank, Receipt,
-  UserPlus, BadgeDollarSign, AlertTriangle, Megaphone, Landmark,
+  UserPlus, BadgeDollarSign, AlertTriangle, Megaphone, Landmark, RefreshCw,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { supabase } from '@/infrastructure/supabase/client';
 import RestrictedAccessCard from '@/shared/components/RestrictedAccessCard';
 import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { leadsApi } from '@/features/comercial/api/leads.api';
@@ -93,6 +95,29 @@ export default function FinanceiroPage() {
   const { data: clientes = [] } = useQuery({ queryKey: queryKeys.clientes.all, queryFn: clientesApi.list, enabled: user?.role === 'admin' });
   const { data: leads = [] } = useQuery({ queryKey: queryKeys.leads.all, queryFn: leadsApi.list, enabled: user?.role === 'admin' });
   const { data: metrics = [] } = useQuery({ queryKey: queryKeys.financeiro.metrics, queryFn: financeiroApi.listCampaignMetrics, enabled: user?.role === 'admin' });
+
+  const qc = useQueryClient();
+  const refreshing = useIsFetching({
+    predicate: (q) => ['clientes', 'leads', 'financeiro'].includes(q.queryKey?.[0]),
+  }) > 0;
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: queryKeys.clientes.all });
+    qc.invalidateQueries({ queryKey: queryKeys.leads.all });
+    qc.invalidateQueries({ queryKey: queryKeys.financeiro.metrics });
+  };
+
+  // Tempo real: invalida as queries assim que algo muda no banco.
+  useEffect(() => {
+    if (user?.role !== 'admin') return undefined;
+    const channel = supabase
+      .channel('financeiro-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, () => qc.invalidateQueries({ queryKey: queryKeys.clientes.all }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, () => qc.invalidateQueries({ queryKey: queryKeys.clientes.all }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => qc.invalidateQueries({ queryKey: queryKeys.leads.all }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'campaign_metrics' }, () => qc.invalidateQueries({ queryKey: queryKeys.financeiro.metrics }))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.role, qc]);
 
   const now = new Date();
   const year = now.getFullYear();
@@ -196,11 +221,27 @@ export default function FinanceiroPage() {
             <Landmark className="w-8 h-8 text-white" />
           </div>
         </div>
-        <div className="px-6 mt-4">
-          <h1 className="text-[1.7rem] font-bold text-white tracking-tight">Financeiro</h1>
-          <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-            Visão financeira da agência — receita, MRR, leads e ROI de mídia. Clique em cada indicador para ver a evolução mês a mês e o total do ano de {year}.
-          </p>
+        <div className="px-6 mt-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-[1.7rem] font-bold text-white tracking-tight">Financeiro</h1>
+            <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
+              Visão financeira da agência — receita, MRR, leads e ROI de mídia. Clique em cada indicador para ver a evolução mês a mês e o total do ano de {year}.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border bg-emerald-500/10 border-emerald-500/20 text-emerald-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Tempo real
+            </span>
+            <Button
+              onClick={refresh}
+              disabled={refreshing}
+              variant="outline"
+              className="border-white/10 bg-transparent text-white hover:bg-white/5 h-9"
+            >
+              <RefreshCw className={`w-4 h-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
         </div>
       </div>
 

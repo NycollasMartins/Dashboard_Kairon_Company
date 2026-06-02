@@ -13,6 +13,7 @@ import {
   Play,
   Square,
   Download,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -205,6 +206,40 @@ export default function CampanhasPage({ onVerCampanha }) {
     },
   });
 
+  // Sincroniza as métricas de TODAS as campanhas (com external_id) de uma vez.
+  const sincronizarMetricas = useMutation({
+    mutationFn: async () => {
+      const comId = campanhas.filter((c) => c.external_id);
+      let ok = 0;
+      let fail = 0;
+      for (const c of comId) {
+        try {
+          const rows = await getAdsService(c.platform).getMetrics(c.external_id, { days: 14 });
+          await campanhasApi.upsertMetrics(c.id, rows);
+          ok += 1;
+        } catch {
+          fail += 1;
+        }
+      }
+      return { ok, fail, total: comId.length };
+    },
+    onSuccess: (res) => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: queryKeys.financeiro.metrics });
+      if (res.total === 0) {
+        toast({ title: 'Nada para sincronizar', description: 'Nenhuma campanha vinculada a uma plataforma (importe do Meta primeiro).' });
+      } else {
+        toast({
+          title: 'Métricas sincronizadas',
+          description: `${res.ok} campanha(s) atualizada(s)${res.fail ? `, ${res.fail} com erro` : ''}.`,
+        });
+      }
+    },
+    onError: (err) => {
+      toast({ variant: 'destructive', title: 'Falha ao sincronizar métricas', description: err?.message });
+    },
+  });
+
   const handleSave = (form) => {
     if (editando) atualizar.mutate({ id: editando.id, data: form });
     else criar.mutate(form);
@@ -307,6 +342,17 @@ export default function CampanhasPage({ onVerCampanha }) {
                 <SelectItem value="google">Google Ads</SelectItem>
               </SelectContent>
             </Select>
+            {podeGerenciar && (
+              <Button
+                onClick={() => sincronizarMetricas.mutate()}
+                disabled={sincronizarMetricas.isPending}
+                variant="outline"
+                className="border-white/10 bg-transparent text-white hover:bg-white/5 text-sm h-9 self-start sm:self-auto"
+              >
+                <RefreshCw className={`w-4 h-4 mr-1.5 ${sincronizarMetricas.isPending ? 'animate-spin' : ''}`} />
+                {sincronizarMetricas.isPending ? 'Sincronizando...' : 'Sincronizar métricas'}
+              </Button>
+            )}
             {podeGerenciar && (
               <Button
                 onClick={() => importar.mutate()}
