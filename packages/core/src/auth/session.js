@@ -7,7 +7,7 @@ import { supabase } from '../supabase/client.js';
 export async function fetchProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role, archived_at')
+    .select('id, email, full_name, role, archived_at, avatar_url, preferences')
     .eq('id', userId)
     .single();
   if (error) throw error;
@@ -30,6 +30,8 @@ export function mapProfileToUser(profile, sessionUser) {
       email: profile.email ?? sessionUser?.email,
       full_name: profile.full_name ?? '',
       role: profile.role ?? 'sdr',
+      avatar_url: profile.avatar_url ?? null,
+      preferences: profile.preferences ?? {},
     },
     archived: false,
   };

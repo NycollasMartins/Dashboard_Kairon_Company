@@ -2,6 +2,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
+import { PreferencesProvider } from '@/features/settings/PreferencesContext';
 import { queryClientInstance } from '@/shared/lib/query-client';
 import ProtectedRoute from '@/shared/components/ProtectedRoute';
 import LoginPage from '@/features/auth/pages/LoginPage';
@@ -58,10 +59,12 @@ export default function App() {
   return (
     <Router>
       <AuthProvider>
-        <QueryClientProvider client={queryClientInstance}>
-          <AppContent />
-          <Toaster />
-        </QueryClientProvider>
+        <PreferencesProvider>
+          <QueryClientProvider client={queryClientInstance}>
+            <AppContent />
+            <Toaster />
+          </QueryClientProvider>
+        </PreferencesProvider>
       </AuthProvider>
     </Router>
   );

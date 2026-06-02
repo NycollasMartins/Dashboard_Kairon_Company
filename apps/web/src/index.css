@@ -39,6 +39,29 @@
     --glow-orange: rgba(234, 57, 53, 0.35);
     --glow-orange-soft: rgba(234, 57, 53, 0.15);
   }
+
+  /* Tema claro */
+  :root.light {
+    --background: 0 0% 97%;
+    --foreground: 0 0% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 12%;
+    --muted: 0 0% 93%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 1 70% 94%;
+    --accent-foreground: 1 70% 40%;
+    --border: 0 0% 87%;
+    --input: 0 0% 90%;
+    --sidebar-background: 0 0% 99%;
+    --sidebar-foreground: 0 0% 25%;
+    --sidebar-accent: 0 0% 94%;
+    --sidebar-accent-foreground: 0 0% 15%;
+    --sidebar-border: 0 0% 88%;
+    --glass-bg: rgba(0, 0, 0, 0.02);
+    --glass-border: rgba(0, 0, 0, 0.08);
+  }
 }
 
 @layer base {
@@ -90,4 +113,13 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Ajustes do tema claro para superfícies com cor fixa */
+:root.light .glass-sidebar {
+  background: rgba(255, 255, 255, 0.88);
+  border-right: 1px solid var(--glass-border);
+}
+:root.light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
 }

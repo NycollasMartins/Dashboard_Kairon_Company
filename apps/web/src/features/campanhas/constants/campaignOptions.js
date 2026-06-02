@@ -45,11 +45,11 @@ export const platformBadge = {
   google: 'bg-[#34A853]/10 border-[#34A853]/30 text-[#5ec77e]',
 };
 
-export const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+import { formatMoney } from '@/shared/lib/money';
 
 export function formatBRL(value) {
   const n = Number(value);
-  return Number.isFinite(n) ? BRL.format(n) : '—';
+  return Number.isFinite(n) ? formatMoney(n) : '—';
 }
 
 export function formatInt(value) {
