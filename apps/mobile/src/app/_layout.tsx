@@ -19,8 +19,8 @@ import { Kairon } from '@/constants/kairon';
 // Inicializa o client Supabase compartilhado com as variaveis do Expo, antes do
 // primeiro acesso. AsyncStorage persiste a sessao entre aberturas do app.
 initSupabase({
-  url: process.env.EXPO_PUBLIC_SUPABASE_URL,
-  anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  url: process.env.EXPO_PUBLIC_SUPABASE_URL!,
+  anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
   authStorage: AsyncStorage,
 });
 
