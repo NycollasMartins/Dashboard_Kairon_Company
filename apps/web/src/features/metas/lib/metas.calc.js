@@ -44,11 +44,12 @@ export function montarRanking({ closers = [], vendas = [], metas = [], competenc
   return Array.from(byId.values()).sort((a, b) => b.total - a.total);
 }
 
-// Supermeta = tudo que passa da meta global. Percorre as vendas em ordem
-// cronológica (created_at) e, para cada uma, calcula a porção que ficou ACIMA
-// da meta. Essa porção é a "supermeta" daquele closer (comissão dobrada).
-// Vendas diretas (sem closer) entram na chave '__direto__'.
-export function calcularSupermeta(vendas, metaGlobalValor) {
+// Supermeta = tudo que passa da meta global. O MRR base (já feito do mês) preenche
+// a meta primeiro; depois as vendas entram em ordem cronológica (created_at) e,
+// para cada uma, calcula-se a porção que ficou ACIMA da meta. Essa porção é a
+// "supermeta" daquele closer (comissão dobrada). Vendas diretas (sem closer)
+// entram na chave '__direto__'. Se o MRR base já passa da meta, toda venda é super.
+export function calcularSupermeta(vendas, metaGlobalValor, mrrBase = 0) {
   const meta = num(metaGlobalValor);
   const porCloser = new Map();
   if (meta <= 0) return { totalSuper: 0, porCloser };
@@ -59,7 +60,7 @@ export function calcularSupermeta(vendas, metaGlobalValor) {
     return ta - tb;
   });
 
-  let running = 0;
+  let running = num(mrrBase);
   let totalSuper = 0;
   for (const v of ordenadas) {
     const val = num(v.valor);

@@ -33,20 +33,25 @@ export default function MetasPage() {
   const { data: metas = [] } = useQuery({ queryKey: queryKeys.metas.all, queryFn: metasApi.listMetas });
   const { data: vendas = [] } = useQuery({ queryKey: queryKeys.metas.vendas(competencia), queryFn: () => metasApi.listVendasDoMes(competencia) });
   const { data: closers = [] } = useQuery({ queryKey: queryKeys.metas.closers, queryFn: metasApi.listClosers });
+  // MRR base do mês (contratos MRR ativos) — mesmo "MRR do mês" do Financeiro.
+  const { data: mrrBase = 0 } = useQuery({ queryKey: queryKeys.metas.mrrBase, queryFn: metasApi.mrrBase });
 
   const refreshing = useIsFetching({ predicate: (q) => q.queryKey?.[0] === 'metas' }) > 0;
   const refresh = () => {
     qc.invalidateQueries({ queryKey: queryKeys.metas.all });
     qc.invalidateQueries({ queryKey: queryKeys.metas.vendas(competencia) });
     qc.invalidateQueries({ queryKey: queryKeys.metas.closers });
+    qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase });
   };
 
-  // Tempo real: ranking e progresso atualizam ao vivo.
+  // Tempo real: ranking, progresso e MRR base atualizam ao vivo.
   useEffect(() => {
     const channel = supabase
       .channel('metas-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vendas' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.vendas(competencia) }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'metas' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.all }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase }))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [qc, competencia]);
@@ -57,18 +62,22 @@ export default function MetasPage() {
     [metas, competencia],
   );
   const metaGlobalValor = Number(metaGlobal?.valor_meta) || 0;
+  // Vendas registradas no mês.
   const totalVendido = useMemo(() => vendas.reduce((s, v) => s + (Number(v.valor) || 0), 0), [vendas]);
-  const pct = progressoPct(totalVendido, metaGlobalValor);
+  // Feito da meta = MRR base do mês (Financeiro) + vendas registradas.
+  const feito = (Number(mrrBase) || 0) + totalVendido;
+  const pct = progressoPct(feito, metaGlobalValor);
   const pctClamp = Math.min(100, Math.max(0, pct));
-  const falta = faltaParaMeta(totalVendido, metaGlobalValor);
-  const batida = metaBatida(totalVendido, metaGlobalValor);
+  const falta = faltaParaMeta(feito, metaGlobalValor);
+  const batida = metaBatida(feito, metaGlobalValor);
   const temMeta = metaGlobalValor > 0;
+  const excedente = Math.max(0, feito - metaGlobalValor);
 
-  // Supermeta = tudo que passa da meta. Cada closer que vende depois de bater
-  // a meta ganha comissão dobrada (2×). Aqui calculamos a porção "super" de cada um.
-  const { totalSuper, porCloser: superPorCloser } = useMemo(
-    () => calcularSupermeta(vendas, metaGlobalValor),
-    [vendas, metaGlobalValor],
+  // Supermeta = tudo que passa da meta. O MRR base preenche a meta primeiro;
+  // cada closer que vende depois de bater a meta ganha comissão dobrada (2×).
+  const { porCloser: superPorCloser } = useMemo(
+    () => calcularSupermeta(vendas, metaGlobalValor, mrrBase),
+    [vendas, metaGlobalValor, mrrBase],
   );
   const superDireto = superPorCloser.get('__direto__') || 0;
 
@@ -80,6 +89,8 @@ export default function MetasPage() {
     [closers, vendas, metas, competencia, superPorCloser],
   );
   const rankingComSuper = ranking.filter((e) => e.super > 0);
+  // Só vendas de closer ganham 2× (o excedente de MRR/diretas não é comissionado).
+  const totalSuperCloser = rankingComSuper.reduce((s, e) => s + (Number(e.super) || 0), 0);
 
   // ---- Modais ----
   const [showVenda, setShowVenda] = useState(false);
@@ -193,7 +204,8 @@ export default function MetasPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
               <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Feito da meta</p>
-                <p className="text-2xl font-semibold text-white tabular-nums mt-1">{formatBRL(totalVendido)}</p>
+                <p className="text-2xl font-semibold text-white tabular-nums mt-1">{formatBRL(feito)}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">MRR {formatBRL(mrrBase)} + Vendas {formatBRL(totalVendido)}</p>
               </div>
               <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
                 <p className="text-[11px] text-muted-foreground">Falta da meta</p>
@@ -203,9 +215,7 @@ export default function MetasPage() {
               </div>
               <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1"><BadgeDollarSign className="w-3 h-3" /> Excedente</p>
-                <p className="text-2xl font-semibold text-emerald-300 tabular-nums mt-1">
-                  {totalVendido > metaGlobalValor ? formatBRL(totalVendido - metaGlobalValor) : formatBRL(0)}
-                </p>
+                <p className="text-2xl font-semibold text-emerald-300 tabular-nums mt-1">{formatBRL(excedente)}</p>
               </div>
             </div>
 
@@ -251,12 +261,12 @@ export default function MetasPage() {
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="rounded-xl bg-emerald-500/[0.06] border border-emerald-500/15 p-4">
-                <p className="text-[11px] text-muted-foreground">Total na supermeta (excedente)</p>
-                <p className="text-2xl font-semibold text-emerald-300 tabular-nums mt-1">{formatBRL(totalSuper)}</p>
+                <p className="text-[11px] text-muted-foreground">Total acima da meta (excedente)</p>
+                <p className="text-2xl font-semibold text-emerald-300 tabular-nums mt-1">{formatBRL(excedente)}</p>
               </div>
               <div className="rounded-xl bg-emerald-500/[0.06] border border-emerald-500/15 p-4">
-                <p className="text-[11px] text-muted-foreground">Equivalente bonificado (2×)</p>
-                <p className="text-2xl font-semibold text-emerald-300 tabular-nums mt-1">{formatBRL(totalSuper * 2)}</p>
+                <p className="text-[11px] text-muted-foreground">Vendas de closer na supermeta (2× = {formatBRL(totalSuperCloser * 2)})</p>
+                <p className="text-2xl font-semibold text-emerald-300 tabular-nums mt-1">{formatBRL(totalSuperCloser)}</p>
               </div>
             </div>
 

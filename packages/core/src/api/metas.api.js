@@ -81,6 +81,14 @@ export const metasApi = {
   removerVenda: (id) =>
     supabase.from('vendas').delete().eq('id', id).then(unwrap),
 
+  // MRR base do mês (contratos MRR ativos) — mesmo número do "MRR do mês" do
+  // Financeiro. Vem por RPC SECURITY DEFINER (closer/TV não acessam clientes).
+  mrrBase: async () => {
+    const { data, error } = await supabase.rpc('mrr_base_ativo');
+    if (error) throw error;
+    return Number(data) || 0;
+  },
+
   // ---- Closers (para ranking e metas individuais) ----
   listClosers: () =>
     supabase

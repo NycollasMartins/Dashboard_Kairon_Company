@@ -55,5 +55,6 @@ export const queryKeys = {
     all: ['metas'],
     vendas: (competencia) => ['metas', 'vendas', competencia],
     closers: ['metas', 'closers'],
+    mrrBase: ['metas', 'mrr-base'],
   },
 };
