@@ -11,9 +11,17 @@ async function unwrapInvoke({ data, error }) {
   if (error) {
     let message =
       (data && (data.error || data.message)) || error.message || 'Erro ao chamar função.';
+    // supabase-js (FunctionsHttpError) guarda a Response do erro em `error.context`.
+    // Em algumas versões é a própria Response; em outras vem em `error.context.response`.
+    const ctx = error.context;
+    const response =
+      ctx && typeof ctx.json === 'function'
+        ? ctx
+        : ctx?.response && typeof ctx.response.json === 'function'
+          ? ctx.response
+          : null;
     try {
-      const response = error.context?.response;
-      if (response && typeof response.json === 'function') {
+      if (response) {
         const body = await response.json();
         if (body?.error) message = body.error;
         else if (body?.message) message = body.message;
