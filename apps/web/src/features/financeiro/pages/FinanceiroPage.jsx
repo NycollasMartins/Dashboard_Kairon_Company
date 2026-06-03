@@ -24,6 +24,7 @@ import {
   MES_LABELS, RECEITA_POR_CONVERSAO, flattenContratos, receitaSeriesYear, mrrSeriesYear,
   leadsSeriesYear, adsSeriesYear, novosClientesSeriesYear, contratosAVencer,
   custoOperacionalSeriesYear, mrrClientCountSeriesYear, parseDateLocal, sum,
+  mrrAtual, tcvDoMes, clientesComContrato,
 } from '@/features/financeiro/lib/financeiro.calc';
 
 const fmtInt = (v) => Math.round(Number(v) || 0).toLocaleString('pt-BR');
@@ -157,6 +158,19 @@ export default function FinanceiroPage() {
     const mrrAno = sum(mrrSeries);
     const pontualAno = Math.max(receitaAno - mrrAno, 0);
 
+    // MRR do mês = valor de contrato MRR atribuído a cada cliente não-churn
+    // (snapshot). Só muda quando entra um novo contrato ou um contrato encerra.
+    const mrrClientes = mrrAtual(clientes);
+    // Receita do mês = MRR do mês + TCV (pontual) fechado NESTE mês. Reinicia
+    // todo mês: no início do mês não há TCV novo, então Receita = MRR; sobe a
+    // cada novo cliente TCV fechado no mês corrente.
+    const tcvMes = tcvDoMes(clientes, year, cm);
+    const receitaClientes = mrrClientes + tcvMes;
+    const nClientesContrato = clientesComContrato(clientes);
+    // ROI do mês = (Receita do mês − Gasto do mês) / Gasto do mês.
+    const gastoMes = custosSeries[cm];
+    const roiMesClientes = gastoMes > 0 ? ((receitaClientes - gastoMes) / gastoMes) * 100 : 0;
+
     // Ticket médio período-consistente: MRR do mês de referência ÷ nº de
     // clientes com MRR ativo nesse mês. No ano corrente, ref = mês atual; em
     // anos fechados, ref = último mês com MRR (evita misturar com "hoje").
@@ -170,7 +184,7 @@ export default function FinanceiroPage() {
     const ticketMedio = mrrCountSeries[refMonth] > 0 ? mrrSeries[refMonth] / mrrCountSeries[refMonth] : 0;
 
     const custosMes = custosSeries[cm];
-    const margemMes = receitaSeries[cm] - custosMes;
+    const margemMes = receitaClientes - custosMes;
 
     // ROAS de mídia (retorno sobre o gasto em ads).
     const convAno = sum(ads.conversions);
@@ -201,6 +215,7 @@ export default function FinanceiroPage() {
       receitaSeries, mrrSeries, leadsSeries, ads, novosSeries, custoOpSeries, roiSeries,
       receitaAno, leadsAno, gastoAno, custoOpAno, custosAno, roiAno, margemAno,
       mrrMes, mrrAno, pontualAno, roasMes, roasAno,
+      mrrClientes, tcvMes, receitaClientes, nClientesContrato, gastoMes, roiMesClientes,
       clientesAtivos: clientesAtivos.length, ticketMedio, custosMes, margemMes,
       gastoPlat, topMrr, aVencer,
     };
@@ -224,8 +239,8 @@ export default function FinanceiroPage() {
     {
       key: 'receita', icon: DollarSign, accent: 'emerald',
       label: isCurrentYear ? 'Receita do mês' : `Receita · ${year}`,
-      value: isCurrentYear ? formatBRL(calc.receitaSeries[cm]) : formatBRL(calc.receitaAno),
-      sub: isCurrentYear ? `Acumulado no ano: ${formatBRL(calc.receitaAno)}` : `Média/mês: ${formatBRL(calc.receitaAno / 12)}`,
+      value: isCurrentYear ? formatBRL(calc.receitaClientes) : formatBRL(calc.receitaAno),
+      sub: isCurrentYear ? `MRR ${formatBRL(calc.mrrClientes)} + TCV do mês ${formatBRL(calc.tcvMes)}` : `Média/mês: ${formatBRL(calc.receitaAno / 12)}`,
       modal: { title: 'Receita', icon: DollarSign, accent: 'emerald', format: formatBRL, series: calc.receitaSeries, chartType: 'area', annualLabel: `Receita no ano (${year})`, annualValue: calc.receitaAno },
     },
     {
@@ -238,15 +253,15 @@ export default function FinanceiroPage() {
     {
       key: 'roi', icon: TrendingUp, accent: 'red',
       label: isCurrentYear ? 'ROI Geral (mês)' : `ROI Geral · ${year}`,
-      value: isCurrentYear ? fmtPct(calc.roiSeries[cm]) : fmtPct(calc.roiAno),
-      sub: isCurrentYear ? `Custos do mês: ${formatBRL(calc.custosMes)}` : `Custos no ano: ${formatBRL(calc.custosAno)}`,
+      value: isCurrentYear ? fmtPct(calc.roiMesClientes) : fmtPct(calc.roiAno),
+      sub: isCurrentYear ? `Receita ${formatBRL(calc.receitaClientes)} · Gasto ${formatBRL(calc.gastoMes)}` : `Custos no ano: ${formatBRL(calc.custosAno)}`,
       modal: { title: 'ROI Geral', icon: TrendingUp, accent: 'red', format: fmtPct, series: calc.roiSeries, chartType: 'bar', annualLabel: `ROI no ano (${year})`, annualValue: calc.roiAno, subtitle: 'ROI % mês a mês = (receita − custos) / custos' },
     },
     {
       key: 'mrr', icon: Wallet, accent: 'purple',
       label: isCurrentYear ? 'MRR do mês' : `MRR total · ${year}`,
-      value: isCurrentYear ? formatBRL(calc.mrrMes) : formatBRL(calc.mrrAno),
-      sub: isCurrentYear ? `${calc.clientesAtivos} clientes ativos` : `Média/mês: ${formatBRL(calc.mrrAno / 12)}`,
+      value: isCurrentYear ? formatBRL(calc.mrrClientes) : formatBRL(calc.mrrAno),
+      sub: isCurrentYear ? `${calc.nClientesContrato} clientes com contrato` : `Média/mês: ${formatBRL(calc.mrrAno / 12)}`,
       modal: { title: 'MRR', icon: Wallet, accent: 'purple', format: formatBRL, series: calc.mrrSeries, chartType: 'area', annualLabel: `MRR total no ano (${year})`, annualValue: calc.mrrAno, subtitle: 'MRR recorrente mês a mês' },
     },
   ];

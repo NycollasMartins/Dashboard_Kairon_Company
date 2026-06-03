@@ -3,7 +3,7 @@
 // dados brutos do Supabase (contratos, leads, campaign_metrics).
 // ====================================================================
 
-import { mrrDoCliente } from '@/features/clientes/api/contratos.api';
+import { mrrDoCliente, getContratoAtivo } from '@/features/clientes/api/contratos.api';
 
 export const MES_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -124,6 +124,9 @@ export function adsSeriesYear(metrics, year) {
 }
 
 // MRR ativo atual (snapshot) — soma do contrato MRR ativo de cada cliente.
+// Inclui contratos já fechados E os que vão começar (início futuro): o que
+// vale é o valor de contrato atribuído a cada cliente não-churn, sem recorte
+// temporal de vigência do mês.
 export function mrrAtual(clientes) {
   let total = 0;
   for (const c of clientes || []) {
@@ -131,6 +134,35 @@ export function mrrAtual(clientes) {
     total += mrrDoCliente(c.contratos);
   }
   return total;
+}
+
+// TCV reconhecido NO MÊS — soma do valor dos contratos TCV (valor total único)
+// cujo início (data_inicio) cai no mês/ano informado, de clientes não-churn.
+// O TCV é receita pontual: entra só no mês em que o contrato fecha. Por isso a
+// Receita do mês "reinicia" todo mês (volta a valer só o MRR) e só sobe quando
+// entra um novo cliente TCV naquele mês.
+export function tcvDoMes(clientes, year, month) {
+  let total = 0;
+  for (const c of clientes || []) {
+    if (c.status === 'churn') continue;
+    for (const ct of c.contratos || []) {
+      if (ct.tipo !== 'TCV') continue;
+      const d = parseDateLocal(ct.data_inicio);
+      if (!d || d.getFullYear() !== year || d.getMonth() !== month) continue;
+      total += num(ct.valor);
+    }
+  }
+  return total;
+}
+
+// Nº de clientes não-churn com contrato atribuído (MRR ou TCV).
+export function clientesComContrato(clientes) {
+  let n = 0;
+  for (const c of clientes || []) {
+    if (c.status === 'churn') continue;
+    if (getContratoAtivo(c.contratos)) n += 1;
+  }
+  return n;
 }
 
 // Monta os dados {mes, valor} para o gráfico a partir de uma série de 12.
