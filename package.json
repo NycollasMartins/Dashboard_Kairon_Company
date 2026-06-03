@@ -11,6 +11,9 @@
     "build": "npm run build -w apps/web",
     "lint": "npm run lint -w apps/web",
     "typecheck": "npm run typecheck -w apps/web",
-    "start": "npm run start -w apps/web"
+    "start": "npm run start -w apps/web",
+    "mobile": "npm run start -w apps/mobile",
+    "mobile:android": "npm run android -w apps/mobile",
+    "mobile:ios": "npm run ios -w apps/mobile"
   }
 }
