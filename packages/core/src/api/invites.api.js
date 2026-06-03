@@ -41,6 +41,15 @@ async function unwrapInvoke({ data, error }) {
 }
 
 function currentOrigin() {
+  // Prioriza VITE_SITE_URL (definido no .env do web) para o link do convite sempre
+  // apontar pro dominio correto — mesmo convidando a partir de um ambiente de dev.
+  // O fallback e a origem atual do navegador.
+  try {
+    const siteUrl = import.meta?.env?.VITE_SITE_URL;
+    if (siteUrl) return String(siteUrl).trim().replace(/\/+$/, '');
+  } catch {
+    // ambiente sem import.meta.env (ex.: bundlers que nao injetam) — ignora
+  }
   if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin;
   }

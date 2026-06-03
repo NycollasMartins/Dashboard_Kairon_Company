@@ -23,17 +23,23 @@ export function createSupabaseClient({ url, anonKey, authStorage } = {}) {
   if (!url || !anonKey) {
     throw new Error('createSupabaseClient: faltam url/anonKey do Supabase');
   }
-  return createClient(url, anonKey, authStorage
-    ? {
-        auth: {
+  return createClient(url, anonKey, {
+    auth: authStorage
+      ? {
           storage: authStorage,
           autoRefreshToken: true,
           persistSession: true,
           // Em React Native nao ha URL para detectar a sessao (so no web/OAuth).
           detectSessionInUrl: false,
+        }
+      : {
+          autoRefreshToken: true,
+          persistSession: true,
+          // Web: processa o token que volta na URL apos o clique no convite/recovery
+          // (fluxo implicito #access_token e troca de ?code do PKCE).
+          detectSessionInUrl: true,
         },
-      }
-    : undefined);
+  });
 }
 
 /**
