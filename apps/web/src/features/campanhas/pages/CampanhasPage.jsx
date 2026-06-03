@@ -195,6 +195,8 @@ export default function CampanhasPage({ onVerCampanha }) {
           });
           novas += 1;
         }
+        // Atualiza a lista em tempo real a cada campanha importada.
+        await invalidate();
       }
       return { novas, atualizadas };
     },
@@ -229,6 +231,10 @@ export default function CampanhasPage({ onVerCampanha }) {
         } catch {
           fail += 1;
         }
+        // Atualiza lista e Financeiro em tempo real a cada campanha sincronizada.
+        await invalidate();
+        qc.invalidateQueries({ queryKey: queryKeys.financeiro.metrics });
+        qc.invalidateQueries({ queryKey: queryKeys.campanhas.metrics(c.id) });
       }
       return { ok, fail, total: comId.length };
     },
