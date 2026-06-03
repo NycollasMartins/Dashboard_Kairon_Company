@@ -35,6 +35,7 @@ export default function VendaModal({
   const selfIsCloser = closers.some((c) => c.id === currentUser?.id);
   const [form, setForm] = useState(() => ({
     closer_id: isAdmin ? (closers[0]?.id ?? '__direto__') : (currentUser?.id ?? ''),
+    tipo: 'MRR',
     valor: '',
     cliente_nome: '',
     data_venda: todayISO(),
@@ -58,6 +59,7 @@ export default function VendaModal({
     onConfirm({
       // '__direto__' = venda direta (sem closer): entra no feito, fora do ranking.
       closer_id: form.closer_id === '__direto__' ? null : form.closer_id,
+      tipo: form.tipo,
       valor: valorNum,
       cliente_nome: form.cliente_nome,
       data_venda: form.data_venda,
@@ -127,9 +129,35 @@ export default function VendaModal({
             )}
           </div>
 
+          {/* Tipo MRR / TCV */}
+          <div>
+            <FieldLabel icon={Coins} required>Tipo da venda</FieldLabel>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'MRR', label: 'MRR', hint: 'Parcela do mês' },
+                { value: 'TCV', label: 'TCV', hint: 'Valor total' },
+              ].map((opt) => {
+                const active = form.tipo === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, tipo: opt.value }))}
+                    className={`text-left rounded-xl border px-3 py-2 transition-colors ${active ? 'bg-[#EA3935]/15 border-[#EA3935]/40 text-white' : 'bg-white/5 border-white/10 text-muted-foreground hover:text-white hover:border-white/20'}`}
+                  >
+                    <p className="text-sm font-semibold">{opt.label}</p>
+                    <p className="text-[11px] text-muted-foreground">{opt.hint}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Valor */}
           <div>
-            <FieldLabel icon={Coins} required>Valor da venda (R$)</FieldLabel>
+            <FieldLabel icon={Coins} required>
+              Valor da venda (R$) {form.tipo === 'MRR' ? '— parcela do mês' : '— total do contrato'}
+            </FieldLabel>
             <Input
               type="number"
               min="0"

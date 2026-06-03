@@ -35,10 +35,12 @@ function FieldLabel({ icon: Icon, children, required }) {
 
 export default function ConverterLeadModal({
   lead,
+  currentUser = null,
   isSubmitting = false,
   onClose,
   onConfirm,
 }) {
+  const isCloser = currentUser?.role === 'closer';
   const [form, setForm] = useState(() => ({
     nome: lead?.nome ?? '',
     empresa: lead?.empresa ?? '',
@@ -143,6 +145,7 @@ export default function ConverterLeadModal({
             <span>
               Esta ação cria um novo Cliente e vincula o Lead a ele.
               O Lead sairá do kanban e um projeto <strong>Onboarding</strong> será criado automaticamente.
+              {isCloser && ' Você ficará como responsável (closer) desta venda — ela entra no seu ranking quando o contrato for criado.'}
             </span>
           </div>
 

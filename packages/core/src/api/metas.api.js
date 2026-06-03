@@ -65,12 +65,13 @@ export const metasApi = {
       .then(unwrap);
   },
 
-  criarVenda: ({ closer_id, valor, cliente_nome, data_venda }) =>
+  criarVenda: ({ closer_id, valor, tipo, cliente_nome, data_venda }) =>
     supabase
       .from('vendas')
       .insert({
-        closer_id,
+        closer_id: closer_id || null,
         valor,
+        tipo: tipo || null,
         cliente_nome: cliente_nome?.trim() || null,
         data_venda: data_venda || undefined,
       })

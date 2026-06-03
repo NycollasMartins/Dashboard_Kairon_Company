@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   X, Check, Plus, Coins, Calendar, Clock, Package, AlignLeft,
-  FileText, Loader2,
+  FileText, Loader2, User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { metasApi } from '@/features/metas/api/metas.api';
+import { queryKeys } from '@/entities/query-keys';
 import { formatDateBR } from '../utils/contrato.format';
+
+const SEM_RESPONSAVEL = '__none__';
 
 const ENTREGAVEIS_SUGERIDOS = [
   'Feed Instagram', 'Stories Instagram', 'Reels', 'Posts LinkedIn',
@@ -50,9 +55,11 @@ function computeDataFim(inicioISO, meses) {
 
 export default function ContratoFormModal({
   isSubmitting = false,
+  defaultCloserId = null,
   onClose,
   onConfirm,
 }) {
+  const { data: closers = [] } = useQuery({ queryKey: queryKeys.metas.closers, queryFn: metasApi.listClosers });
   const [form, setForm] = useState(() => ({
     tipo: 'MRR',
     valor: '',
@@ -60,7 +67,18 @@ export default function ContratoFormModal({
     data_inicio: todayISO(),
     entregaveis: [],
     notas: '',
+    closer_id: '',
   }));
+
+  // Default "quem vendeu" = responsável do cliente, se for um closer.
+  useEffect(() => {
+    if (form.closer_id) return;
+    if (defaultCloserId && closers.some((c) => c.id === defaultCloserId)) {
+      setForm((f) => ({ ...f, closer_id: defaultCloserId }));
+    } else if (closers.length > 0) {
+      setForm((f) => ({ ...f, closer_id: SEM_RESPONSAVEL }));
+    }
+  }, [closers, defaultCloserId, form.closer_id]);
   const [novoEntregavel, setNovoEntregavel] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
@@ -115,6 +133,7 @@ export default function ContratoFormModal({
       data_inicio: form.data_inicio,
       entregaveis: form.entregaveis,
       notas: form.notas.trim(),
+      closer_id: form.closer_id === SEM_RESPONSAVEL ? null : (form.closer_id || null),
     });
   };
 
@@ -244,6 +263,25 @@ export default function ContratoFormModal({
                 {dataFimPreview ? formatDateBR(dataFimPreview) : '—'}
               </div>
             </div>
+          </div>
+
+          <div>
+            <FieldLabel icon={User} required>Quem vendeu</FieldLabel>
+            <select
+              value={form.closer_id || SEM_RESPONSAVEL}
+              onChange={(e) => setForm((f) => ({ ...f, closer_id: e.target.value }))}
+              className="w-full h-10 rounded-md bg-white/5 border border-white/10 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#EA3935]"
+            >
+              <option value={SEM_RESPONSAVEL} className="bg-[#1a1a2e]">Sem responsável (venda do admin)</option>
+              {closers.map((c) => (
+                <option key={c.id} value={c.id} className="bg-[#1a1a2e]">{c.full_name || c.email}</option>
+              ))}
+            </select>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {form.closer_id && form.closer_id !== SEM_RESPONSAVEL
+                ? 'Conta na meta do mês, no ranking e nas vendas do mês do closer.'
+                : 'Conta só na meta do mês (sem ranking / sem vendas do mês).'}
+            </p>
           </div>
 
           <div>

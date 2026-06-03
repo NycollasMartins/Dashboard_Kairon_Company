@@ -33,25 +33,21 @@ export default function MetasPage() {
   const { data: metas = [] } = useQuery({ queryKey: queryKeys.metas.all, queryFn: metasApi.listMetas });
   const { data: vendas = [] } = useQuery({ queryKey: queryKeys.metas.vendas(competencia), queryFn: () => metasApi.listVendasDoMes(competencia) });
   const { data: closers = [] } = useQuery({ queryKey: queryKeys.metas.closers, queryFn: metasApi.listClosers });
-  // MRR base do mês (contratos MRR ativos) — mesmo "MRR do mês" do Financeiro.
-  const { data: mrrBase = 0 } = useQuery({ queryKey: queryKeys.metas.mrrBase, queryFn: metasApi.mrrBase });
 
   const refreshing = useIsFetching({ predicate: (q) => q.queryKey?.[0] === 'metas' }) > 0;
   const refresh = () => {
     qc.invalidateQueries({ queryKey: queryKeys.metas.all });
     qc.invalidateQueries({ queryKey: queryKeys.metas.vendas(competencia) });
     qc.invalidateQueries({ queryKey: queryKeys.metas.closers });
-    qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase });
   };
 
-  // Tempo real: ranking, progresso e MRR base atualizam ao vivo.
+  // Tempo real: vendas e metas atualizam ao vivo. Como criar contrato gera uma
+  // venda, a aba também reflete novos contratos automaticamente.
   useEffect(() => {
     const channel = supabase
       .channel('metas-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vendas' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.vendas(competencia) }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'metas' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.all }))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase }))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase }))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [qc, competencia]);
@@ -62,10 +58,15 @@ export default function MetasPage() {
     [metas, competencia],
   );
   const metaGlobalValor = Number(metaGlobal?.valor_meta) || 0;
-  // Vendas registradas no mês.
-  const totalVendido = useMemo(() => vendas.reduce((s, v) => s + (Number(v.valor) || 0), 0), [vendas]);
-  // Feito da meta = MRR base do mês (Financeiro) + vendas registradas.
-  const feito = (Number(mrrBase) || 0) + totalVendido;
+  // Vendas do mês com closer (entram no ranking + lista) e sem closer (só meta).
+  const vendasComCloser = useMemo(() => vendas.filter((v) => v.closer_id), [vendas]);
+  const totalCloser = useMemo(() => vendasComCloser.reduce((s, v) => s + (Number(v.valor) || 0), 0), [vendasComCloser]);
+  const totalDiretas = useMemo(
+    () => vendas.filter((v) => !v.closer_id).reduce((s, v) => s + (Number(v.valor) || 0), 0),
+    [vendas],
+  );
+  // Feito da meta = todas as vendas do mês (closers + sem responsável).
+  const feito = totalCloser + totalDiretas;
   const pct = progressoPct(feito, metaGlobalValor);
   const pctClamp = Math.min(100, Math.max(0, pct));
   const falta = faltaParaMeta(feito, metaGlobalValor);
@@ -73,11 +74,11 @@ export default function MetasPage() {
   const temMeta = metaGlobalValor > 0;
   const excedente = Math.max(0, feito - metaGlobalValor);
 
-  // Supermeta = tudo que passa da meta. O MRR base preenche a meta primeiro;
-  // cada closer que vende depois de bater a meta ganha comissão dobrada (2×).
+  // Supermeta = tudo que passa da meta. Cada closer que vende depois de bater
+  // a meta ganha comissão dobrada (2×).
   const { porCloser: superPorCloser } = useMemo(
-    () => calcularSupermeta(vendas, metaGlobalValor, mrrBase),
-    [vendas, metaGlobalValor, mrrBase],
+    () => calcularSupermeta(vendas, metaGlobalValor),
+    [vendas, metaGlobalValor],
   );
   const superDireto = superPorCloser.get('__direto__') || 0;
 
@@ -139,7 +140,8 @@ export default function MetasPage() {
     onError: (err) => toast({ variant: 'destructive', title: 'Erro ao remover', description: err?.message }),
   });
 
-  const podeRemoverVenda = (v) => isAdmin || v.created_by === user?.id;
+  // Venda gerada por contrato é gerida pelo próprio contrato (não se remove aqui).
+  const podeRemoverVenda = (v) => !v.contrato_id && (isAdmin || v.created_by === user?.id);
   const medalha = ['text-amber-300', 'text-zinc-300', 'text-amber-600'];
 
   return (
@@ -205,7 +207,7 @@ export default function MetasPage() {
               <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Feito da meta</p>
                 <p className="text-2xl font-semibold text-white tabular-nums mt-1">{formatBRL(feito)}</p>
-                <p className="text-[10px] text-muted-foreground mt-1">MRR {formatBRL(mrrBase)} + Vendas {formatBRL(totalVendido)}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Closers {formatBRL(totalCloser)} + Sem resp. {formatBRL(totalDiretas)}</p>
               </div>
               <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
                 <p className="text-[11px] text-muted-foreground">Falta da meta</p>
@@ -358,24 +360,29 @@ export default function MetasPage() {
 
       {/* Vendas do mês (lista) */}
       <div className="glass-card rounded-2xl border border-white/5 overflow-hidden">
-        <div className="px-5 py-3 border-b border-white/5 bg-white/[0.02]">
+        <div className="px-5 py-3 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Vendas do mês</p>
+          {totalDiretas > 0 && (
+            <span className="text-[11px] text-muted-foreground">+ {formatBRL(totalDiretas)} sem responsável (só na meta)</span>
+          )}
         </div>
-        {vendas.length === 0 ? (
-          <div className="p-8 text-center"><p className="text-sm text-muted-foreground">Nenhuma venda registrada neste mês.</p></div>
+        {vendasComCloser.length === 0 ? (
+          <div className="p-8 text-center"><p className="text-sm text-muted-foreground">Nenhuma venda de closer neste mês.</p></div>
         ) : (
           <div className="divide-y divide-white/5">
-            {vendas.map((v) => (
+            {vendasComCloser.map((v) => (
               <div key={v.id} className="flex items-center gap-3 px-5 py-3">
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
                   <BadgeDollarSign className="w-4 h-4 text-emerald-300" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-white truncate">
-                    {v.closer?.full_name || (v.closer_id ? 'Closer' : 'Venda direta')}
+                    {v.closer?.full_name || 'Closer'}
                     {v.cliente_nome ? <span className="text-muted-foreground font-normal"> · {v.cliente_nome}</span> : null}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">{formatDateBR(v.data_venda)}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {v.tipo ? <span className="text-muted-foreground/80">{v.tipo} · </span> : null}{formatDateBR(v.data_venda)}
+                  </p>
                 </div>
                 <p className="text-sm font-semibold text-white tabular-nums shrink-0">{formatBRL(v.valor)}</p>
                 {podeRemoverVenda(v) && (

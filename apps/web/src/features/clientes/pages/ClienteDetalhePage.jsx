@@ -250,7 +250,7 @@ export default function ClienteDetalhePage({ clienteId, onBack, onVerProjeto }) 
 
       <div>
         {tab === 'financeiro' && isAdmin ? (
-          <ContratosSection clienteId={clienteId} contratos={cliente.contratos} sectionIndex={2} />
+          <ContratosSection clienteId={clienteId} contratos={cliente.contratos} clienteResponsavelId={cliente.responsavel_id} sectionIndex={2} />
         ) : tab === 'arquivos' ? (
           <ClienteArquivos clienteId={clienteId} />
         ) : (

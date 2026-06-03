@@ -65,8 +65,11 @@ export default function LeadDetalheModal({
       (lead.status === 'pendente' || lead.responsavel_id === currentUser.id));
 
   const jaConvertido = Boolean(lead.cliente_id);
+  // Admin, head ou closer decidem o desfecho na "Reunião Marcada".
+  const podeDecidir = isAdmin || currentUser?.role === 'head' || currentUser?.role === 'closer';
   const canDecide =
-    isAdmin && lead.status === 'reuniao_marcada' && !jaConvertido;
+    podeDecidir && lead.status === 'reuniao_marcada' && !jaConvertido;
+  const isCloser = currentUser?.role === 'closer';
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -228,9 +231,10 @@ export default function LeadDetalheModal({
 
           {canDecide && (
             <div className="pt-2 mt-2 border-t border-white/5">
-              <FieldLabel>Decisão (admin)</FieldLabel>
+              <FieldLabel>Decisão</FieldLabel>
               <p className="text-[11px] text-muted-foreground/80 mb-2.5">
                 Após a reunião, decida o desfecho deste lead.
+                {isCloser && ' Ao converter, o cliente é atribuído a você e a venda será contabilizada quando o contrato for criado.'}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Button
