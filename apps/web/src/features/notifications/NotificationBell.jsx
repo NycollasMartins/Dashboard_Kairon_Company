@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Check, Trash2, TrendingUp, CalendarClock, Info, CheckCheck } from 'lucide-react';
+import { Bell, Check, Trash2, TrendingUp, CalendarClock, Info, CheckCheck, Trophy } from 'lucide-react';
 import { useNotifications } from '@/features/notifications/NotificationsContext';
 
 function tempoRelativo(iso) {
@@ -15,7 +15,7 @@ function tempoRelativo(iso) {
   return `há ${d} d`;
 }
 
-const typeIcon = { lead: TrendingUp, event: CalendarClock };
+const typeIcon = { lead: TrendingUp, event: CalendarClock, meta: Trophy };
 
 export default function NotificationBell() {
   const { notifications, unreadCount, markAllRead, markRead, remove, requestPermission } = useNotifications();
@@ -95,7 +95,7 @@ export default function NotificationBell() {
                         className={`group flex items-start gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-white/[0.05] ${n.read_at ? '' : 'bg-[#EA3935]/[0.12]'}`}
                         onClick={() => abrir(n)}
                       >
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${n.type === 'lead' ? 'bg-emerald-500/10 text-emerald-300' : n.type === 'event' ? 'bg-blue-500/10 text-blue-300' : 'bg-white/5 text-muted-foreground'}`}>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${n.type === 'lead' ? 'bg-emerald-500/10 text-emerald-300' : n.type === 'event' ? 'bg-blue-500/10 text-blue-300' : n.type === 'meta' ? 'bg-amber-500/10 text-amber-300' : 'bg-white/5 text-muted-foreground'}`}>
                           <Icon className="w-4 h-4" />
                         </div>
                         <div className="min-w-0 flex-1">

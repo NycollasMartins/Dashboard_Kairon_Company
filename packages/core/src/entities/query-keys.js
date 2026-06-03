@@ -51,4 +51,9 @@ export const queryKeys = {
   notifications: {
     all: ['notifications'],
   },
+  metas: {
+    all: ['metas'],
+    vendas: (competencia) => ['metas', 'vendas', competencia],
+    closers: ['metas', 'closers'],
+  },
 };

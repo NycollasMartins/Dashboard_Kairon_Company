@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Shield, Briefcase, Users, CheckSquare,
-  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar, DollarSign,
+  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar, DollarSign, Goal,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useNotifications } from '@/features/notifications/NotificationsContext';
@@ -11,6 +11,7 @@ import { useNotifications } from '@/features/notifications/NotificationsContext'
 const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas }) => [
   { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
   { to: '/calendario', label: 'Calendário', icon: Calendar },
+  { to: '/metas', label: 'Metas', icon: Goal },
   ...(podeUsarCrm
     ? [{
         label: 'Comercial', icon: Target,
