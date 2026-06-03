@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient, useMutation, useIsFetching } from '@tanstack/react-query';
 import {
   Target, Trophy, Plus, Pencil, RefreshCw, TrendingUp, Crown, PartyPopper,
-  BadgeDollarSign, Trash2, Medal,
+  BadgeDollarSign, Trash2, Medal, Maximize2, Minimize2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -99,6 +99,23 @@ export default function MetasPage() {
   const [closerDetalhe, setCloserDetalhe] = useState(null);
   const [editarMetaCloser, setEditarMetaCloser] = useState(null);
 
+  // ---- Tela cheia (modo painel/TV) ----
+  const [fullscreen, setFullscreen] = useState(false);
+  const entrarTelaCheia = async () => {
+    try { await document.documentElement.requestFullscreen?.(); } catch { /* sem fullscreen do navegador, segue só com o overlay */ }
+    setFullscreen(true);
+  };
+  const sairTelaCheia = async () => {
+    try { if (document.fullscreenElement) await document.exitFullscreen?.(); } catch { /* ignora */ }
+    setFullscreen(false);
+  };
+  // Sincroniza com o ESC/saída de fullscreen do navegador.
+  useEffect(() => {
+    const onFsChange = () => { if (!document.fullscreenElement) setFullscreen(false); };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
   // ---- Mutations ----
   const criarVenda = useMutation({
     mutationFn: metasApi.criarVenda,
@@ -145,8 +162,27 @@ export default function MetasPage() {
   const medalha = ['text-amber-300', 'text-zinc-300', 'text-amber-600'];
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
+    <div className={fullscreen ? 'fixed inset-0 z-[90] bg-background overflow-y-auto p-6 space-y-6' : 'space-y-6 animate-fade-in'}>
+      {fullscreen ? (
+        /* Header compacto no modo painel/TV — só os dados */
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-[#EA3935]/10 flex items-center justify-center">
+              <Target className="w-6 h-6 text-[#EA3935]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-tight leading-none">Metas — {rotuloCompetencia(competencia)}</h1>
+              <p className="text-xs text-muted-foreground mt-1 inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Atualização em tempo real
+              </p>
+            </div>
+          </div>
+          <Button onClick={sairTelaCheia} variant="outline" className="border-white/10 bg-transparent text-white hover:bg-white/5 h-9">
+            <Minimize2 className="w-4 h-4 mr-1.5" /> Sair da tela cheia
+          </Button>
+        </div>
+      ) : (
+      /* Header */
       <div className="-mt-24 -mx-6">
         <div className="relative h-44 rounded-b-3xl overflow-hidden" style={{ backgroundImage: "url('/kairon-company-dark.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}>
           <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/60 to-black/75 pointer-events-none" />
@@ -167,6 +203,9 @@ export default function MetasPage() {
             <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border bg-emerald-500/10 border-emerald-500/20 text-emerald-300">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Tempo real
             </span>
+            <Button onClick={entrarTelaCheia} variant="outline" className="border-white/10 bg-transparent text-white hover:bg-white/5 h-9">
+              <Maximize2 className="w-4 h-4 mr-1.5" /> Tela cheia
+            </Button>
             <Button onClick={refresh} disabled={refreshing} variant="outline" className="border-white/10 bg-transparent text-white hover:bg-white/5 h-9">
               <RefreshCw className={`w-4 h-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} /> Atualizar
             </Button>
@@ -178,6 +217,7 @@ export default function MetasPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Card grande: Meta do Mês */}
       <div className="glass-card rounded-2xl border border-white/5 p-6">
