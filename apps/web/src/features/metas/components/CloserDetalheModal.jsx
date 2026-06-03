@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Trophy, Target, TrendingUp, Pencil, CheckCircle2 } from 'lucide-react';
+import { X, Trophy, Target, TrendingUp, Pencil, CheckCircle2, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatBRL } from '@/features/clientes/utils/contrato.format';
 import { progressoPct, faltaParaMeta, metaBatida } from '../lib/metas.calc';
@@ -88,6 +88,23 @@ export default function CloserDetalheModal({ entry, posicao, isAdmin = false, on
             <p className="text-sm text-muted-foreground">
               {isAdmin ? 'Nenhuma meta individual definida para este closer.' : 'Sem meta individual definida.'}
             </p>
+          )}
+
+          {Number(entry.super) > 0 && (
+            <div className="rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 p-3.5">
+              <p className="text-sm font-semibold text-emerald-300 flex items-center gap-1.5">
+                <Rocket className="w-4 h-4" /> Na supermeta
+                <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 rounded-full px-1.5 py-0.5">2×</span>
+              </p>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-muted-foreground">Vendido acima da meta</span>
+                <span className="text-sm font-semibold text-emerald-300 tabular-nums">{formatBRL(entry.super)}</span>
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs text-muted-foreground">Equivalente bonificado (2×)</span>
+                <span className="text-sm font-semibold text-emerald-300 tabular-nums">{formatBRL(entry.super * 2)}</span>
+              </div>
+            </div>
           )}
         </div>
 

@@ -34,7 +34,7 @@ export default function VendaModal({
 }) {
   const selfIsCloser = closers.some((c) => c.id === currentUser?.id);
   const [form, setForm] = useState(() => ({
-    closer_id: isAdmin ? (closers[0]?.id ?? '') : (currentUser?.id ?? ''),
+    closer_id: isAdmin ? (closers[0]?.id ?? '__direto__') : (currentUser?.id ?? ''),
     valor: '',
     cliente_nome: '',
     data_venda: todayISO(),
@@ -56,7 +56,8 @@ export default function VendaModal({
     setSubmitted(true);
     if (!form.closer_id || !Number.isFinite(valorNum) || valorNum <= 0) return;
     onConfirm({
-      closer_id: form.closer_id,
+      // '__direto__' = venda direta (sem closer): entra no feito, fora do ranking.
+      closer_id: form.closer_id === '__direto__' ? null : form.closer_id,
       valor: valorNum,
       cliente_nome: form.cliente_nome,
       data_venda: form.data_venda,
@@ -114,7 +115,7 @@ export default function VendaModal({
                 onChange={(e) => setForm((f) => ({ ...f, closer_id: e.target.value }))}
                 className={`w-full h-10 rounded-lg bg-white/5 border px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#EA3935] ${closerInvalid ? 'border-[#EA3935]' : 'border-white/10'}`}
               >
-                <option value="" disabled className="bg-[#15151c]">Selecione um closer</option>
+                <option value="__direto__" className="bg-[#15151c]">— Venda direta (sem closer / empresa) —</option>
                 {closers.map((c) => (
                   <option key={c.id} value={c.id} className="bg-[#15151c]">{c.full_name || c.email}</option>
                 ))}

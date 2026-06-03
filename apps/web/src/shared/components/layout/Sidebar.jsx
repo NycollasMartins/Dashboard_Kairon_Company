@@ -8,7 +8,10 @@ import {
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useNotifications } from '@/features/notifications/NotificationsContext';
 
-const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas }) => [
+const getNavItems = ({ isAdmin, isTv, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas }) => {
+  // Papel "TV": acesso somente à aba Metas.
+  if (isTv) return [{ to: '/metas', label: 'Metas', icon: Goal }];
+  return [
   { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
   { to: '/calendario', label: 'Calendário', icon: Calendar },
   { to: '/metas', label: 'Metas', icon: Goal },
@@ -40,13 +43,15 @@ const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsar
         ],
       }]
     : []),
-];
+  ];
+};
 
 const activeStyle = { background: 'rgba(234, 57, 53,0.15)', borderColor: 'rgba(234, 57, 53,0.3)' };
 const activeDot = { background: '#EA3935' };
 
 export default function Sidebar({
   isAdmin = false,
+  isTv = false,
   podeVerTarefas = false,
   podeUsarClientesSquads = false,
   podeUsarCrm = false,
@@ -58,7 +63,7 @@ export default function Sidebar({
   const [openGroups, setOpenGroups] = useState({ Comercial: true, Operacional: true });
   const toggleGroup = (label) =>
     setOpenGroups((s) => ({ ...s, [label]: !s[label] }));
-  const navItems = getNavItems({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas });
+  const navItems = getNavItems({ isAdmin, isTv, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas });
   const { logout } = useAuth();
   const { leadUnreadCount } = useNotifications();
   const navigate = useNavigate();

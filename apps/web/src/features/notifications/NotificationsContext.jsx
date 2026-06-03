@@ -1,10 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/infrastructure/supabase/client';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { queryKeys } from '@/entities/query-keys';
 import { notificationsApi } from '@/features/notifications/api/notifications.api';
+import MetaCelebrationModal from '@/features/metas/components/MetaCelebrationModal';
 
 const NotificationsContext = createContext(null);
 
@@ -54,6 +55,7 @@ export function NotificationsProvider({ children }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [celebration, setCelebration] = useState(null);
 
   const { data: notifications = [] } = useQuery({
     queryKey: queryKeys.notifications.all,
@@ -74,6 +76,10 @@ export function NotificationsProvider({ children }) {
         playBeep();
         showDesktop(n);
         toast({ title: n.title, description: n.body || undefined });
+        // Meta batida => popup de comemoração global (todos do dash).
+        if (n.type === 'meta' && n.metadata?.evento === 'meta_batida') {
+          setCelebration({ title: n.title, body: String(n.body || '').split(' Agora começa')[0] });
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -109,7 +115,18 @@ export function NotificationsProvider({ children }) {
     requestPermission: requestNotificationPermission,
   };
 
-  return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
+  return (
+    <NotificationsContext.Provider value={value}>
+      {children}
+      {celebration && (
+        <MetaCelebrationModal
+          title={celebration.title}
+          body={celebration.body}
+          onClose={() => setCelebration(null)}
+        />
+      )}
+    </NotificationsContext.Provider>
+  );
 }
 
 export function useNotifications() {

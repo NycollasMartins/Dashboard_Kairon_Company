@@ -12,7 +12,7 @@ import { formatBRL, formatDateBR } from '@/features/clientes/utils/contrato.form
 import { queryKeys } from '@/entities/query-keys';
 import { metasApi, competenciaDoMes } from '@/features/metas/api/metas.api';
 import {
-  montarRanking, progressoPct, faltaParaMeta, metaBatida, rotuloCompetencia,
+  montarRanking, progressoPct, faltaParaMeta, metaBatida, rotuloCompetencia, calcularSupermeta,
 } from '@/features/metas/lib/metas.calc';
 import VendaModal from '@/features/metas/components/VendaModal';
 import MetaValorModal from '@/features/metas/components/MetaValorModal';
@@ -64,10 +64,22 @@ export default function MetasPage() {
   const batida = metaBatida(totalVendido, metaGlobalValor);
   const temMeta = metaGlobalValor > 0;
 
-  const ranking = useMemo(
-    () => montarRanking({ closers, vendas, metas, competencia }),
-    [closers, vendas, metas, competencia],
+  // Supermeta = tudo que passa da meta. Cada closer que vende depois de bater
+  // a meta ganha comissão dobrada (2×). Aqui calculamos a porção "super" de cada um.
+  const { totalSuper, porCloser: superPorCloser } = useMemo(
+    () => calcularSupermeta(vendas, metaGlobalValor),
+    [vendas, metaGlobalValor],
   );
+  const superDireto = superPorCloser.get('__direto__') || 0;
+
+  const ranking = useMemo(
+    () => montarRanking({ closers, vendas, metas, competencia }).map((e) => ({
+      ...e,
+      super: superPorCloser.get(e.id) || 0,
+    })),
+    [closers, vendas, metas, competencia, superPorCloser],
+  );
+  const rankingComSuper = ranking.filter((e) => e.super > 0);
 
   // ---- Modais ----
   const [showVenda, setShowVenda] = useState(false);
@@ -227,6 +239,58 @@ export default function MetasPage() {
         )}
       </div>
 
+      {/* Supermeta — aparece quando a meta é batida */}
+      {batida && (
+        <div className="glass-card rounded-2xl border border-emerald-500/20 overflow-hidden">
+          <div className="px-5 py-3 border-b border-white/5 bg-emerald-500/[0.05] flex items-center justify-between">
+            <p className="text-[11px] uppercase tracking-wider text-emerald-300 font-medium flex items-center gap-1.5">
+              <PartyPopper className="w-3.5 h-3.5" /> Supermeta ativa · comissão dobrada (2×)
+            </p>
+            <span className="text-[11px] text-muted-foreground">Acima da meta</span>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-xl bg-emerald-500/[0.06] border border-emerald-500/15 p-4">
+                <p className="text-[11px] text-muted-foreground">Total na supermeta (excedente)</p>
+                <p className="text-2xl font-semibold text-emerald-300 tabular-nums mt-1">{formatBRL(totalSuper)}</p>
+              </div>
+              <div className="rounded-xl bg-emerald-500/[0.06] border border-emerald-500/15 p-4">
+                <p className="text-[11px] text-muted-foreground">Equivalente bonificado (2×)</p>
+                <p className="text-2xl font-semibold text-emerald-300 tabular-nums mt-1">{formatBRL(totalSuper * 2)}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Toda venda feita após bater a meta entra na supermeta e vale <span className="text-emerald-300 font-semibold">comissão dobrada</span>.
+            </p>
+
+            {rankingComSuper.length > 0 ? (
+              <div className="rounded-xl border border-white/5 divide-y divide-white/5 overflow-hidden">
+                {rankingComSuper.map((e) => (
+                  <div key={e.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <div className="w-7 h-7 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-white font-semibold text-xs shrink-0">
+                      {e.nome?.[0]?.toUpperCase() || '?'}
+                    </div>
+                    <p className="text-sm text-white flex-1 min-w-0 truncate">{e.nome}</p>
+                    <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 rounded-full px-2 py-0.5 shrink-0">2×</span>
+                    <p className="text-sm font-semibold text-emerald-300 tabular-nums shrink-0">{formatBRL(e.super)}</p>
+                  </div>
+                ))}
+                {superDireto > 0 && (
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <div className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-muted-foreground text-xs shrink-0">∑</div>
+                    <p className="text-sm text-muted-foreground flex-1 min-w-0 truncate">Vendas diretas (sem closer)</p>
+                    <p className="text-sm font-semibold text-white tabular-nums shrink-0">{formatBRL(superDireto)}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhuma venda de closer na supermeta ainda.</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Ranking de closers */}
       <div className="glass-card rounded-2xl border border-white/5 overflow-hidden">
         <div className="px-5 py-3 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
@@ -298,7 +362,7 @@ export default function MetasPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-white truncate">
-                    {v.closer?.full_name || 'Closer'}
+                    {v.closer?.full_name || (v.closer_id ? 'Closer' : 'Venda direta')}
                     {v.cliente_nome ? <span className="text-muted-foreground font-normal"> · {v.cliente_nome}</span> : null}
                   </p>
                   <p className="text-[11px] text-muted-foreground">{formatDateBR(v.data_venda)}</p>

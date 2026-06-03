@@ -21,7 +21,7 @@ import CampanhasPageWrapper from '@/features/campanhas/pages/CampanhasPageWrappe
 import PageNotFound from '@/shared/components/PageNotFound';
 
 function AppContent() {
-  const { isLoadingAuth, isAuthenticated } = useAuth();
+  const { isLoadingAuth, isAuthenticated, user } = useAuth();
 
   if (isLoadingAuth) {
     return (
@@ -31,25 +31,38 @@ function AppContent() {
     );
   }
 
+  // Papel "TV": acesso somente à aba Metas (leitura). Qualquer outra rota
+  // redireciona para /metas.
+  const isTv = user?.role === 'tv';
+
   return (
     <Routes>
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
+        element={isAuthenticated ? <Navigate to={isTv ? '/metas' : '/'} replace /> : <LoginPage />}
       />
       <Route path="/aceitar-convite" element={<AcceptInvitePage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
-          <Route index element={<VisaoGeralPage />} />
-          <Route path="calendario" element={<CalendarioPageWrapper />} />
-          <Route path="metas" element={<MetasPage />} />
-          <Route path="administrativo" element={<AdministrativoPage />} />
-          <Route path="financeiro" element={<FinanceiroPage />} />
-          <Route path="clientes/*" element={<ClientesPageWrapper />} />
-          <Route path="tarefas" element={<MinhasTarefasPage />} />
-          <Route path="squads/*" element={<SquadsPageWrapper />} />
-          <Route path="comercial" element={<ComercialPage />} />
-          <Route path="campanhas/*" element={<CampanhasPageWrapper />} />
+          {isTv ? (
+            <>
+              <Route path="metas" element={<MetasPage />} />
+              <Route path="*" element={<Navigate to="/metas" replace />} />
+            </>
+          ) : (
+            <>
+              <Route index element={<VisaoGeralPage />} />
+              <Route path="calendario" element={<CalendarioPageWrapper />} />
+              <Route path="metas" element={<MetasPage />} />
+              <Route path="administrativo" element={<AdministrativoPage />} />
+              <Route path="financeiro" element={<FinanceiroPage />} />
+              <Route path="clientes/*" element={<ClientesPageWrapper />} />
+              <Route path="tarefas" element={<MinhasTarefasPage />} />
+              <Route path="squads/*" element={<SquadsPageWrapper />} />
+              <Route path="comercial" element={<ComercialPage />} />
+              <Route path="campanhas/*" element={<CampanhasPageWrapper />} />
+            </>
+          )}
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />

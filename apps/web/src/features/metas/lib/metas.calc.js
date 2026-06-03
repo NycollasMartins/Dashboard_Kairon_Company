@@ -44,6 +44,38 @@ export function montarRanking({ closers = [], vendas = [], metas = [], competenc
   return Array.from(byId.values()).sort((a, b) => b.total - a.total);
 }
 
+// Supermeta = tudo que passa da meta global. Percorre as vendas em ordem
+// cronológica (created_at) e, para cada uma, calcula a porção que ficou ACIMA
+// da meta. Essa porção é a "supermeta" daquele closer (comissão dobrada).
+// Vendas diretas (sem closer) entram na chave '__direto__'.
+export function calcularSupermeta(vendas, metaGlobalValor) {
+  const meta = num(metaGlobalValor);
+  const porCloser = new Map();
+  if (meta <= 0) return { totalSuper: 0, porCloser };
+
+  const ordenadas = [...(vendas || [])].sort((a, b) => {
+    const ta = new Date(a.created_at || a.data_venda).getTime();
+    const tb = new Date(b.created_at || b.data_venda).getTime();
+    return ta - tb;
+  });
+
+  let running = 0;
+  let totalSuper = 0;
+  for (const v of ordenadas) {
+    const val = num(v.valor);
+    const antes = running;
+    const depois = running + val;
+    const superPortion = Math.max(0, depois - Math.max(meta, antes));
+    if (superPortion > 0) {
+      totalSuper += superPortion;
+      const key = v.closer_id || '__direto__';
+      porCloser.set(key, (porCloser.get(key) || 0) + superPortion);
+    }
+    running = depois;
+  }
+  return { totalSuper, porCloser };
+}
+
 export const MES_NOMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
