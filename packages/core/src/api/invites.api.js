@@ -2,6 +2,11 @@ import { supabase } from '../supabase/client.js';
 
 const VIEW = 'user_invites_view';
 
+// Papéis que a edge function 'invite-user' já aceita de longa data. Para papéis
+// mais novos (não listados aqui), convidamos com um papel base e ajustamos o
+// papel real direto no profile, evitando depender do redeploy da função.
+const ROLES_BOOTSTRAP_SEGUROS = ['admin', 'social media', 'editor', 'closer', 'sdr', 'bdr', 'head', 'dev'];
+
 function unwrap({ data, error }) {
   if (error) throw error;
   return data;
@@ -51,12 +56,31 @@ export const invitesApi = {
       .order('invited_at', { ascending: false })
       .then(unwrap),
 
-  create: ({ email, full_name, role }) =>
-    supabase.functions
+  create: async ({ email, full_name, role }) => {
+    // A edge function 'invite-user' valida o papel contra uma lista fixa no
+    // código dela. Papéis mais novos (ex.: 'tv') podem não estar na versão em
+    // produção ainda. Para não depender do redeploy da função, convidamos com um
+    // papel base que ela já aceita e gravamos o papel real direto no profile
+    // (o CHECK do banco já permite o papel novo).
+    const precisaAjuste = !ROLES_BOOTSTRAP_SEGUROS.includes(role);
+    const roleConvite = precisaAjuste ? 'sdr' : role;
+
+    const res = await supabase.functions
       .invoke('invite-user', {
-        body: { email, full_name, role, origin: currentOrigin() },
+        body: { email, full_name, role: roleConvite, origin: currentOrigin() },
       })
-      .then(unwrapInvoke),
+      .then(unwrapInvoke);
+
+    if (precisaAjuste && res?.user?.id) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role })
+        .eq('id', res.user.id);
+      if (error) throw new Error(error.message || 'Convite enviado, mas falha ao gravar o papel.');
+      res.user.role = role;
+    }
+    return res;
+  },
 
   resend: (email) =>
     supabase.functions
