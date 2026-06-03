@@ -143,7 +143,7 @@ export default function VisaoGeralPage() {
               “Escreva a visão, torne-a bem legível sobre tábuas, para que possa
               ser lida até por quem passa correndo.”
             </p>
-            <footer className="not-italic text-[#550606] text-sm font-semibold mt-1.5 tracking-wide">
+            <footer className="not-italic text-[#88070f] text-sm font-semibold mt-1.5 tracking-wide">
               Habacuque 2:2
             </footer>
           </blockquote>
