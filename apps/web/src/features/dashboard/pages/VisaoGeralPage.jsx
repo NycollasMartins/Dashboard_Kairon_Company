@@ -138,12 +138,12 @@ export default function VisaoGeralPage() {
             </p>
           </div>
 
-          <blockquote className="lg:max-w-md lg:text-right border-l-2 lg:border-l-0 lg:border-r-2 border-amber-400/50 pl-4 lg:pl-0 lg:pr-4 py-1">
-            <p className="font-scripture italic text-amber-200/90 text-[1.05rem] leading-snug">
+          <blockquote className="lg:max-w-md lg:text-right border-l-2 lg:border-l-0 lg:border-r-2 border-white/15 pl-4 lg:pl-0 lg:pr-4 py-1">
+            <p className="italic text-white/90 text-[0.95rem] leading-snug">
               “Escreva a visão, torne-a bem legível sobre tábuas, para que possa
               ser lida até por quem passa correndo.”
             </p>
-            <footer className="font-scripture not-italic text-amber-400/80 text-sm font-semibold mt-1.5 tracking-wide">
+            <footer className="not-italic text-[#EA3935] text-sm font-semibold mt-1.5 tracking-wide">
               Habacuque 2:2
             </footer>
           </blockquote>
