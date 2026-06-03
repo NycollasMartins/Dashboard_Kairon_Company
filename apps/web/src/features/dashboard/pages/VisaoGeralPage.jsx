@@ -139,11 +139,11 @@ export default function VisaoGeralPage() {
           </div>
 
           <blockquote className="lg:max-w-md lg:text-right border-l-2 lg:border-l-0 lg:border-r-2 border-white/15 pl-4 lg:pl-0 lg:pr-4 py-1">
-            <p className="italic text-white/90 text-[0.95rem] leading-snug">
+            <p className="italic text-[#c2c5cc] text-[0.95rem] leading-snug">
               “Escreva a visão, torne-a bem legível sobre tábuas, para que possa
               ser lida até por quem passa correndo.”
             </p>
-            <footer className="not-italic text-[#EA3935] text-sm font-semibold mt-1.5 tracking-wide">
+            <footer className="not-italic text-[#550606] text-sm font-semibold mt-1.5 tracking-wide">
               Habacuque 2:2
             </footer>
           </blockquote>
