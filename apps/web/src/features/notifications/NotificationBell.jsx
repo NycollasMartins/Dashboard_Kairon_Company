@@ -64,7 +64,7 @@ export default function NotificationBell() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: -6 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 mt-2 w-80 max-w-[88vw] glass-card border border-white/10 rounded-2xl shadow-2xl shadow-black/50 z-50 overflow-hidden"
+            className="absolute right-0 mt-2 w-80 max-w-[88vw] bg-[#16161d] backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 z-50 overflow-hidden"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
               <p className="text-sm font-semibold text-white">Notificações</p>
@@ -92,7 +92,7 @@ export default function NotificationBell() {
                     return (
                       <div
                         key={n.id}
-                        className={`group flex items-start gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-white/[0.03] ${n.read_at ? '' : 'bg-[#EA3935]/[0.06]'}`}
+                        className={`group flex items-start gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-white/[0.05] ${n.read_at ? '' : 'bg-[#EA3935]/[0.12]'}`}
                         onClick={() => abrir(n)}
                       >
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${n.type === 'lead' ? 'bg-emerald-500/10 text-emerald-300' : n.type === 'event' ? 'bg-blue-500/10 text-blue-300' : 'bg-white/5 text-muted-foreground'}`}>
@@ -103,8 +103,8 @@ export default function NotificationBell() {
                             <p className="text-sm font-medium text-white truncate">{n.title}</p>
                             {!n.read_at && <span className="w-1.5 h-1.5 rounded-full bg-[#EA3935] shrink-0" />}
                           </div>
-                          {n.body && <p className="text-xs text-muted-foreground truncate">{n.body}</p>}
-                          <p className="text-[10px] text-muted-foreground/70 mt-0.5">{tempoRelativo(n.created_at)}</p>
+                          {n.body && <p className="text-xs text-white/70 truncate">{n.body}</p>}
+                          <p className="text-[10px] text-white/45 mt-0.5">{tempoRelativo(n.created_at)}</p>
                         </div>
                         <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                           {!n.read_at && (
