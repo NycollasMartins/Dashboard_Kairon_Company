@@ -122,19 +122,31 @@ export default function VisaoGeralPage() {
           </div>
         </div>
 
-        <div className="px-6 mt-4">
-          <h1 className="text-[1.7rem] font-bold text-white tracking-tight">
-            {saudacao()}, <span className="text-gradient">{primeiroNome}!</span> 👋
-          </h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            {hojeCapitalized}
-            {' · '}
-            {tarefasHoje.length > 0
-              ? `${tarefasHoje.length} tarefa${tarefasHoje.length > 1 ? 's' : ''} para hoje${tarefasAtrasadas.length > 0 ? ` e ${tarefasAtrasadas.length} em atraso` : ''}.`
-              : tarefasPendentes.length > 0
-              ? `${tarefasPendentes.length} pendente${tarefasPendentes.length > 1 ? 's' : ''} no escopo.`
-              : 'Tudo em dia. 🎉'}
-          </p>
+        <div className="px-6 mt-4 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+          <div>
+            <h1 className="text-[1.7rem] font-bold text-white tracking-tight">
+              {saudacao()}, <span className="text-gradient">{primeiroNome}!</span> 👋
+            </h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              {hojeCapitalized}
+              {' · '}
+              {tarefasHoje.length > 0
+                ? `${tarefasHoje.length} tarefa${tarefasHoje.length > 1 ? 's' : ''} para hoje${tarefasAtrasadas.length > 0 ? ` e ${tarefasAtrasadas.length} em atraso` : ''}.`
+                : tarefasPendentes.length > 0
+                ? `${tarefasPendentes.length} pendente${tarefasPendentes.length > 1 ? 's' : ''} no escopo.`
+                : 'Tudo em dia. 🎉'}
+            </p>
+          </div>
+
+          <blockquote className="lg:max-w-md lg:text-right border-l-2 lg:border-l-0 lg:border-r-2 border-amber-400/50 pl-4 lg:pl-0 lg:pr-4 py-1">
+            <p className="font-scripture italic text-amber-200/90 text-[1.05rem] leading-snug">
+              “Escreva a visão, torne-a bem legível sobre tábuas, para que possa
+              ser lida até por quem passa correndo.”
+            </p>
+            <footer className="font-scripture not-italic text-amber-400/80 text-sm font-semibold mt-1.5 tracking-wide">
+              Habacuque 2:2
+            </footer>
+          </blockquote>
         </div>
       </div>
 

@@ -8,6 +8,7 @@ export default {
   	extend: {
       fontFamily: {
         inter: ['Inter', 'sans-serif'],
+        scripture: ['"Cormorant Garamond"', 'Georgia', 'serif'],
       },
   		borderRadius: {
   			lg: 'var(--radius)',
