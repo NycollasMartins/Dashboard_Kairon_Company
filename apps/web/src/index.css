@@ -82,6 +82,13 @@
   -webkit-backdrop-filter: blur(20px);
 }
 
+/* Rolagem suave da navegação lateral (Firefox + leve respiro p/ a barra) */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+  padding-right: 2px;
+}
+
 .glow-orange {
   box-shadow: 0 0 20px var(--glow-orange), 0 0 40px rgba(234, 57, 53, 0.1);
 }
