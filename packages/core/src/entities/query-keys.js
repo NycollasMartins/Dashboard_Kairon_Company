@@ -48,4 +48,13 @@ export const queryKeys = {
     metrics: ['financeiro', 'campaign-metrics'],
     custos: ['financeiro', 'custos-operacionais'],
   },
+  notifications: {
+    all: ['notifications'],
+  },
+  metas: {
+    all: ['metas'],
+    vendas: (competencia) => ['metas', 'vendas', competencia],
+    closers: ['metas', 'closers'],
+    mrrBase: ['metas', 'mrr-base'],
+  },
 };

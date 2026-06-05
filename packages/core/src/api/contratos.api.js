@@ -25,7 +25,7 @@ export const contratosApi = {
       .order('data_inicio', { ascending: false })
       .then(unwrap),
 
-  criar: async ({ cliente_id, tipo, valor, duracao_meses, data_inicio, entregaveis, notas }) => {
+  criar: async ({ cliente_id, tipo, valor, duracao_meses, data_inicio, entregaveis, notas, closer_id }) => {
     const { data, error } = await supabase.rpc('criar_contrato', {
       p_cliente_id: cliente_id,
       p_tipo: tipo,
@@ -35,6 +35,8 @@ export const contratosApi = {
       p_entregaveis:
         Array.isArray(entregaveis) && entregaveis.length > 0 ? entregaveis : null,
       p_notas: emptyOrNull(notas),
+      // closer que efetuou a venda (gera a venda atrelada ao contrato); null = sem responsável.
+      p_closer_id: closer_id || null,
     });
     if (error) throw error;
     return data;

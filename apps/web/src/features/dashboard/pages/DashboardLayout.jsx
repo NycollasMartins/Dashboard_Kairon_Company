@@ -17,16 +17,18 @@ export default function DashboardLayout() {
   const isHead = role === 'head';
   const isCs = role === 'cs';
   const isDev = role === 'dev';
-  const podeVerTarefas = ['admin', 'social media', 'editor', 'designer', 'head', 'cs', 'dev'].includes(role);
-  const podeUsarClientesSquads = ['admin', 'social media', 'head', 'cs', 'dev'].includes(role);
-  const podeUsarCrm = ['admin', 'closer', 'sdr', 'bdr', 'dev'].includes(role);
-  const podeUsarSquads = isAdmin || isHead || isCs || isDev;
+  const isTv = role === 'tv'; // TV: somente a aba Metas, apenas leitura
+  const podeVerTarefas = !isTv && ['admin', 'social media', 'editor', 'designer', 'head', 'cs', 'dev'].includes(role);
+  const podeUsarClientesSquads = !isTv && ['admin', 'social media', 'head', 'cs', 'dev'].includes(role);
+  const podeUsarCrm = !isTv && ['admin', 'closer', 'sdr', 'bdr', 'dev'].includes(role);
+  const podeUsarSquads = !isTv && (isAdmin || isHead || isCs || isDev);
   const podeVerCampanhas = isAdmin; // Campanhas: somente admin
 
   return (
     <div className="min-h-screen bg-background font-inter">
       <Sidebar
         isAdmin={isAdmin}
+        isTv={isTv}
         podeVerTarefas={podeVerTarefas}
         podeUsarClientesSquads={podeUsarClientesSquads}
         podeUsarCrm={podeUsarCrm}

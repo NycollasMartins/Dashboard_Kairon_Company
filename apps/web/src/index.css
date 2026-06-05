@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -62,8 +63,11 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(139, 92, 246, 0.3);
+    background: rgba(234, 57, 53, 0.5);
     border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(234, 57, 53, 0.7);
   }
 }
 
@@ -79,6 +83,13 @@
   border-right: 1px solid var(--glass-border);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+
+/* Rolagem suave da navegação lateral (Firefox + leve respiro p/ a barra) */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(234, 57, 53, 0.5) transparent;
+  padding-right: 2px;
 }
 
 .glow-orange {

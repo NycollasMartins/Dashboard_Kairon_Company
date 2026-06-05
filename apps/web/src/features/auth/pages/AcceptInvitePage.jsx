@@ -13,6 +13,8 @@ export default function AcceptInvitePage() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [hasSession, setHasSession] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [linkError, setLinkError] = useState('');
+  const handledRef = useRef(false);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -29,30 +31,87 @@ export default function AcceptInvitePage() {
   }, []);
 
   useEffect(() => {
-    // O Supabase processa o token da URL automaticamente e cria a sessão.
-    // Esperamos brevemente caso o onAuthStateChange ainda não tenha disparado.
+    // Roda só uma vez: o token do convite é de USO ÚNICO; reprocessar dá otp_expired.
+    if (handledRef.current) return undefined;
+    handledRef.current = true;
     let cancelled = false;
-    const check = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (data?.session) {
-        setHasSession(true);
-        setInviteEmail(data.session.user?.email ?? '');
-        setCheckingSession(false);
-      } else {
-        // tenta de novo após pequena espera (token assíncrono)
-        setTimeout(async () => {
-          if (cancelled) return;
-          const { data: data2 } = await supabase.auth.getSession();
-          if (data2?.session) {
-            setHasSession(true);
-            setInviteEmail(data2.session.user?.email ?? '');
-          }
-          setCheckingSession(false);
-        }, 600);
+
+    // Lê parâmetros tanto do hash (#...) quanto da query (?...). O Supabase usa
+    // o hash no fluxo implícito e a query no PKCE/erros.
+    const parseParams = () => {
+      const out = {};
+      const hash = window.location.hash?.replace(/^#/, '') ?? '';
+      const search = window.location.search?.replace(/^\?/, '') ?? '';
+      for (const part of [hash, search]) {
+        if (!part) continue;
+        const sp = new URLSearchParams(part);
+        for (const [k, v] of sp.entries()) if (!(k in out)) out[k] = v;
+      }
+      return out;
+    };
+
+    const cleanUrl = () => {
+      if (typeof window !== 'undefined' && (window.location.hash || window.location.search)) {
+        window.history.replaceState(null, '', window.location.pathname);
       }
     };
-    check();
+
+    const mensagemErro = (code, desc) => {
+      if (code === 'otp_expired' || /expired|invalid/i.test(desc || '')) {
+        return 'Este link de convite expirou ou já foi usado. Peça ao administrador para reenviar um novo convite.';
+      }
+      if (code === 'access_denied') {
+        return 'Este link de convite não é mais válido. Peça ao administrador para reenviar um novo convite.';
+      }
+      return 'Link de convite inválido ou expirado. Peça ao administrador para reenviar um novo convite.';
+    };
+
+    const run = async () => {
+      const params = parseParams();
+
+      // 1) ERRO na URL — tratar primeiro, sem mostrar o formulário.
+      if (params.error || params.error_code) {
+        cleanUrl();
+        if (!cancelled) {
+          setLinkError(mensagemErro(params.error_code, params.error_description));
+          setCheckingSession(false);
+        }
+        return;
+      }
+
+      // 2) PKCE com token_hash — troca explícita por sessão (não expõe o token).
+      if (params.token_hash) {
+        const type = params.type || 'invite';
+        const { error: vErr } = await supabase.auth.verifyOtp({ token_hash: params.token_hash, type });
+        cleanUrl(); // consome o token de uso único da URL
+        if (vErr) {
+          if (!cancelled) {
+            setLinkError(mensagemErro(vErr.code, vErr.message));
+            setCheckingSession(false);
+          }
+          return;
+        }
+      }
+
+      // 3) Fluxo implícito (#access_token): o detectSessionInUrl já processou no
+      // boot. Confirmamos a sessão (com um retry para a corrida assíncrona).
+      let session = (await supabase.auth.getSession()).data?.session;
+      if (!session) {
+        await new Promise((r) => setTimeout(r, 600));
+        session = (await supabase.auth.getSession()).data?.session;
+      }
+      if (cancelled) return;
+
+      if (session) {
+        setHasSession(true);
+        setInviteEmail(session.user?.email ?? '');
+      } else {
+        setLinkError('Link de convite inválido ou expirado. Peça ao administrador para reenviar um novo convite.');
+      }
+      setCheckingSession(false);
+    };
+
+    run();
     return () => {
       cancelled = true;
     };
@@ -159,7 +218,7 @@ export default function AcceptInvitePage() {
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                   <span>
-                    Link de convite inválido ou expirado. Peça ao administrador para reenviar.
+                    {linkError || 'Link de convite inválido ou expirado. Peça ao administrador para reenviar.'}
                   </span>
                 </div>
                 <button

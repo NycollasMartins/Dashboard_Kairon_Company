@@ -28,7 +28,7 @@ function MiniStat({ icon: Icon, label, value, accent = 'text-[#EA3935]', bgAccen
   );
 }
 
-export default function ContratosSection({ clienteId, contratos, sectionIndex = 2 }) {
+export default function ContratosSection({ clienteId, contratos, clienteResponsavelId = null, sectionIndex = 2 }) {
   const sectionNumber = String(sectionIndex).padStart(2, '0');
   const { user } = useAuth();
   const { toast } = useToast();
@@ -160,6 +160,7 @@ export default function ContratosSection({ clienteId, contratos, sectionIndex = 
       {modalCriar && (
         <ContratoFormModal
           isSubmitting={criar.isPending}
+          defaultCloserId={clienteResponsavelId}
           onClose={() => setModalCriar(false)}
           onConfirm={(payload) => criar.mutate(payload)}
         />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient, useIsFetching } from '@tanstack/react-query';
 import { TrendingUp, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { leadsApi } from '@/features/comercial/api/leads.api';
 import { queryKeys } from '@/entities/query-keys';
+import { useNotifications } from '@/features/notifications/NotificationsContext';
 import LeadsKanban from '../components/LeadsKanban';
 import LeadNovoModal from '../components/LeadNovoModal';
 
@@ -16,6 +17,10 @@ export default function ComercialPage() {
   const qc = useQueryClient();
   const atualizando = useIsFetching({ queryKey: queryKeys.leads.all });
   const [showForm, setShowForm] = useState(false);
+  const { markTypeRead } = useNotifications();
+
+  // Ao abrir o CRM, zera o contador de leads novos (notificações de lead).
+  useEffect(() => { markTypeRead('lead'); }, [markTypeRead]);
 
   const criar = useMutation({
     mutationFn: leadsApi.create,

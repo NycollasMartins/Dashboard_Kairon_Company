@@ -3,13 +3,18 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Shield, Briefcase, Users, CheckSquare,
-  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar, DollarSign,
+  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar, DollarSign, Goal,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { useNotifications } from '@/features/notifications/NotificationsContext';
 
-const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas }) => [
+const getNavItems = ({ isAdmin, isTv, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas }) => {
+  // Papel "TV": acesso somente à aba Metas.
+  if (isTv) return [{ to: '/metas', label: 'Metas', icon: Goal }];
+  return [
   { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
   { to: '/calendario', label: 'Calendário', icon: Calendar },
+  { to: '/metas', label: 'Metas', icon: Goal },
   ...(podeUsarCrm
     ? [{
         label: 'Comercial', icon: Target,
@@ -38,13 +43,15 @@ const getNavItems = ({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsar
         ],
       }]
     : []),
-];
+  ];
+};
 
 const activeStyle = { background: 'rgba(234, 57, 53,0.15)', borderColor: 'rgba(234, 57, 53,0.3)' };
 const activeDot = { background: '#EA3935' };
 
 export default function Sidebar({
   isAdmin = false,
+  isTv = false,
   podeVerTarefas = false,
   podeUsarClientesSquads = false,
   podeUsarCrm = false,
@@ -56,8 +63,9 @@ export default function Sidebar({
   const [openGroups, setOpenGroups] = useState({ Comercial: true, Operacional: true });
   const toggleGroup = (label) =>
     setOpenGroups((s) => ({ ...s, [label]: !s[label] }));
-  const navItems = getNavItems({ isAdmin, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas });
+  const navItems = getNavItems({ isAdmin, isTv, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas });
   const { logout } = useAuth();
+  const { leadUnreadCount } = useNotifications();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -79,7 +87,7 @@ export default function Sidebar({
         </div>
       </div>
 
-      <nav className="flex-1 flex flex-col">
+      <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col sidebar-scroll">
         {(() => {
           const firstGroupIdx = navItems.findIndex((i) => i.children);
           return navItems.map((item, idx) => {
@@ -125,7 +133,13 @@ export default function Sidebar({
                               <>
                                 <ChildIcon className="w-4 h-4 shrink-0" />
                                 <span className="font-medium">{child.label}</span>
-                                {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={activeDot} />}
+                                {child.to === '/comercial' && leadUnreadCount > 0 ? (
+                                  <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-[#EA3935] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                    {leadUnreadCount > 99 ? '99+' : leadUnreadCount}
+                                  </span>
+                                ) : isActive ? (
+                                  <div className="ml-auto w-1.5 h-1.5 rounded-full" style={activeDot} />
+                                ) : null}
                               </>
                             )}
                           </NavLink>

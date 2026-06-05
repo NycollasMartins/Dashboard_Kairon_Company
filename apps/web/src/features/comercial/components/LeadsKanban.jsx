@@ -232,10 +232,17 @@ export default function LeadsKanban() {
       {leadParaConverter && (
         <ConverterLeadModal
           lead={leadParaConverter}
+          currentUser={user}
           isSubmitting={converter.isPending}
           onClose={() => setLeadParaConverter(null)}
           onConfirm={(extras) =>
-            converter.mutate({ leadId: leadParaConverter.id, extras })
+            converter.mutate({
+              leadId: leadParaConverter.id,
+              // Closer que converte assume como responsável (vira a venda no contrato).
+              extras: user?.role === 'closer'
+                ? { ...extras, responsavel_id: user.id }
+                : extras,
+            })
           }
         />
       )}

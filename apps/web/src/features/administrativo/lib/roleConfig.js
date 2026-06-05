@@ -1,4 +1,4 @@
-import { Crown, Briefcase, Edit2, User, UserCheck, Star, Palette, HeartHandshake, Code2 } from 'lucide-react';
+import { Crown, Briefcase, Edit2, User, UserCheck, Star, Palette, HeartHandshake, Code2, Tv } from 'lucide-react';
 
 export const roleConfig = {
   admin: {
@@ -70,6 +70,13 @@ export const roleConfig = {
     color: 'text-purple-400',
     bg: 'bg-purple-500/10 border-purple-500/20',
     desc: 'Geração de demanda outbound',
+  },
+  tv: {
+    label: 'TV',
+    icon: Tv,
+    color: 'text-slate-300',
+    bg: 'bg-slate-500/10 border-slate-500/20',
+    desc: 'Painel de Metas — somente leitura',
   },
 };
 

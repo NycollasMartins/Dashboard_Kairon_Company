@@ -21,9 +21,10 @@ import { queryKeys } from '@/entities/query-keys';
 import MetricaModal from '@/features/financeiro/components/MetricaModal';
 import CustosOperacionais from '@/features/financeiro/components/CustosOperacionais';
 import {
-  MES_LABELS, flattenContratos, receitaSeriesYear, mrrSeriesYear,
+  MES_LABELS, RECEITA_POR_CONVERSAO, flattenContratos, receitaSeriesYear, mrrSeriesYear,
   leadsSeriesYear, adsSeriesYear, novosClientesSeriesYear, contratosAVencer,
-  custoOperacionalSeriesYear, sum,
+  custoOperacionalSeriesYear, mrrClientCountSeriesYear, parseDateLocal, sum,
+  mrrAtual, tcvDoMes, clientesComContrato,
 } from '@/features/financeiro/lib/financeiro.calc';
 
 const fmtInt = (v) => Math.round(Number(v) || 0).toLocaleString('pt-BR');
@@ -111,6 +112,7 @@ export default function FinanceiroPage() {
     qc.invalidateQueries({ queryKey: queryKeys.clientes.all });
     qc.invalidateQueries({ queryKey: queryKeys.leads.all });
     qc.invalidateQueries({ queryKey: queryKeys.financeiro.metrics });
+    qc.invalidateQueries({ queryKey: queryKeys.financeiro.custos });
   };
 
   // Tempo real: invalida as queries assim que algo muda no banco.
@@ -156,15 +158,44 @@ export default function FinanceiroPage() {
     const mrrAno = sum(mrrSeries);
     const pontualAno = Math.max(receitaAno - mrrAno, 0);
 
+    // MRR do mês = valor de contrato MRR atribuído a cada cliente não-churn
+    // (snapshot). Só muda quando entra um novo contrato ou um contrato encerra.
+    const mrrClientes = mrrAtual(clientes);
+    // Receita do mês = MRR do mês + TCV (pontual) fechado NESTE mês. Reinicia
+    // todo mês: no início do mês não há TCV novo, então Receita = MRR; sobe a
+    // cada novo cliente TCV fechado no mês corrente.
+    const tcvMes = tcvDoMes(clientes, year, cm);
+    const receitaClientes = mrrClientes + tcvMes;
+    const nClientesContrato = clientesComContrato(clientes);
+    // ROI do mês = (Receita do mês − Gasto do mês) / Gasto do mês.
+    const gastoMes = custosSeries[cm];
+    const roiMesClientes = gastoMes > 0 ? ((receitaClientes - gastoMes) / gastoMes) * 100 : 0;
+
+    // Ticket médio período-consistente: MRR do mês de referência ÷ nº de
+    // clientes com MRR ativo nesse mês. No ano corrente, ref = mês atual; em
+    // anos fechados, ref = último mês com MRR (evita misturar com "hoje").
+    const isCY = year === now.getFullYear();
     const clientesAtivos = clientes.filter((c) => c.status === 'ativo');
-    const ticketMedio = clientesAtivos.length ? mrrMes / clientesAtivos.length : 0;
+    const mrrCountSeries = mrrClientCountSeriesYear(contratos, year, now);
+    let refMonth = isCY ? cm : 11;
+    if (!isCY) {
+      for (let m = 11; m >= 0; m -= 1) { if (mrrSeries[m] > 0) { refMonth = m; break; } }
+    }
+    const ticketMedio = mrrCountSeries[refMonth] > 0 ? mrrSeries[refMonth] / mrrCountSeries[refMonth] : 0;
+
     const custosMes = custosSeries[cm];
-    const margemMes = receitaSeries[cm] - custosMes;
+    const margemMes = receitaClientes - custosMes;
+
+    // ROAS de mídia (retorno sobre o gasto em ads).
+    const convAno = sum(ads.conversions);
+    const roasMes = ads.roas[cm];
+    const roasAno = gastoAno > 0 ? (convAno * RECEITA_POR_CONVERSAO) / gastoAno : 0;
 
     // Gasto por plataforma (ano)
     const gastoPlat = { meta: 0, google: 0 };
     for (const m of metrics) {
-      if (!m.date || new Date(m.date).getFullYear() !== year) continue;
+      const d = parseDateLocal(m.date);
+      if (!d || d.getFullYear() !== year) continue;
       const plat = m.campaigns?.platform;
       if (plat === 'meta') gastoPlat.meta += num(m.spend);
       else if (plat === 'google') gastoPlat.google += num(m.spend);
@@ -183,7 +214,8 @@ export default function FinanceiroPage() {
     return {
       receitaSeries, mrrSeries, leadsSeries, ads, novosSeries, custoOpSeries, roiSeries,
       receitaAno, leadsAno, gastoAno, custoOpAno, custosAno, roiAno, margemAno,
-      mrrMes, mrrAno, pontualAno,
+      mrrMes, mrrAno, pontualAno, roasMes, roasAno,
+      mrrClientes, tcvMes, receitaClientes, nClientesContrato, gastoMes, roiMesClientes,
       clientesAtivos: clientesAtivos.length, ticketMedio, custosMes, margemMes,
       gastoPlat, topMrr, aVencer,
     };
@@ -207,8 +239,8 @@ export default function FinanceiroPage() {
     {
       key: 'receita', icon: DollarSign, accent: 'emerald',
       label: isCurrentYear ? 'Receita do mês' : `Receita · ${year}`,
-      value: isCurrentYear ? formatBRL(calc.receitaSeries[cm]) : formatBRL(calc.receitaAno),
-      sub: isCurrentYear ? `Acumulado no ano: ${formatBRL(calc.receitaAno)}` : `Média/mês: ${formatBRL(calc.receitaAno / 12)}`,
+      value: isCurrentYear ? formatBRL(calc.receitaClientes) : formatBRL(calc.receitaAno),
+      sub: isCurrentYear ? `MRR ${formatBRL(calc.mrrClientes)} + TCV do mês ${formatBRL(calc.tcvMes)}` : `Média/mês: ${formatBRL(calc.receitaAno / 12)}`,
       modal: { title: 'Receita', icon: DollarSign, accent: 'emerald', format: formatBRL, series: calc.receitaSeries, chartType: 'area', annualLabel: `Receita no ano (${year})`, annualValue: calc.receitaAno },
     },
     {
@@ -221,15 +253,15 @@ export default function FinanceiroPage() {
     {
       key: 'roi', icon: TrendingUp, accent: 'red',
       label: isCurrentYear ? 'ROI Geral (mês)' : `ROI Geral · ${year}`,
-      value: isCurrentYear ? fmtPct(calc.roiSeries[cm]) : fmtPct(calc.roiAno),
-      sub: isCurrentYear ? `Custos do mês: ${formatBRL(calc.custosMes)}` : `Custos no ano: ${formatBRL(calc.custosAno)}`,
+      value: isCurrentYear ? fmtPct(calc.roiMesClientes) : fmtPct(calc.roiAno),
+      sub: isCurrentYear ? `Receita ${formatBRL(calc.receitaClientes)} · Gasto ${formatBRL(calc.gastoMes)}` : `Custos no ano: ${formatBRL(calc.custosAno)}`,
       modal: { title: 'ROI Geral', icon: TrendingUp, accent: 'red', format: fmtPct, series: calc.roiSeries, chartType: 'bar', annualLabel: `ROI no ano (${year})`, annualValue: calc.roiAno, subtitle: 'ROI % mês a mês = (receita − custos) / custos' },
     },
     {
       key: 'mrr', icon: Wallet, accent: 'purple',
       label: isCurrentYear ? 'MRR do mês' : `MRR total · ${year}`,
-      value: isCurrentYear ? formatBRL(calc.mrrMes) : formatBRL(calc.mrrAno),
-      sub: isCurrentYear ? `${calc.clientesAtivos} clientes ativos` : `Média/mês: ${formatBRL(calc.mrrAno / 12)}`,
+      value: isCurrentYear ? formatBRL(calc.mrrClientes) : formatBRL(calc.mrrAno),
+      sub: isCurrentYear ? `${calc.nClientesContrato} clientes com contrato` : `Média/mês: ${formatBRL(calc.mrrAno / 12)}`,
       modal: { title: 'MRR', icon: Wallet, accent: 'purple', format: formatBRL, series: calc.mrrSeries, chartType: 'area', annualLabel: `MRR total no ano (${year})`, annualValue: calc.mrrAno, subtitle: 'MRR recorrente mês a mês' },
     },
   ];
@@ -323,10 +355,11 @@ export default function FinanceiroPage() {
       </div>
 
       {/* KPIs secundários (mês para ano atual, ano para anos fechados) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <MiniKpi icon={PiggyBank} label={isCurrentYear ? 'Margem do mês (receita − custos)' : `Margem ${year} (receita − custos)`} value={formatBRL(isCurrentYear ? calc.margemMes : calc.margemAno)} accent={(isCurrentYear ? calc.margemMes : calc.margemAno) >= 0 ? 'emerald' : 'red'} />
         <MiniKpi icon={Receipt} label={isCurrentYear ? 'Custo operacional (mês)' : `Custo operacional (${year})`} value={formatBRL(isCurrentYear ? calc.custoOpSeries[cm] : calc.custoOpAno)} accent="purple" />
         <MiniKpi icon={BadgeDollarSign} label={isCurrentYear ? 'Gasto em ads (mês)' : `Gasto em ads (${year})`} value={formatBRL(isCurrentYear ? calc.ads.spend[cm] : calc.gastoAno)} accent="red" />
+        <MiniKpi icon={TrendingUp} label={isCurrentYear ? 'ROAS de mídia (mês)' : `ROAS de mídia (${year})`} value={`${(isCurrentYear ? calc.roasMes : calc.roasAno).toFixed(1).replace('.', ',')}×`} accent="emerald" />
         <MiniKpi icon={UserPlus} label="Ticket médio (MRR/cliente)" value={formatBRL(calc.ticketMedio)} accent="blue" />
       </div>
 
