@@ -62,3 +62,14 @@ export function timeHM(isoTimestamp: string): string {
   const d = new Date(isoTimestamp);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
+
+/** Tempo decorrido em formato curto (agora / 2h / 5d / 1sem), igual ao web (LeadCard.jsx). */
+export function relativeShort(iso?: string | null): string | null {
+  if (!iso) return null;
+  const diffH = Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60));
+  if (diffH < 1) return 'agora';
+  if (diffH < 24) return `${diffH}h`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD < 7) return `${diffD}d`;
+  return `${Math.floor(diffD / 7)}sem`;
+}

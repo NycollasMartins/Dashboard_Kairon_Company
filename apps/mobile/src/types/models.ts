@@ -1,5 +1,6 @@
 // Tipos leves das entidades consumidas do @kairon/core (que e JS puro).
 // Cobrem apenas os campos usados pelas telas do MVP.
+import type { LeadStatus } from '@/constants/leads';
 import type { TarefaPrioridade, TarefaStatus } from '@/constants/kairon';
 
 export type Tarefa = {
@@ -22,6 +23,26 @@ export type Projeto = {
   prazo: string | null;
   cliente_id: string | null;
   clientes?: { nome?: string } | null;
+};
+
+export type Lead = {
+  id: string;
+  nome: string;
+  empresa: string | null;
+  email: string | null;
+  telefone: string | null;
+  momento_empresa: string | null;
+  objetivo_principal: string | null;
+  faturamento_mensal: string | null;
+  status: LeadStatus;
+  origem: string | null;
+  notas: string | null;
+  responsavel_id: string | null;
+  cliente_id: string | null;
+  atendimento_iniciado_em: string | null;
+  created_at: string;
+  responsavel?: { id: string; full_name?: string; email?: string } | null;
+  cliente?: { id: string; nome?: string } | null;
 };
 
 export type Evento = {

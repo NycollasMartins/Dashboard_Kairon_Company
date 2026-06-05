@@ -47,3 +47,23 @@ declare module '@kairon/core/api/calendario.api' {
     remove: (id: string) => Promise<void>;
   };
 }
+
+declare module '@kairon/core/api/leads.api' {
+  export const leadsApi: {
+    list: () => Promise<any[]>;
+    create: (data: any) => Promise<any>;
+    update: (id: string, data: any) => Promise<any>;
+    delete: (id: string) => Promise<void>;
+    convertToCliente: (leadId: string, extras?: any) => Promise<string>;
+  };
+}
+
+declare module '@kairon/core/api/users.api' {
+  export const usersApi: {
+    list: () => Promise<any[]>;
+    update: (id: string, data: any) => Promise<any>;
+    archive: (userId: string) => Promise<any>;
+    unarchive: (userId: string) => Promise<any>;
+    remove: (userId: string) => Promise<any>;
+  };
+}
