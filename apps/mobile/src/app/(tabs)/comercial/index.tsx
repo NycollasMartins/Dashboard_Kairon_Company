@@ -2,9 +2,19 @@ import { Button as UIButton, Host, Image as UIImage, Menu } from '@expo/ui/swift
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GlassView } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { leadsApi } from '@kairon/core/api/leads.api';
 import { usersApi } from '@kairon/core/api/users.api';
@@ -14,27 +24,85 @@ import { supabase } from '@kairon/core/supabase/client';
 import { useAuth } from '@/auth/AuthContext';
 import { Kairon } from '@/constants/kairon';
 import {
-  LEAD_STATUS_ANDAMENTO,
   LEAD_STATUS_CONFIG,
+  LEAD_STATUS_ORDER,
   ROLES_COMERCIAL,
   type LeadStatus,
 } from '@/constants/leads';
-import { LeadRow } from '@/components/LeadRow';
-import { NovoLeadCard } from '@/components/NovoLeadCard';
-import { SecaoColapsavelNativa } from '@/components/SecaoColapsavelNativa';
+import { LeadContactCard } from '@/components/LeadContactCard';
+import { NovoLeadModal } from '@/components/NovoLeadModal';
+import { MONTHS_LONG } from '@/lib/dates';
 import type { Lead } from '@/types/models';
 
 type Pessoa = { id: string; full_name?: string; email?: string; role?: string; status?: string };
+
+type SecaoData = { key: string; label: string; leads: Lead[] };
+
+/** Meia-noite local de uma data (para comparar por dia, sem horas). */
+function startOfDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/**
+ * Agrupa leads (ja ordenados por created_at desc) em faixas de recencia: Hoje,
+ * Esta semana, Este mes e, em seguida, um grupo por mes anterior (ex.: "Abril").
+ * O ano so aparece no rotulo quando difere do ano atual.
+ */
+function agruparPorData(leads: Lead[]): SecaoData[] {
+  const agora = new Date();
+  const hojeTs = startOfDay(agora);
+  const semanaTs = hojeTs - agora.getDay() * 24 * 60 * 60 * 1000; // domingo como inicio da semana
+  const mesTs = new Date(agora.getFullYear(), agora.getMonth(), 1).getTime();
+
+  const hoje: Lead[] = [];
+  const semana: Lead[] = [];
+  const mes: Lead[] = [];
+  const anteriores = new Map<string, SecaoData>();
+
+  for (const l of leads) {
+    const d = new Date(l.created_at);
+    const ts = startOfDay(d);
+    if (ts >= hojeTs) hoje.push(l);
+    else if (ts >= semanaTs) semana.push(l);
+    else if (ts >= mesTs) mes.push(l);
+    else {
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      let bucket = anteriores.get(key);
+      if (!bucket) {
+        const label =
+          MONTHS_LONG[d.getMonth()] +
+          (d.getFullYear() !== agora.getFullYear() ? ` ${d.getFullYear()}` : '');
+        bucket = { key, label, leads: [] };
+        anteriores.set(key, bucket);
+      }
+      bucket.leads.push(l);
+    }
+  }
+
+  const out: SecaoData[] = [];
+  if (hoje.length) out.push({ key: 'hoje', label: 'Hoje', leads: hoje });
+  if (semana.length) out.push({ key: 'semana', label: 'Esta semana', leads: semana });
+  if (mes.length) out.push({ key: 'mes', label: 'Este mês', leads: mes });
+  for (const bucket of anteriores.values()) out.push(bucket);
+  return out;
+}
 
 export default function ComercialScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
+  const { height: screenH } = useWindowDimensions();
 
   const podeComercial = ROLES_COMERCIAL.includes(user?.role ?? '');
+  const isAdmin = user?.role === 'admin';
 
-  // 'todos' | 'meus' | <id de um SDR/BDR>
-  const [filtro, setFiltro] = useState<'todos' | 'meus' | string>('todos');
+  // Filtro de etapa (chips abaixo do titulo) — define qual lista aparece.
+  const [statusFiltro, setStatusFiltro] = useState<LeadStatus>('pendente');
+  // Filtro de responsavel (menu de vidro no header): 'todos' | 'meus' | <id>.
+  const [responsavelFiltro, setResponsavelFiltro] = useState<'todos' | 'meus' | string>('todos');
+  // Modal de cadastro manual de lead (apenas admin).
+  const [novoVisible, setNovoVisible] = useState(false);
 
   const leadsQuery = useQuery({
     queryKey: queryKeys.leads.all,
@@ -70,49 +138,46 @@ export default function ComercialScreen() {
     [usuarios]
   );
 
-  // Leads ativos no pipeline (fora convertidos e perdidos), antes de qualquer filtro.
-  const ativos = useMemo(
-    () => leads.filter((l) => !l.cliente_id && l.status !== 'perdido'),
-    [leads]
-  );
+  // Leads ativos no pipeline (fora convertidos e perdidos), agrupados por etapa.
+  // O filtro de responsavel NAO se aplica a Pendentes — sao leads "sem dono".
+  const leadsPorStatus = useMemo(() => {
+    const map: Record<LeadStatus, Lead[]> = {
+      pendente: [],
+      em_atendimento: [],
+      follow_up: [],
+      reuniao_marcada: [],
+      perdido: [],
+    };
+    for (const l of leads) {
+      if (l.cliente_id || l.status === 'perdido') continue;
+      if (!map[l.status]) continue;
+      if (l.status !== 'pendente') {
+        if (responsavelFiltro === 'meus' && l.responsavel_id !== user?.id) continue;
+        if (
+          responsavelFiltro !== 'todos' &&
+          responsavelFiltro !== 'meus' &&
+          l.responsavel_id !== responsavelFiltro
+        )
+          continue;
+      }
+      map[l.status].push(l);
+    }
+    for (const s of LEAD_STATUS_ORDER) {
+      map[s].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
+    }
+    return map;
+  }, [leads, responsavelFiltro, user?.id]);
 
-  // Leads NOVOS (pendentes): exigem acao imediata. Mostrados SEMPRE (sem o filtro de
-  // responsavel — sao "sem dono"), mais recentes primeiro (created_at desc).
-  const novos = useMemo(
-    () =>
-      ativos
-        .filter((l) => l.status === 'pendente')
-        .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '')),
-    [ativos]
-  );
-
-  // "Em andamento": demais etapas, com o filtro de responsavel aplicado, agrupadas.
-  const emAndamentoSecoes = useMemo(() => {
-    const filtrados = ativos.filter((l) => {
-      if (l.status === 'pendente') return false;
-      if (filtro === 'meus') return l.responsavel_id === user?.id;
-      if (filtro !== 'todos') return l.responsavel_id === filtro;
-      return true;
-    });
-    return LEAD_STATUS_ANDAMENTO.map((status) => ({
-      status,
-      leads: filtrados.filter((l) => l.status === status),
-    }));
-  }, [ativos, filtro, user?.id]);
-
-  const totalEmAndamento = useMemo(
-    () => emAndamentoSecoes.reduce((acc, s) => acc + s.leads.length, 0),
-    [emAndamentoSecoes]
-  );
-
+  const visiveis = leadsPorStatus[statusFiltro];
+  const secoes = useMemo(() => agruparPorData(visiveis), [visiveis]);
   const canAssumir = user?.role === 'sdr' || user?.role === 'bdr';
 
-  const filtroLabel = useMemo(() => {
-    if (filtro === 'todos') return 'Todos';
-    if (filtro === 'meus') return 'Meus leads';
-    const p = responsaveis.find((x) => x.id === filtro);
+  const responsavelLabel = useMemo(() => {
+    if (responsavelFiltro === 'todos') return 'Todos';
+    if (responsavelFiltro === 'meus') return 'Meus leads';
+    const p = responsaveis.find((x) => x.id === responsavelFiltro);
     return p?.full_name || p?.email || 'Responsável';
-  }, [filtro, responsaveis]);
+  }, [responsavelFiltro, responsaveis]);
 
   if (!podeComercial) {
     return (
@@ -125,11 +190,14 @@ export default function ComercialScreen() {
     );
   }
 
+  const cfgAtual = LEAD_STATUS_CONFIG[statusFiltro];
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[1]}
         refreshControl={
           <RefreshControl
             refreshing={leadsQuery.isFetching}
@@ -137,12 +205,15 @@ export default function ComercialScreen() {
             tintColor={Kairon.primary}
           />
         }>
+        {/* Cabecalho */}
         <View style={styles.headerRow}>
           <View style={styles.flex}>
             <Text style={styles.bigTitle}>Comercial</Text>
-            <View style={styles.filtroSubRow}>
-              <View style={[styles.filtroSubDot, filtro !== 'todos' && styles.filtroSubDotActive]} />
-              <Text style={styles.filtroSub}>Em andamento · {filtroLabel}</Text>
+            <View style={styles.subRow}>
+              <View
+                style={[styles.subDot, responsavelFiltro !== 'todos' && styles.subDotActive]}
+              />
+              <Text style={styles.sub}>{responsavelLabel}</Text>
             </View>
           </View>
           <GlassView style={styles.filtroGlass} glassEffectStyle="regular" isInteractive>
@@ -152,24 +223,24 @@ export default function ComercialScreen() {
                   <UIImage
                     systemName="line.3.horizontal.decrease"
                     size={20}
-                    color={filtro !== 'todos' ? Kairon.primary : Kairon.text}
+                    color={responsavelFiltro !== 'todos' ? Kairon.primary : Kairon.text}
                   />
                 }>
                 <UIButton
-                  systemImage={filtro === 'todos' ? 'checkmark' : undefined}
-                  onPress={() => setFiltro('todos')}
+                  systemImage={responsavelFiltro === 'todos' ? 'checkmark' : undefined}
+                  onPress={() => setResponsavelFiltro('todos')}
                   label="Todos"
                 />
                 <UIButton
-                  systemImage={filtro === 'meus' ? 'checkmark' : undefined}
-                  onPress={() => setFiltro('meus')}
+                  systemImage={responsavelFiltro === 'meus' ? 'checkmark' : undefined}
+                  onPress={() => setResponsavelFiltro('meus')}
                   label="Meus leads"
                 />
                 {responsaveis.map((p) => (
                   <UIButton
                     key={p.id}
-                    systemImage={filtro === p.id ? 'checkmark' : undefined}
-                    onPress={() => setFiltro(p.id)}
+                    systemImage={responsavelFiltro === p.id ? 'checkmark' : undefined}
+                    onPress={() => setResponsavelFiltro(p.id)}
                     label={p.full_name || p.email || 'Sem nome'}
                   />
                 ))}
@@ -178,75 +249,105 @@ export default function ComercialScreen() {
           </GlassView>
         </View>
 
-        {/* Bloco NOVOS LEADS — destaque no topo, acao imediata. */}
-        <View style={styles.novosHeader}>
-          <View style={[styles.statusDot, { backgroundColor: Kairon.primary }]} />
-          <Text style={styles.novosTitle}>Novos leads</Text>
-          <Text style={styles.novosCount}>{novos.length}</Text>
+        {/* Chips de etapa (sticky) — App Store style. Ao selecionar, a lista reflui animada. */}
+        <View style={styles.chipsBar}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsContent}>
+            {LEAD_STATUS_ORDER.map((s) => {
+              const cfg = LEAD_STATUS_CONFIG[s];
+              const sel = statusFiltro === s;
+              const count = leadsPorStatus[s].length;
+              return (
+                <Pressable
+                  key={s}
+                  onPress={() => setStatusFiltro(s)}
+                  style={[
+                    styles.chip,
+                    sel && { backgroundColor: cfg.color, borderColor: cfg.color },
+                  ]}>
+                  <View
+                    style={[
+                      styles.chipDot,
+                      { backgroundColor: sel ? '#0d0d0d' : cfg.color },
+                    ]}
+                  />
+                  <Text style={[styles.chipText, sel && styles.chipTextSel]}>{cfg.label}</Text>
+                  {count > 0 ? (
+                    <View style={[styles.chipBadge, sel && styles.chipBadgeSel]}>
+                      <Text style={[styles.chipBadgeText, sel && styles.chipBadgeTextSel]}>
+                        {count}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
-        {novos.length ? (
-          novos.map((lead) => (
-            <NovoLeadCard
-              key={lead.id}
-              lead={lead}
-              canAssumir={canAssumir}
-              userId={user?.id}
-              onPress={() => router.push(`/comercial/${lead.id}`)}
-            />
-          ))
-        ) : (
-          <Text style={styles.novosVazio}>
-            {leadsQuery.isLoading ? 'Carregando…' : 'Nenhum lead novo no momento 🎉'}
-          </Text>
-        )}
 
-        {/* Em andamento — etapas que evoluem ao longo de dias. */}
-        <Text style={styles.emAndamentoTitle}>Em andamento</Text>
-        {totalEmAndamento === 0 ? (
-          <Text style={styles.secaoVazia}>Nenhum lead em andamento</Text>
-        ) : (
-          emAndamentoSecoes
-            .filter((s) => s.leads.length > 0)
-            .map(({ status, leads: leadsDaSecao }, i) =>
-              // Em Atendimento (SLA ativo) fica sempre visivel, como linhas RN. Follow Up
-              // e Reuniao Marcada usam a section nativa do SwiftUI (colapsada por padrao).
-              status === 'em_atendimento' ? (
-                <View key={status} style={i > 0 && styles.secaoGap}>
-                  <StatusHeader status={status} count={leadsDaSecao.length} />
-                  {leadsDaSecao.map((lead) => (
-                    <LeadRow
-                      key={lead.id}
-                      lead={lead}
-                      quickContact
-                      onPress={() => router.push(`/comercial/${lead.id}`)}
-                    />
-                  ))}
+        {/* Lista da etapa selecionada — anima a cada troca de filtro (key={statusFiltro}). */}
+        <Animated.View
+          key={statusFiltro}
+          entering={FadeIn.duration(220)}
+          style={{ paddingTop: screenH * 0.08 }}>
+          {visiveis.length ? (
+            secoes.map((secao, si) => {
+              // Indice global acumulado para a cascata de entrada nao reiniciar por grupo.
+              const offset = secoes.slice(0, si).reduce((acc, s) => acc + s.leads.length, 0);
+              return (
+                <View key={secao.key} style={si > 0 && styles.secaoGap}>
+                  <Text style={[styles.secaoTitle, secao.key === 'hoje' && styles.secaoTitleHoje]}>
+                    {secao.label}
+                  </Text>
+                  <View style={styles.group}>
+                    {secao.leads.map((lead, i) => (
+                      <Animated.View
+                        key={lead.id}
+                        entering={FadeInDown.delay(Math.min(offset + i, 14) * 45).duration(300)}>
+                        <LeadContactCard
+                          lead={lead}
+                          first={i === 0}
+                          canAssumir={canAssumir}
+                          userId={user?.id}
+                          onPress={() => router.push(`/comercial/${lead.id}`)}
+                        />
+                      </Animated.View>
+                    ))}
+                  </View>
                 </View>
-              ) : (
-                <SecaoColapsavelNativa
-                  key={status}
-                  titulo={LEAD_STATUS_CONFIG[status].label}
-                  cor={LEAD_STATUS_CONFIG[status].color}
-                  leads={leadsDaSecao}
-                  onOpenLead={(id) => router.push(`/comercial/${id}`)}
-                  style={i > 0 && styles.secaoGapNativa}
-                />
-              )
-            )
-        )}
+              );
+            })
+          ) : (
+            <View style={styles.vazio}>
+              <Text style={styles.vazioText}>
+                {leadsQuery.isLoading
+                  ? 'Carregando…'
+                  : statusFiltro === 'pendente'
+                    ? 'Nenhum lead novo no momento 🎉'
+                    : `Nenhum lead em ${cfgAtual.label.toLowerCase()}`}
+              </Text>
+            </View>
+          )}
+        </Animated.View>
       </ScrollView>
-    </SafeAreaView>
-  );
-}
 
-function StatusHeader({ status, count }: { status: LeadStatus; count: number }) {
-  const cfg = LEAD_STATUS_CONFIG[status];
-  return (
-    <View style={styles.statusHeader}>
-      <View style={[styles.statusDot, { backgroundColor: cfg.color }]} />
-      <Text style={[styles.statusTitle, { color: cfg.color }]}>{cfg.label}</Text>
-      <Text style={styles.statusCount}>{count}</Text>
-    </View>
+      {/* FAB de novo lead — apenas admin, logo acima da tab bar (lado direito). */}
+      {isAdmin ? (
+        <Pressable
+          onPress={() => setNovoVisible(true)}
+          style={[styles.fab, { bottom: insets.bottom + 24 }]}>
+          <SymbolView name="plus" size={28} weight="semibold" tintColor="#fff" />
+        </Pressable>
+      ) : null}
+
+      <NovoLeadModal
+        key={novoVisible ? 'open' : 'closed'}
+        visible={novoVisible}
+        onClose={() => setNovoVisible(false)}
+      />
+    </SafeAreaView>
   );
 }
 
@@ -261,13 +362,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 12,
+    paddingBottom: 4,
   },
   bigTitle: { color: Kairon.text, fontSize: 34, fontWeight: '800', letterSpacing: -0.5 },
-  filtroSubRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  filtroSubDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Kairon.textMuted },
-  filtroSubDotActive: { backgroundColor: Kairon.primary },
-  filtroSub: { color: Kairon.textMuted, fontSize: 14, fontWeight: '600' },
+  subRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  subDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Kairon.textMuted },
+  subDotActive: { backgroundColor: Kairon.primary },
+  sub: { color: Kairon.textMuted, fontSize: 14, fontWeight: '600' },
   filtroGlass: {
     width: 44,
     height: 44,
@@ -278,60 +379,75 @@ const styles = StyleSheet.create({
   },
   filtroHost: { width: 44, height: 44 },
 
-  novosHeader: {
+  chipsBar: { backgroundColor: Kairon.bg, paddingTop: 8, paddingBottom: 6 },
+  chipsContent: { paddingHorizontal: 16, gap: 8 },
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 2,
+    gap: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Kairon.cardBorder,
+    backgroundColor: Kairon.bgElevated,
   },
-  novosTitle: { color: Kairon.text, fontSize: 18, fontWeight: '800', letterSpacing: -0.2 },
-  novosCount: {
-    color: '#fff',
-    backgroundColor: Kairon.primary,
-    fontSize: 12,
-    fontWeight: '800',
+  chipDot: { width: 7, height: 7, borderRadius: 4 },
+  chipText: { color: Kairon.textMuted, fontSize: 14, fontWeight: '600' },
+  chipTextSel: { color: '#0d0d0d', fontWeight: '700' },
+  chipBadge: {
     minWidth: 20,
-    textAlign: 'center',
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 9,
-    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
   },
-  novosVazio: {
-    color: Kairon.textMuted,
-    fontSize: 14,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
+  chipBadgeSel: { backgroundColor: 'rgba(13,13,13,0.18)' },
+  chipBadgeText: { color: Kairon.textMuted, fontSize: 12, fontWeight: '700' },
+  chipBadgeTextSel: { color: '#0d0d0d' },
 
-  emAndamentoTitle: {
+  secaoGap: { marginTop: 22 },
+  secaoTitle: {
     color: Kairon.textMuted,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    paddingHorizontal: 16,
-    marginTop: 32,
+    letterSpacing: 0.6,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  // "Hoje" ganha destaque pela cor (branco), mantendo o mesmo tamanho.
+  secaoTitleHoje: { color: Kairon.text },
+
+  group: {
+    marginHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: Kairon.bgElevated,
+    borderWidth: 1,
+    borderColor: Kairon.cardBorder,
+    overflow: 'hidden',
   },
 
-  secaoGap: { marginTop: 12 },
-  secaoGapNativa: { marginTop: 8 },
-  statusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 4,
-  },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusTitle: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  statusCount: { color: Kairon.textMuted, fontSize: 12, fontWeight: '700' },
-  secaoVazia: { color: Kairon.textMuted, fontSize: 13, paddingHorizontal: 16, paddingVertical: 12 },
+  vazio: { marginHorizontal: 16, paddingHorizontal: 4, paddingVertical: 24, alignItems: 'center' },
+  vazioText: { color: Kairon.textMuted, fontSize: 14, textAlign: 'center' },
 
   semAcesso: { flex: 1, padding: 16, gap: 12, justifyContent: 'center', alignItems: 'center' },
   semAcessoText: { color: Kairon.textMuted, fontSize: 15, textAlign: 'center' },
+
+  fab: {
+    position: 'absolute',
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Kairon.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
 });

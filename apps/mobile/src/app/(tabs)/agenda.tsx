@@ -1,6 +1,7 @@
 import { Button as UIButton, Host, Image as UIImage, Menu } from '@expo/ui/swift-ui';
 import { useQuery } from '@tanstack/react-query';
 import { GlassView } from 'expo-glass-effect';
+import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import {
   Pressable,
@@ -217,7 +218,7 @@ export default function AgendaScreen() {
       <Pressable
         onPress={() => setNovoVisible(true)}
         style={[styles.fab, { bottom: insets.bottom + 24}]}>
-        <Text style={styles.fabPlus}>+</Text>
+        <SymbolView name="plus" size={28} weight="semibold" tintColor="#fff" />
       </Pressable>
 
       <NovoItemModal
@@ -423,5 +424,4 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
-  fabPlus: { color: '#fff', fontSize: 32, fontWeight: '700', marginTop: -2 },
 });
