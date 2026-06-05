@@ -16,9 +16,9 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Label>Visão Geral</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="tarefas">
-        <NativeTabs.Trigger.Icon sf={{ default: 'checklist.unchecked', selected: 'checklist' }} />
-        <NativeTabs.Trigger.Label>Tarefas</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="calendario">
+        <NativeTabs.Trigger.Icon sf={{ default: 'calendar', selected: 'calendar' }} />
+        <NativeTabs.Trigger.Label>Calendário</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="perfil">

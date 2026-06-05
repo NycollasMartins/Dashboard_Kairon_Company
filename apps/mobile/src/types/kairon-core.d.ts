@@ -36,3 +36,14 @@ declare module '@kairon/core/api/projetos.api' {
     delete: (id: string) => Promise<any>;
   };
 }
+
+declare module '@kairon/core/api/calendario.api' {
+  export const calendarioApi: {
+    list: () => Promise<any[]>;
+    create: (data: any) => Promise<any>;
+    update: (id: string, data: any) => Promise<any>;
+    listPeople: () => Promise<any[]>;
+    patch: (id: string, partial: any) => Promise<any>;
+    remove: (id: string) => Promise<void>;
+  };
+}

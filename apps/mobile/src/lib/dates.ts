@@ -17,3 +17,48 @@ export function saudacao(): string {
   if (h < 18) return 'Boa tarde';
   return 'Boa noite';
 }
+
+export const WEEKDAYS_SHORT = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'];
+export const WEEKDAYS_TITLE = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+export const WEEKDAYS_LONG = [
+  'Domingo',
+  'Segunda',
+  'Terça',
+  'Quarta',
+  'Quinta',
+  'Sexta',
+  'Sábado',
+];
+export const MONTHS_LONG = [
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro',
+];
+
+/** Data local no formato YYYY-MM-DD (sem deslocamento de fuso, ao contrario de toISOString). */
+export function localISO(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Dia local (YYYY-MM-DD) de um timestamp ISO (ex.: start_at de um evento). */
+export function isoToLocalDay(isoTimestamp: string): string {
+  return localISO(new Date(isoTimestamp));
+}
+
+/** Hora local HH:mm de um timestamp ISO. */
+export function timeHM(isoTimestamp: string): string {
+  const d = new Date(isoTimestamp);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}

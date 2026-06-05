@@ -23,3 +23,18 @@ export type Projeto = {
   cliente_id: string | null;
   clientes?: { nome?: string } | null;
 };
+
+export type Evento = {
+  id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  start_at: string;
+  end_at: string | null;
+  all_day: boolean;
+  location: string | null;
+  assignee_id: string | null;
+  squad_id: string | null;
+  assignee?: { full_name?: string; email?: string } | null;
+  squad?: { nome?: string } | null;
+};

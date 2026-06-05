@@ -8,7 +8,8 @@
     "scheme": "mobile",
     "userInterfaceStyle": "dark",
     "ios": {
-      "bundleIdentifier": "com.anonymous.mobile"
+      "bundleIdentifier": "com.kaironcompany.mobile",
+      "appleTeamId": "UQ9J5A3RS9"
     },
     "android": {
       "adaptiveIcon": {
