@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { leadsApi } from '@kairon/core/api/leads.api';
 import { queryKeys } from '@kairon/core/entities/query-keys';
@@ -81,7 +81,21 @@ export function LeadContactCard({
     mutationFn: () =>
       leadsApi.update(lead.id, { status: 'em_atendimento', responsavel_id: userId ?? null }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.leads.all }),
+    onError: (err: unknown) =>
+      Alert.alert('Não foi possível assumir', (err as Error)?.message ?? 'Tente novamente.'),
   });
+
+  // Confirma antes de assumir — a ação muda o lead para "em atendimento".
+  const confirmarAssumir = () => {
+    Alert.alert(
+      'Assumir lead',
+      `Você será o responsável por ${lead.nome} e o lead passará para "em atendimento".`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Assumir', style: 'default', onPress: () => assumir.mutate() },
+      ]
+    );
+  };
 
   return (
     <Pressable
@@ -108,14 +122,18 @@ export function LeadContactCard({
 
         {isPendente && canAssumir ? (
           <Pressable
-            onPress={() => assumir.mutate()}
+            onPress={confirmarAssumir}
             disabled={assumir.isPending}
-            hitSlop={6}
-            style={[styles.assumirBtn, assumir.isPending && styles.assumirBtnDisabled]}>
+            hitSlop={8}
+            style={styles.iconBtn}>
             {assumir.isPending ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={Kairon.primary} size="small" />
             ) : (
-              <Text style={styles.assumirText}>Assumir</Text>
+              <SymbolView
+                name="person.crop.circle.badge.plus"
+                size={27}
+                tintColor={Kairon.primary}
+              />
             )}
           </Pressable>
         ) : temTelefone && !isPendente ? (
@@ -161,18 +179,6 @@ const styles = StyleSheet.create({
   badgeSlaText: { color: Kairon.blue, fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] },
   badgeExpired: { backgroundColor: 'rgba(248,113,113,0.15)', borderColor: 'rgba(248,113,113,0.35)' },
   badgeExpiredText: { color: Kairon.red, fontSize: 11, fontWeight: '700' },
-
-  assumirBtn: {
-    height: 32,
-    minWidth: 84,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    backgroundColor: Kairon.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  assumirBtnDisabled: { opacity: 0.6 },
-  assumirText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 
   icons: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   iconBtn: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
