@@ -19,8 +19,8 @@ export default function TabsLayout() {
   return (
     <NativeTabs tintColor={Kairon.primary} minimizeBehavior="onScrollDown">
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Icon sf={{ default: 'square.grid.2x2', selected: 'square.grid.2x2.fill' }} />
-        <NativeTabs.Trigger.Label>Visão Geral</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'text.rectangle.page', selected: 'text.rectangle.page.fill' }} />
+        <NativeTabs.Trigger.Label>Hoje</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="agenda">
@@ -31,11 +31,6 @@ export default function TabsLayout() {
       <NativeTabs.Trigger name="comercial" hidden={!podeComercial}>
         <NativeTabs.Trigger.Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
         <NativeTabs.Trigger.Label>Comercial</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="perfil">
-        <NativeTabs.Trigger.Icon sf={{ default: 'person', selected: 'person.fill' }} />
-        <NativeTabs.Trigger.Label>Perfil</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
