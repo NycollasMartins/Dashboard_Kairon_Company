@@ -132,9 +132,12 @@ export default function ComercialScreen() {
     };
   }, [podeComercial, queryClient]);
 
-  // Apenas SDR/BDR ativos podem ser responsaveis (igual web).
+  // SDR/BDR e admin ativos podem ser responsaveis (igual web).
   const responsaveis = useMemo(
-    () => usuarios.filter((u) => (u.role === 'sdr' || u.role === 'bdr') && u.status === 'active'),
+    () =>
+      usuarios.filter(
+        (u) => (u.role === 'sdr' || u.role === 'bdr' || u.role === 'admin') && u.status === 'active'
+      ),
     [usuarios]
   );
 
@@ -170,7 +173,7 @@ export default function ComercialScreen() {
 
   const visiveis = leadsPorStatus[statusFiltro];
   const secoes = useMemo(() => agruparPorData(visiveis), [visiveis]);
-  const canAssumir = user?.role === 'sdr' || user?.role === 'bdr';
+  const canAssumir = user?.role === 'sdr' || user?.role === 'bdr' || user?.role === 'admin';
 
   const responsavelLabel = useMemo(() => {
     if (responsavelFiltro === 'todos') return 'Todos';

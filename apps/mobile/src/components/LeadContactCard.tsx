@@ -63,7 +63,7 @@ export function LeadContactCard({
 }: {
   lead: Lead;
   onPress: () => void;
-  /** Permite assumir leads pendentes (apenas SDR/BDR). */
+  /** Permite assumir leads pendentes (SDR/BDR e admin). */
   canAssumir?: boolean;
   userId?: string;
   /** Primeira linha do grupo — sem separador no topo. */

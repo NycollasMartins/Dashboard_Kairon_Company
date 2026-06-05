@@ -65,7 +65,8 @@ export default function LeadDetalheScreen() {
   const responsaveis: Pessoa[] = useMemo(
     () =>
       (usuariosQuery.data ?? []).filter(
-        (u: Pessoa) => (u.role === 'sdr' || u.role === 'bdr') && u.status === 'active'
+        (u: Pessoa) =>
+          (u.role === 'sdr' || u.role === 'bdr' || u.role === 'admin') && u.status === 'active'
       ),
     [usuariosQuery.data]
   );
