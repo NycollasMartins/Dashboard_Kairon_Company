@@ -36,3 +36,19 @@ export const PRIORIDADE_CONFIG: Record<TarefaPrioridade, { label: string; color:
   alta: { label: 'Alta', color: Kairon.red },
   urgente: { label: 'Urgente', color: Kairon.red },
 };
+
+export type EventoTipo = 'meeting' | 'activity' | 'delivery';
+
+export const EVENTO_TIPO_CONFIG: Record<EventoTipo, { label: string; color: string }> = {
+  meeting: { label: 'Reunião', color: Kairon.blue },
+  activity: { label: 'Atividade', color: Kairon.yellow },
+  delivery: { label: 'Entrega', color: Kairon.emerald },
+};
+
+export type EventoAudiencia = 'all' | 'squad' | 'user';
+
+export const EVENTO_AUDIENCIA_CONFIG: Record<EventoAudiencia, { label: string }> = {
+  all: { label: 'Todos' },
+  squad: { label: 'Um squad' },
+  user: { label: 'Uma pessoa' },
+};

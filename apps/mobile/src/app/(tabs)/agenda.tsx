@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { calendarioApi } from '@kairon/core/api/calendario.api';
@@ -28,11 +28,10 @@ import {
   type TarefaPrioridade,
   type TarefaStatus,
 } from '@/constants/kairon';
-import { isoToLocalDay, localISO, MONTHS_LONG, timeHM, WEEKDAYS_LONG } from '@/lib/dates';
+import { isoToLocalDay, localISO, timeHM } from '@/lib/dates';
 import type { Evento, Tarefa } from '@/types/models';
 
 type Pessoa = { id: string; full_name?: string; email?: string; role?: string };
-type Segmento = 'tarefas' | 'eventos';
 
 // Ordem das secoes de tarefas na Agenda: revisao -> em andamento -> pendente -> concluida (no fim).
 const TAREFA_SECAO_ORDER: TarefaStatus[] = ['revisao', 'em_andamento', 'pendente', 'concluida'];
@@ -48,7 +47,6 @@ export default function AgendaScreen() {
 
   const [selectedIso, setSelectedIso] = useState(HOJE_ISO);
   const [pessoaId, setPessoaId] = useState<string | null>(null);
-  const [segmento, setSegmento] = useState<Segmento>('tarefas');
   const [novoVisible, setNovoVisible] = useState(false);
   const [editando, setEditando] = useState<ItemEdicao>(null);
 
@@ -105,11 +103,6 @@ export default function AgendaScreen() {
         .sort((a, b) => a.start_at.localeCompare(b.start_at)),
     [todosEventos, selectedIso, pessoaId]
   );
-
-  const selecionada = useMemo(() => {
-    const [y, m, d] = selectedIso.split('-').map(Number);
-    return new Date(y, m - 1, d);
-  }, [selectedIso]);
 
   // Rotulo do filtro ativo, mostrado como subtitulo (Todos / seu nome / nome da pessoa).
   const filtroLabel = useMemo(() => {
@@ -179,62 +172,51 @@ export default function AgendaScreen() {
 
         <View style={styles.divider} />
 
-        {/* Dia selecionado por extenso */}
-        <Text style={styles.diaSelecionado}>
-          {WEEKDAYS_LONG[selecionada.getDay()]}, {selecionada.getDate()} de{' '}
-          {MONTHS_LONG[selecionada.getMonth()]}
-        </Text>
-
-        {/* Segmented control para alternar entre Tarefas e Eventos */}
-        <View style={styles.segmented}>
-          <Segment
-            label="Eventos"
-            count={eventosDoDia.length}
-            active={segmento === 'eventos'}
-            onPress={() => setSegmento('eventos')}
-          />
-          <Segment
-            label="Tarefas"
-            count={tarefasDoDia.length}
-            active={segmento === 'tarefas'}
-            onPress={() => setSegmento('tarefas')}
-          />
-        </View>
-
-        <Animated.View
-          key={segmento}
-          entering={(segmento === 'tarefas' ? FadeInRight : FadeInLeft).duration(220)}>
-          {segmento === 'tarefas' ? (
-            tarefasPorStatus.length ? (
-              tarefasPorStatus.map(({ status, tarefas }, i) => (
-                <View key={status} style={i > 0 && styles.statusSecaoGap}>
-                  <StatusHeader status={status} count={tarefas.length} />
-                  {tarefas.map((t) => (
-                    <TarefaRow
-                      key={t.id}
-                      tarefa={t}
-                      onPress={() => setEditando({ kind: 'tarefa', data: t })}
+        {/* Lista unificada: eventos primeiro, depois tarefas */}
+        <Animated.View key={selectedIso} entering={FadeIn.duration(220)}>
+          {eventosDoDia.length === 0 && tarefasDoDia.length === 0 ? (
+            <EmptyRow text="Nada agendado neste dia" />
+          ) : (
+            <>
+              {eventosDoDia.length > 0 ? (
+                <View>
+                  <SecaoHeader label="Eventos" count={eventosDoDia.length} />
+                  {eventosDoDia.map((e) => (
+                    <EventoRow
+                      key={e.id}
+                      evento={e}
+                      onPress={() => setEditando({ kind: 'evento', data: e })}
                     />
                   ))}
                 </View>
-              ))
-            ) : (
-              <EmptyRow text="Nenhuma tarefa neste dia" />
-            )
-          ) : eventosDoDia.length ? (
-            eventosDoDia.map((e) => (
-              <EventoRow key={e.id} evento={e} onPress={() => setEditando({ kind: 'evento', data: e })} />
-            ))
-          ) : (
-            <EmptyRow text="Nenhum evento neste dia" />
+              ) : null}
+
+              {tarefasDoDia.length > 0 ? (
+                <View style={eventosDoDia.length > 0 && styles.secaoGap}>
+                  <SecaoHeader label="Tarefas" count={tarefasDoDia.length} />
+                  {tarefasPorStatus.map(({ status, tarefas }, i) => (
+                    <View key={status} style={i > 0 && styles.statusSecaoGap}>
+                      <StatusHeader status={status} count={tarefas.length} />
+                      {tarefas.map((t) => (
+                        <TarefaRow
+                          key={t.id}
+                          tarefa={t}
+                          onPress={() => setEditando({ kind: 'tarefa', data: t })}
+                        />
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </>
           )}
         </Animated.View>
       </ScrollView>
 
-      {/* FAB acima da tab bar (lado direito), com folga generosa */}
+      {/* FAB logo acima da tab bar (lado direito) */}
       <Pressable
         onPress={() => setNovoVisible(true)}
-        style={[styles.fab, { bottom: insets.bottom + TAB_BAR_HEIGHT + 32 }]}>
+        style={[styles.fab, { bottom: insets.bottom + 24}]}>
         <Text style={styles.fabPlus}>+</Text>
       </Pressable>
 
@@ -242,7 +224,7 @@ export default function AgendaScreen() {
         visible={novoVisible}
         onClose={() => setNovoVisible(false)}
         dateIso={selectedIso}
-        defaultTipo={segmento === 'eventos' ? 'evento' : 'tarefa'}
+        defaultTipo="evento"
         userId={user?.id}
       />
 
@@ -251,31 +233,14 @@ export default function AgendaScreen() {
   );
 }
 
-function Segment({
-  label,
-  count,
-  active,
-  onPress,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onPress: () => void;
-}) {
+function SecaoHeader({ label, count }: { label: string; count: number }) {
   return (
-    <Pressable onPress={onPress} style={styles.segment}>
-      <View style={styles.segmentInner}>
-        <View style={styles.segmentRow}>
-          <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]}>{label}</Text>
-          <View style={[styles.segmentBadge, active && styles.segmentBadgeActive]}>
-            <Text style={[styles.segmentBadgeText, active && styles.segmentBadgeTextActive]}>
-              {count}
-            </Text>
-          </View>
-        </View>
-        <View style={[styles.underline, active && styles.underlineActive]} />
+    <View style={styles.secaoHeader}>
+      <Text style={styles.secaoLabel}>{label}</Text>
+      <View style={styles.secaoBadge}>
+        <Text style={styles.secaoBadgeText}>{count}</Text>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -301,23 +266,21 @@ function StatusHeader({ status, count }: { status: TarefaStatus; count: number }
 function TarefaRow({ tarefa, onPress }: { tarefa: Tarefa; onPress: () => void }) {
   const concluida = tarefa.status === 'concluida';
   const prio = PRIORIDADE_CONFIG[tarefa.prioridade as TarefaPrioridade] ?? PRIORIDADE_CONFIG.media;
-  const statusCfg = STATUS_CONFIG[tarefa.status as TarefaStatus] ?? STATUS_CONFIG.pendente;
+  const urgente = tarefa.prioridade === 'urgente';
   return (
     <Pressable style={styles.row} onPress={onPress}>
-      <View style={[styles.dot, { backgroundColor: statusCfg.color }]} />
+      <View style={[styles.dot, { backgroundColor: Kairon.red }]} />
       <View style={styles.flex}>
         <Text style={[styles.rowTitle, concluida && styles.rowTitleConcluida]} numberOfLines={1}>
           {tarefa.titulo}
         </Text>
-        {tarefa.clientes?.nome ? (
-          <Text style={styles.rowSub} numberOfLines={1}>
-            {tarefa.clientes.nome}
+        <Text style={styles.rowSub} numberOfLines={1}>
+          <Text style={[styles.prioSub, urgente && !concluida && styles.prioSubUrgente]}>
+            {prio.label}
           </Text>
-        ) : null}
+          {tarefa.clientes?.nome ? ` · ${tarefa.clientes.nome}` : ''}
+        </Text>
       </View>
-      <Text style={[styles.rowTrailing, { color: concluida ? Kairon.textMuted : prio.color }]}>
-        {prio.label}
-      </Text>
     </Pressable>
   );
 }
@@ -384,24 +347,17 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 12,
   },
-  diaSelecionado: {
-    color: Kairon.text,
-    fontSize: 17,
-    fontWeight: '700',
+  secaoGap: { marginTop: 28 },
+  secaoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 16,
-    marginTop: 20,
-    textTransform: 'capitalize',
+    marginTop: 18,
+    marginBottom: 4,
   },
-
-  segmented: { flexDirection: 'row', marginTop: 18, marginBottom: 6 },
-  segment: { flex: 1, alignItems: 'center' },
-  segmentInner: { alignItems: 'center', gap: 8 },
-  segmentRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  underline: { height: 2, borderRadius: 1, alignSelf: 'stretch', backgroundColor: 'transparent' },
-  underlineActive: { backgroundColor: Kairon.primary },
-  segmentLabel: { color: Kairon.textMuted, fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
-  segmentLabelActive: { color: Kairon.text },
-  segmentBadge: {
+  secaoLabel: { color: Kairon.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
+  secaoBadge: {
     minWidth: 20,
     paddingHorizontal: 6,
     paddingVertical: 1,
@@ -409,9 +365,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
   },
-  segmentBadgeActive: { backgroundColor: Kairon.primary },
-  segmentBadgeText: { color: Kairon.textMuted, fontSize: 12, fontWeight: '700' },
-  segmentBadgeTextActive: { color: '#fff' },
+  secaoBadgeText: { color: Kairon.textMuted, fontSize: 12, fontWeight: '700' },
 
   statusSecaoGap: { marginTop: 24 },
   statusHeader: {
@@ -423,8 +377,8 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusTitle: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  statusCount: { color: Kairon.textMuted, fontSize: 12, fontWeight: '700' },
+  statusTitle: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  statusCount: { color: Kairon.textMuted, fontSize: 10, fontWeight: '700' },
 
   row: {
     flexDirection: 'row',
@@ -443,7 +397,8 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   },
   rowSub: { color: Kairon.textMuted, fontSize: 12, marginTop: 2 },
-  rowTrailing: { fontSize: 12, fontWeight: '600' },
+  prioSub: { color: Kairon.textMuted, fontWeight: '700' },
+  prioSubUrgente: { color: Kairon.red },
 
   emptyRow: { paddingHorizontal: 16, paddingVertical: 16 },
   emptyText: { color: Kairon.textMuted, fontSize: 13 },
@@ -468,5 +423,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
-  fabPlus: { color: '#fff', fontSize: 32, fontWeight: '300', marginTop: -2 },
+  fabPlus: { color: '#fff', fontSize: 32, fontWeight: '700', marginTop: -2 },
 });
