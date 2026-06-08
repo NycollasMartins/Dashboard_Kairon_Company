@@ -18,7 +18,7 @@ function tempoRelativo(iso) {
 const typeIcon = { lead: TrendingUp, event: CalendarClock, meta: Trophy };
 
 export default function NotificationBell() {
-  const { notifications, unreadCount, markAllRead, markRead, remove, requestPermission } = useNotifications();
+  const { notifications, unreadCount, markAllRead, markRead, remove, removeAll, requestPermission } = useNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
@@ -66,17 +66,28 @@ export default function NotificationBell() {
             transition={{ duration: 0.15 }}
             className="absolute right-0 mt-2 w-80 max-w-[88vw] bg-[#16161d] backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 z-50 overflow-hidden"
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/5">
               <p className="text-sm font-semibold text-white">Notificações</p>
-              {unreadCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => markAllRead()}
-                  className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-white transition-colors"
-                >
-                  <CheckCheck className="w-3.5 h-3.5" /> Marcar todas
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => markAllRead()}
+                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-white transition-colors"
+                  >
+                    <CheckCheck className="w-3.5 h-3.5" /> Marcar todas
+                  </button>
+                )}
+                {notifications.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => removeAll()}
+                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-red-300 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Limpar tudo
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="max-h-[60vh] overflow-y-auto">

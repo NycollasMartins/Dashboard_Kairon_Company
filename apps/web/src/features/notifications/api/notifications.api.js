@@ -26,4 +26,10 @@ export const notificationsApi = {
     const { error } = await supabase.from(TABLE).delete().eq('id', id);
     if (error) throw error;
   },
+
+  // Remove todas as notificações do usuário (RLS limita ao próprio usuário).
+  removeAll: async () => {
+    const { error } = await supabase.from(TABLE).delete().not('id', 'is', null);
+    if (error) throw error;
+  },
 };
