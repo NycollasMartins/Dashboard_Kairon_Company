@@ -15,6 +15,8 @@ import { initSupabase } from '@kairon/core/supabase/client';
 
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
 import { Kairon } from '@/constants/kairon';
+import { LeadBadgeProvider } from '@/notifications/LeadBadgeContext';
+import { usePushNotifications } from '@/notifications/usePushNotifications';
 
 // Inicializa o client Supabase compartilhado com as variaveis do Expo, antes do
 // primeiro acesso. AsyncStorage persiste a sessao entre aberturas do app.
@@ -30,6 +32,9 @@ function RootNavigator() {
   const { isAuthenticated, isLoadingAuth } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Push: registra o token na sessão e trata o toque na notificação.
+  usePushNotifications();
 
   useEffect(() => {
     if (isLoadingAuth) return;
@@ -62,8 +67,10 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <StatusBar style="light" />
-          <RootNavigator />
+          <LeadBadgeProvider>
+            <StatusBar style="light" />
+            <RootNavigator />
+          </LeadBadgeProvider>
         </AuthProvider>
       </QueryClientProvider>
     </SafeAreaProvider>

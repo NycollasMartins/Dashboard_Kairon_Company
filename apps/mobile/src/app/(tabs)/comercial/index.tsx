@@ -1,9 +1,9 @@
 import { Button as UIButton, Host, Image as UIImage, Menu } from '@expo/ui/swift-ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GlassView } from 'expo-glass-effect';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -22,6 +22,7 @@ import { queryKeys } from '@kairon/core/entities/query-keys';
 import { supabase } from '@kairon/core/supabase/client';
 
 import { useAuth } from '@/auth/AuthContext';
+import { useLeadBadge } from '@/notifications/LeadBadgeContext';
 import { Kairon } from '@/constants/kairon';
 import {
   LEAD_STATUS_CONFIG,
@@ -91,9 +92,17 @@ export default function ComercialScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { markLeadsRead } = useLeadBadge();
   const { height: screenH } = useWindowDimensions();
 
   const podeComercial = ROLES_COMERCIAL.includes(user?.role ?? '');
+
+  // Abrir a tela Comercial = "viu os leads": zera o badge (tab + ícone do app).
+  useFocusEffect(
+    useCallback(() => {
+      if (podeComercial) markLeadsRead();
+    }, [podeComercial, markLeadsRead]),
+  );
   const isAdmin = user?.role === 'admin';
 
   // Filtro de etapa (chips abaixo do titulo) — define qual lista aparece.
