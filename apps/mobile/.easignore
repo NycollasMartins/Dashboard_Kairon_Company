@@ -1,0 +1,16 @@
+# Dependências (o EAS reinstala na nuvem)
+node_modules/
+
+# Artefatos nativos iOS (o EAS roda pod install / build do zero)
+ios/build/
+ios/Pods/
+ios/DerivedData/
+
+# Android (não estamos buildando aqui)
+android/build/
+android/.gradle/
+
+# Caches e logs
+.expo/
+*.log
+.DS_Store

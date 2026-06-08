@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { leadsApi } from '@kairon/core/api/leads.api';
 import { usersApi } from '@kairon/core/api/users.api';
@@ -91,7 +91,6 @@ export default function ComercialScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
   const { height: screenH } = useWindowDimensions();
 
   const podeComercial = ROLES_COMERCIAL.includes(user?.role ?? '');
@@ -219,37 +218,47 @@ export default function ComercialScreen() {
               <Text style={styles.sub}>{responsavelLabel}</Text>
             </View>
           </View>
-          <GlassView style={styles.filtroGlass} glassEffectStyle="regular" isInteractive>
-            <Host style={styles.filtroHost}>
-              <Menu
-                label={
-                  <UIImage
-                    systemName="line.3.horizontal.decrease"
-                    size={20}
-                    color={responsavelFiltro !== 'todos' ? Kairon.primary : Kairon.text}
-                  />
-                }>
-                <UIButton
-                  systemImage={responsavelFiltro === 'todos' ? 'checkmark' : undefined}
-                  onPress={() => setResponsavelFiltro('todos')}
-                  label="Todos"
-                />
-                <UIButton
-                  systemImage={responsavelFiltro === 'meus' ? 'checkmark' : undefined}
-                  onPress={() => setResponsavelFiltro('meus')}
-                  label="Meus leads"
-                />
-                {responsaveis.map((p) => (
+          <View style={styles.headerActions}>
+            <GlassView style={styles.filtroGlass} glassEffectStyle="regular" isInteractive>
+              <Host style={styles.filtroHost}>
+                <Menu
+                  label={
+                    <UIImage
+                      systemName="line.3.horizontal.decrease"
+                      size={20}
+                      color={responsavelFiltro !== 'todos' ? Kairon.primary : Kairon.text}
+                    />
+                  }>
                   <UIButton
-                    key={p.id}
-                    systemImage={responsavelFiltro === p.id ? 'checkmark' : undefined}
-                    onPress={() => setResponsavelFiltro(p.id)}
-                    label={p.full_name || p.email || 'Sem nome'}
+                    systemImage={responsavelFiltro === 'todos' ? 'checkmark' : undefined}
+                    onPress={() => setResponsavelFiltro('todos')}
+                    label="Todos"
                   />
-                ))}
-              </Menu>
-            </Host>
-          </GlassView>
+                  <UIButton
+                    systemImage={responsavelFiltro === 'meus' ? 'checkmark' : undefined}
+                    onPress={() => setResponsavelFiltro('meus')}
+                    label="Meus leads"
+                  />
+                  {responsaveis.map((p) => (
+                    <UIButton
+                      key={p.id}
+                      systemImage={responsavelFiltro === p.id ? 'checkmark' : undefined}
+                      onPress={() => setResponsavelFiltro(p.id)}
+                      label={p.full_name || p.email || 'Sem nome'}
+                    />
+                  ))}
+                </Menu>
+              </Host>
+            </GlassView>
+            {/* Novo lead (admin) — mesmo visual de vidro do botao de filtro. */}
+            {isAdmin ? (
+              <Pressable onPress={() => setNovoVisible(true)}>
+                <GlassView style={styles.filtroGlass} glassEffectStyle="regular" isInteractive>
+                  <SymbolView name="plus" size={20} weight="semibold" tintColor={Kairon.text} />
+                </GlassView>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         {/* Chips de etapa (sticky) — App Store style. Ao selecionar, a lista reflui animada. */}
@@ -336,15 +345,6 @@ export default function ComercialScreen() {
         </Animated.View>
       </ScrollView>
 
-      {/* FAB de novo lead — apenas admin, logo acima da tab bar (lado direito). */}
-      {isAdmin ? (
-        <Pressable
-          onPress={() => setNovoVisible(true)}
-          style={[styles.fab, { bottom: insets.bottom + 24 }]}>
-          <SymbolView name="plus" size={28} weight="semibold" tintColor="#fff" />
-        </Pressable>
-      ) : null}
-
       <NovoLeadModal
         key={novoVisible ? 'open' : 'closed'}
         visible={novoVisible}
@@ -372,6 +372,7 @@ const styles = StyleSheet.create({
   subDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Kairon.textMuted },
   subDotActive: { backgroundColor: Kairon.primary },
   sub: { color: Kairon.textMuted, fontSize: 14, fontWeight: '600' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   filtroGlass: {
     width: 44,
     height: 44,
@@ -437,20 +438,4 @@ const styles = StyleSheet.create({
 
   semAcesso: { flex: 1, padding: 16, gap: 12, justifyContent: 'center', alignItems: 'center' },
   semAcessoText: { color: Kairon.textMuted, fontSize: 15, textAlign: 'center' },
-
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Kairon.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
 });
