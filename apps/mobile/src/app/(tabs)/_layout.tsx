@@ -27,12 +27,12 @@ export default function TabsLayout() {
 
       <NativeTabs.Trigger name="agenda">
         <NativeTabs.Trigger.Icon sf={{ default: 'calendar', selected: 'calendar' }} />
-        <NativeTabs.Trigger.Label>Agenda</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Calendário</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="comercial" hidden={!podeComercial}>
-        <NativeTabs.Trigger.Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
-        <NativeTabs.Trigger.Label>Comercial</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} />
+        <NativeTabs.Trigger.Label>Leads</NativeTabs.Trigger.Label>
         {/* children precisa ser undefined quando 0 — uma string "0" é truthy e o
             nativo mostraria o badge mesmo com hidden. */}
         <NativeTabs.Trigger.Badge hidden={count === 0}>

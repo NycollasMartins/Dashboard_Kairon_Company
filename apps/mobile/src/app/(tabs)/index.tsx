@@ -246,9 +246,9 @@ const styles = StyleSheet.create({
 
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: -8 },
   navBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

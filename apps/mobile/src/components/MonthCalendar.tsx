@@ -1,12 +1,26 @@
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Dimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { Kairon } from '@/constants/kairon';
-import { localISO, MONTHS_LONG } from '@/lib/dates';
+import { localISO } from '@/lib/dates';
+
+export type MesView = { year: number; month: number };
 
 // Iniciais dos dias da semana, comecando no domingo (igual ao app de Calendario do iOS).
 const WEEKDAY_INITIALS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 const TOTAL_CELLS = 42; // 6 semanas fixas — mantem a altura estavel ao trocar de mes.
+
+// Largura inicial estimada (corrigida no onLayout). Container tem paddingHorizontal: 8.
+const LARGURA_INICIAL = Dimensions.get('window').width - 16;
 
 export type DiaMarker = { tarefa: boolean; evento: boolean };
 
@@ -23,54 +37,65 @@ function buildGrid(year: number, month: number): Celula[] {
   return cells;
 }
 
+function addMonths({ year, month }: MesView, delta: number): MesView {
+  const date = new Date(year, month + delta, 1);
+  return { year: date.getFullYear(), month: date.getMonth() };
+}
+
 /**
- * Calendario mensal (grade de 6 semanas). Cabecalho com setas para trocar de mes,
- * dia de hoje em circulo branco, dia selecionado em circulo vermelho Kairon e
- * bolinhas abaixo do numero indicando se ha tarefas (vermelho) e/ou eventos (azul).
+ * Calendario mensal (grade de 6 semanas). O mes e controlado pelo parent (`view`).
+ * As grades sao paginas de um ScrollView horizontal com `pagingEnabled` — cada mes
+ * e uma secao, dando a animacao de paginacao nativa do iOS. Renderizamos sempre 3
+ * paginas (anterior / atual / proximo) e, ao fim de cada swipe, atualizamos o mes e
+ * recentralizamos na pagina do meio, criando um pager "infinito" e fluido.
  */
 export function MonthCalendar({
   selectedIso,
   hojeIso,
   markers,
   onSelectDay,
+  view,
+  onViewChange,
 }: {
   selectedIso: string;
   hojeIso: string;
   markers: Map<string, DiaMarker>;
   onSelectDay: (iso: string) => void;
+  view: MesView;
+  onViewChange: (view: MesView) => void;
 }) {
-  const [y, mIdx] = selectedIso.split('-').map(Number);
-  const [view, setView] = useState({ year: y, month: mIdx - 1 });
+  const [largura, setLargura] = useState(LARGURA_INICIAL);
+  const scrollRef = useRef<ScrollView>(null);
 
-  const cells = useMemo(() => buildGrid(view.year, view.month), [view]);
+  // Tres meses visiveis: [anterior, atual, proximo].
+  const paginas = useMemo<MesView[]>(
+    () => [addMonths(view, -1), view, addMonths(view, 1)],
+    [view]
+  );
 
-  function changeMonth(delta: number) {
-    const date = new Date(view.year, view.month + delta, 1);
-    setView({ year: date.getFullYear(), month: date.getMonth() });
+  // Sempre recentraliza na pagina do meio (sem animar) quando o mes ou a largura muda.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ x: largura, animated: false });
+  }, [view, largura]);
+
+  function onMomentumScrollEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const pagina = Math.round(e.nativeEvent.contentOffset.x / largura);
+    if (pagina === 1) return; // continua no mes atual
+    onViewChange(addMonths(view, pagina - 1)); // 0 -> anterior, 2 -> proximo
   }
 
   function handlePress(cell: Celula) {
     onSelectDay(cell.iso);
     if (!cell.inMonth) {
       const [cy, cm] = cell.iso.split('-').map(Number);
-      setView({ year: cy, month: cm - 1 });
+      onViewChange({ year: cy, month: cm - 1 });
     }
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.monthRow}>
-        <Pressable onPress={() => changeMonth(-1)} hitSlop={12} style={styles.navBtn}>
-          <Text style={styles.navChevron}>‹</Text>
-        </Pressable>
-        <Text style={styles.monthLabel}>
-          {MONTHS_LONG[view.month]} {view.year}
-        </Text>
-        <Pressable onPress={() => changeMonth(1)} hitSlop={12} style={styles.navBtn}>
-          <Text style={styles.navChevron}>›</Text>
-        </Pressable>
-      </View>
-
+    <View
+      style={styles.container}
+      onLayout={(e) => setLargura(e.nativeEvent.layout.width - 16)}>
       <View style={styles.weekHeader}>
         {WEEKDAY_INITIALS.map((wd, i) => (
           <View key={i} style={styles.cell}>
@@ -79,41 +104,52 @@ export function MonthCalendar({
         ))}
       </View>
 
-      <View style={styles.grid}>
-        {cells.map((cell) => {
-          const selecionado = cell.iso === selectedIso;
-          const ehHoje = cell.iso === hojeIso;
-          const marker = markers.get(cell.iso);
-          return (
-            <Pressable key={cell.iso} onPress={() => handlePress(cell)} style={styles.cell}>
-              <View
-                style={[
-                  styles.dayCircle,
-                  selecionado && styles.dayCircleSel,
-                  !selecionado && ehHoje && styles.dayCircleHoje,
-                ]}>
-                <Text
-                  style={[
-                    styles.dayNum,
-                    !cell.inMonth && styles.dayNumOut,
-                    selecionado && styles.dayNumSel,
-                    !selecionado && ehHoje && styles.dayNumHoje,
-                  ]}>
-                  {cell.dayNum}
-                </Text>
-              </View>
-              <View style={styles.dotsRow}>
-                {marker?.tarefa ? (
-                  <View style={[styles.markDot, { backgroundColor: Kairon.primary }]} />
-                ) : null}
-                {marker?.evento ? (
-                  <View style={[styles.markDot, { backgroundColor: Kairon.blue }]} />
-                ) : null}
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        directionalLockEnabled
+        contentOffset={{ x: largura, y: 0 }}
+        onMomentumScrollEnd={onMomentumScrollEnd}>
+        {paginas.map((pag) => (
+          <View key={`${pag.year}-${pag.month}`} style={[styles.pagina, { width: largura }]}>
+            {buildGrid(pag.year, pag.month).map((cell) => {
+              const selecionado = cell.iso === selectedIso;
+              const ehHoje = cell.iso === hojeIso;
+              const marker = markers.get(cell.iso);
+              return (
+                <Pressable key={cell.iso} onPress={() => handlePress(cell)} style={styles.cell}>
+                  <View
+                    style={[
+                      styles.dayCircle,
+                      selecionado && styles.dayCircleSel,
+                      !selecionado && ehHoje && styles.dayCircleHoje,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.dayNum,
+                        !cell.inMonth && styles.dayNumOut,
+                        selecionado && styles.dayNumSel,
+                        !selecionado && ehHoje && styles.dayNumHoje,
+                      ]}>
+                      {cell.dayNum}
+                    </Text>
+                  </View>
+                  <View style={styles.dotsRow}>
+                    {marker?.tarefa ? (
+                      <View style={[styles.markDot, { backgroundColor: Kairon.primary }]} />
+                    ) : null}
+                    {marker?.evento ? (
+                      <View style={[styles.markDot, { backgroundColor: Kairon.blue }]} />
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -121,21 +157,10 @@ export function MonthCalendar({
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 8 },
 
-  monthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    marginBottom: 8,
-  },
-  monthLabel: { color: Kairon.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
-  navBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  navChevron: { color: Kairon.text, fontSize: 26, fontWeight: '500', marginTop: -3 },
-
   weekHeader: { flexDirection: 'row', marginBottom: 4 },
-  weekHeaderText: { color: Kairon.textMuted, fontSize: 12, fontWeight: '600' },
+  weekHeaderText: { color: Kairon.textMuted, fontSize: 10, fontWeight: '600' },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  pagina: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { width: `${100 / 7}%`, alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
 
   dayCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },

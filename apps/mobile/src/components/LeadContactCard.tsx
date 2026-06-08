@@ -15,6 +15,8 @@ import type { Lead } from '@/types/models';
 
 // Verde do WhatsApp, para o icone de mensagem ficar reconhecivel.
 const WHATSAPP_GREEN = '#25D366';
+// Verde do sistema (iOS) para o "+" do botao de assumir lead.
+const SYSTEM_GREEN = '#34C759';
 
 /** Badge de SLA de 10min (contagem regressiva) para leads em atendimento. */
 function SlaBadge({ startedAt }: { startedAt: string }) {
@@ -132,7 +134,8 @@ export function LeadContactCard({
               <SymbolView
                 name="person.crop.circle.badge.plus"
                 size={27}
-                tintColor={Kairon.primary}
+                type="palette"
+                colors={[SYSTEM_GREEN, Kairon.text]}
               />
             )}
           </Pressable>

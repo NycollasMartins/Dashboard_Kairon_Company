@@ -1,4 +1,3 @@
-import { Button as UIButton, Host, Image as UIImage, Menu } from '@expo/ui/swift-ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GlassView } from 'expo-glass-effect';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -17,7 +16,6 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { leadsApi } from '@kairon/core/api/leads.api';
-import { usersApi } from '@kairon/core/api/users.api';
 import { queryKeys } from '@kairon/core/entities/query-keys';
 import { supabase } from '@kairon/core/supabase/client';
 
@@ -34,8 +32,6 @@ import { LeadContactCard } from '@/components/LeadContactCard';
 import { NovoLeadModal } from '@/components/NovoLeadModal';
 import { MONTHS_LONG } from '@/lib/dates';
 import type { Lead } from '@/types/models';
-
-type Pessoa = { id: string; full_name?: string; email?: string; role?: string; status?: string };
 
 type SecaoData = { key: string; label: string; leads: Lead[] };
 
@@ -107,8 +103,6 @@ export default function ComercialScreen() {
 
   // Filtro de etapa (chips abaixo do titulo) — define qual lista aparece.
   const [statusFiltro, setStatusFiltro] = useState<LeadStatus>('pendente');
-  // Filtro de responsavel (menu de vidro no header): 'todos' | 'meus' | <id>.
-  const [responsavelFiltro, setResponsavelFiltro] = useState<'todos' | 'meus' | string>('todos');
   // Modal de cadastro manual de lead (apenas admin).
   const [novoVisible, setNovoVisible] = useState(false);
 
@@ -117,14 +111,8 @@ export default function ComercialScreen() {
     queryFn: leadsApi.list,
     enabled: podeComercial,
   });
-  const usuariosQuery = useQuery({
-    queryKey: queryKeys.usuarios.all,
-    queryFn: usersApi.list,
-    enabled: podeComercial,
-  });
 
   const leads: Lead[] = leadsQuery.data ?? [];
-  const usuarios: Pessoa[] = usuariosQuery.data ?? [];
 
   // Realtime: qualquer mudanca na tabela leads invalida a lista (paridade com o web).
   useEffect(() => {
@@ -140,17 +128,7 @@ export default function ComercialScreen() {
     };
   }, [podeComercial, queryClient]);
 
-  // SDR/BDR e admin ativos podem ser responsaveis (igual web).
-  const responsaveis = useMemo(
-    () =>
-      usuarios.filter(
-        (u) => (u.role === 'sdr' || u.role === 'bdr' || u.role === 'admin') && u.status === 'active'
-      ),
-    [usuarios]
-  );
-
   // Leads ativos no pipeline (fora convertidos e perdidos), agrupados por etapa.
-  // O filtro de responsavel NAO se aplica a Pendentes — sao leads "sem dono".
   const leadsPorStatus = useMemo(() => {
     const map: Record<LeadStatus, Lead[]> = {
       pendente: [],
@@ -162,39 +140,23 @@ export default function ComercialScreen() {
     for (const l of leads) {
       if (l.cliente_id || l.status === 'perdido') continue;
       if (!map[l.status]) continue;
-      if (l.status !== 'pendente') {
-        if (responsavelFiltro === 'meus' && l.responsavel_id !== user?.id) continue;
-        if (
-          responsavelFiltro !== 'todos' &&
-          responsavelFiltro !== 'meus' &&
-          l.responsavel_id !== responsavelFiltro
-        )
-          continue;
-      }
       map[l.status].push(l);
     }
     for (const s of LEAD_STATUS_ORDER) {
       map[s].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
     }
     return map;
-  }, [leads, responsavelFiltro, user?.id]);
+  }, [leads]);
 
   const visiveis = leadsPorStatus[statusFiltro];
   const secoes = useMemo(() => agruparPorData(visiveis), [visiveis]);
   const canAssumir = user?.role === 'sdr' || user?.role === 'bdr' || user?.role === 'admin';
 
-  const responsavelLabel = useMemo(() => {
-    if (responsavelFiltro === 'todos') return 'Todos';
-    if (responsavelFiltro === 'meus') return 'Meus leads';
-    const p = responsaveis.find((x) => x.id === responsavelFiltro);
-    return p?.full_name || p?.email || 'Responsável';
-  }, [responsavelFiltro, responsaveis]);
-
   if (!podeComercial) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.semAcesso}>
-          <Text style={styles.bigTitle}>Comercial</Text>
+          <Text style={styles.bigTitle}>Leads</Text>
           <Text style={styles.semAcessoText}>Você não tem acesso ao pipeline comercial.</Text>
         </View>
       </SafeAreaView>
@@ -218,48 +180,13 @@ export default function ComercialScreen() {
         }>
         {/* Cabecalho */}
         <View style={styles.headerRow}>
-          <View style={styles.flex}>
-            <Text style={styles.bigTitle}>Comercial</Text>
-            <View style={styles.subRow}>
-              <View
-                style={[styles.subDot, responsavelFiltro !== 'todos' && styles.subDotActive]}
-              />
-              <Text style={styles.sub}>{responsavelLabel}</Text>
-            </View>
+          {/* Espacador para equilibrar as acoes a direita e manter o titulo centralizado. */}
+          <View style={[styles.headerSide, { width: isAdmin ? 44 : 0 }]} />
+          <View style={styles.headerCenter}>
+            <Text style={styles.bigTitle}>Leads</Text>
           </View>
           <View style={styles.headerActions}>
-            <GlassView style={styles.filtroGlass} glassEffectStyle="regular" isInteractive>
-              <Host style={styles.filtroHost}>
-                <Menu
-                  label={
-                    <UIImage
-                      systemName="line.3.horizontal.decrease"
-                      size={20}
-                      color={responsavelFiltro !== 'todos' ? Kairon.primary : Kairon.text}
-                    />
-                  }>
-                  <UIButton
-                    systemImage={responsavelFiltro === 'todos' ? 'checkmark' : undefined}
-                    onPress={() => setResponsavelFiltro('todos')}
-                    label="Todos"
-                  />
-                  <UIButton
-                    systemImage={responsavelFiltro === 'meus' ? 'checkmark' : undefined}
-                    onPress={() => setResponsavelFiltro('meus')}
-                    label="Meus leads"
-                  />
-                  {responsaveis.map((p) => (
-                    <UIButton
-                      key={p.id}
-                      systemImage={responsavelFiltro === p.id ? 'checkmark' : undefined}
-                      onPress={() => setResponsavelFiltro(p.id)}
-                      label={p.full_name || p.email || 'Sem nome'}
-                    />
-                  ))}
-                </Menu>
-              </Host>
-            </GlassView>
-            {/* Novo lead (admin) — mesmo visual de vidro do botao de filtro. */}
+            {/* Novo lead (admin) — botao de vidro. */}
             {isAdmin ? (
               <Pressable onPress={() => setNovoVisible(true)}>
                 <GlassView style={styles.filtroGlass} glassEffectStyle="regular" isInteractive>
@@ -271,11 +198,8 @@ export default function ComercialScreen() {
         </View>
 
         {/* Chips de etapa (sticky) — App Store style. Ao selecionar, a lista reflui animada. */}
-        <View style={styles.chipsBar}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsContent}>
+        <View style={[styles.chipsBar, { paddingTop: screenH * 0.025 }]}>
+          <View style={styles.chipsContent}>
             {LEAD_STATUS_ORDER.map((s) => {
               const cfg = LEAD_STATUS_CONFIG[s];
               const sel = statusFiltro === s;
@@ -286,33 +210,28 @@ export default function ComercialScreen() {
                   onPress={() => setStatusFiltro(s)}
                   style={[
                     styles.chip,
-                    sel && { backgroundColor: cfg.color, borderColor: cfg.color },
+                    sel && { borderColor: cfg.color },
                   ]}>
-                  <View
-                    style={[
-                      styles.chipDot,
-                      { backgroundColor: sel ? '#0d0d0d' : cfg.color },
-                    ]}
-                  />
+                  <View style={[styles.chipDot, { backgroundColor: cfg.color }]} />
                   <Text style={[styles.chipText, sel && styles.chipTextSel]}>{cfg.label}</Text>
                   {count > 0 ? (
-                    <View style={[styles.chipBadge, sel && styles.chipBadgeSel]}>
-                      <Text style={[styles.chipBadgeText, sel && styles.chipBadgeTextSel]}>
-                        {count}
-                      </Text>
+                    <View style={styles.chipBadge}>
+                      <Text style={styles.chipBadgeText}>{count}</Text>
                     </View>
                   ) : null}
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
+          {/* Divider separando a secao de chips do inicio da lista de leads. */}
+          <View style={styles.chipsDivider} />
         </View>
 
         {/* Lista da etapa selecionada — anima a cada troca de filtro (key={statusFiltro}). */}
         <Animated.View
           key={statusFiltro}
           entering={FadeIn.duration(220)}
-          style={{ paddingTop: screenH * 0.08 }}>
+          style={{ paddingTop: screenH * 0.04 }}>
           {visiveis.length ? (
             secoes.map((secao, si) => {
               // Indice global acumulado para a cascata de entrada nao reiniciar por grupo.
@@ -365,22 +284,25 @@ export default function ComercialScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Kairon.bg },
-  flex: { flex: 1 },
   content: { paddingBottom: 160 },
 
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 4,
   },
-  bigTitle: { color: Kairon.text, fontSize: 34, fontWeight: '800', letterSpacing: -0.5 },
-  subRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  subDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Kairon.textMuted },
-  subDotActive: { backgroundColor: Kairon.primary },
-  sub: { color: Kairon.textMuted, fontSize: 14, fontWeight: '600' },
+  headerSide: { width: 44 },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  bigTitle: {
+    color: Kairon.text,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    textAlign: 'center',
+  },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   filtroGlass: {
     width: 44,
@@ -390,10 +312,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  filtroHost: { width: 44, height: 44 },
 
   chipsBar: { backgroundColor: Kairon.bg, paddingTop: 8, paddingBottom: 6 },
-  chipsContent: { paddingHorizontal: 16, gap: 8 },
+  chipsContent: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 12 },
+  chipsDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Kairon.cardBorder,
+    marginTop: 12,
+    marginHorizontal: 16,
+  },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -407,7 +334,8 @@ const styles = StyleSheet.create({
   },
   chipDot: { width: 7, height: 7, borderRadius: 4 },
   chipText: { color: Kairon.textMuted, fontSize: 14, fontWeight: '600' },
-  chipTextSel: { color: '#0d0d0d', fontWeight: '700' },
+  // Selecionado: so o texto ganha destaque (branco/bold); a cor da etapa vai no contorno.
+  chipTextSel: { color: Kairon.text, fontWeight: '700' },
   chipBadge: {
     minWidth: 20,
     paddingHorizontal: 6,
@@ -416,9 +344,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
   },
-  chipBadgeSel: { backgroundColor: 'rgba(13,13,13,0.18)' },
   chipBadgeText: { color: Kairon.textMuted, fontSize: 12, fontWeight: '700' },
-  chipBadgeTextSel: { color: '#0d0d0d' },
 
   secaoGap: { marginTop: 22 },
   secaoTitle: {
@@ -427,18 +353,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    textAlign: 'center',
+    marginLeft: 8,
     marginBottom: 8,
   },
   // "Hoje" ganha destaque pela cor (branco), mantendo o mesmo tamanho.
   secaoTitleHoje: { color: Kairon.text },
 
   group: {
-    marginHorizontal: 16,
+    marginHorizontal: 8,
     borderRadius: 16,
-    backgroundColor: Kairon.bgElevated,
-    borderWidth: 1,
-    borderColor: Kairon.cardBorder,
     overflow: 'hidden',
   },
 

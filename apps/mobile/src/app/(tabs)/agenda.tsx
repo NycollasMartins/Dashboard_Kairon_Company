@@ -1,7 +1,6 @@
 import { Button as UIButton, Host, Image as UIImage, Menu } from '@expo/ui/swift-ui';
 import { useQuery } from '@tanstack/react-query';
 import { GlassView } from 'expo-glass-effect';
-import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import {
   Pressable,
@@ -9,10 +8,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { calendarioApi } from '@kairon/core/api/calendario.api';
 import { tarefasApi } from '@kairon/core/api/tarefas.api';
@@ -20,7 +20,7 @@ import { queryKeys } from '@kairon/core/entities/query-keys';
 
 import { useAuth } from '@/auth/AuthContext';
 import { EditarItemModal, type ItemEdicao } from '@/components/EditarItemModal';
-import { MonthCalendar, type DiaMarker } from '@/components/MonthCalendar';
+import { MonthCalendar, type DiaMarker, type MesView } from '@/components/MonthCalendar';
 import { NovoItemModal } from '@/components/NovoItemModal';
 import {
   Kairon,
@@ -29,13 +29,21 @@ import {
   type TarefaPrioridade,
   type TarefaStatus,
 } from '@/constants/kairon';
-import { isoToLocalDay, localISO, timeHM } from '@/lib/dates';
+import { isoToLocalDay, localISO, MONTHS_LONG, timeHM } from '@/lib/dates';
 import type { Evento, Tarefa } from '@/types/models';
 
 type Pessoa = { id: string; full_name?: string; email?: string; role?: string };
 
 // Ordem das secoes de tarefas na Agenda: revisao -> em andamento -> pendente -> concluida (no fim).
 const TAREFA_SECAO_ORDER: TarefaStatus[] = ['revisao', 'em_andamento', 'pendente', 'concluida'];
+
+// Abreviacao curta de cada status, exibida no card da tarefa.
+const STATUS_ABBR: Record<TarefaStatus, string> = {
+  revisao: 'Revisão',
+  em_andamento: 'Andam.',
+  pendente: 'Pend.',
+  concluida: 'Concl.',
+};
 
 // Altura aproximada da UITabBar nativa (iOS). O FAB flutua acima dela com folga.
 const TAB_BAR_HEIGHT = 50;
@@ -44,9 +52,13 @@ const HOJE_ISO = localISO(new Date());
 
 export default function AgendaScreen() {
   const { user } = useAuth();
-  const insets = useSafeAreaInsets();
+  const { height: screenH } = useWindowDimensions();
 
   const [selectedIso, setSelectedIso] = useState(HOJE_ISO);
+  const [calView, setCalView] = useState<MesView>(() => {
+    const [yy, mm] = HOJE_ISO.split('-').map(Number);
+    return { year: yy, month: mm - 1 };
+  });
   const [pessoaId, setPessoaId] = useState<string | null>(null);
   const [novoVisible, setNovoVisible] = useState(false);
   const [editando, setEditando] = useState<ItemEdicao>(null);
@@ -83,13 +95,14 @@ export default function AgendaScreen() {
       ),
     [todasTarefas, selectedIso, pessoaId]
   );
-  // Agrupa as tarefas do dia por status, na ordem de exibicao da Agenda.
-  const tarefasPorStatus = useMemo(
+  // Lista unica de tarefas do dia, ordenada por status (revisao -> andamento -> pendente -> concluida).
+  const tarefasOrdenadas = useMemo(
     () =>
-      TAREFA_SECAO_ORDER.map((status) => ({
-        status,
-        tarefas: tarefasDoDia.filter((t) => t.status === status),
-      })).filter((s) => s.tarefas.length > 0),
+      [...tarefasDoDia].sort(
+        (a, b) =>
+          TAREFA_SECAO_ORDER.indexOf(a.status as TarefaStatus) -
+          TAREFA_SECAO_ORDER.indexOf(b.status as TarefaStatus)
+      ),
     [tarefasDoDia]
   );
 
@@ -105,14 +118,6 @@ export default function AgendaScreen() {
     [todosEventos, selectedIso, pessoaId]
   );
 
-  // Rotulo do filtro ativo, mostrado como subtitulo (Todos / seu nome / nome da pessoa).
-  const filtroLabel = useMemo(() => {
-    if (!pessoaId) return 'Todos';
-    if (pessoaId === user?.id) return 'Apenas você';
-    const p = pessoas.find((x) => x.id === pessoaId);
-    return p?.full_name || p?.email || 'Pessoa selecionada';
-  }, [pessoaId, pessoas, user?.id]);
-
   const refreshing = tarefasQuery.isFetching || eventosQuery.isFetching;
   function onRefresh() {
     tarefasQuery.refetch();
@@ -127,48 +132,59 @@ export default function AgendaScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Kairon.primary} />
         }>
-        {/* Navigation Title + filtro de pessoa */}
+        {/* Titulo do mes (centralizado) + filtro de pessoa + adicionar demanda */}
         <View style={styles.headerRow}>
-          <View style={styles.flex}>
-            <Text style={styles.bigTitle}>Agenda</Text>
-            <View style={styles.filtroSubRow}>
-              <View style={[styles.filtroSubDot, pessoaId && styles.filtroSubDotActive]} />
-              <Text style={styles.filtroSub}>{filtroLabel}</Text>
-            </View>
-          </View>
-          <GlassView style={styles.filtroGlass} glassEffectStyle="regular" isInteractive>
-            <Host style={styles.filtroHost}>
-              <Menu
-                label={
-                  <UIImage
-                    systemName="line.3.horizontal.decrease"
-                    size={20}
-                    color={pessoaId ? Kairon.primary : Kairon.text}
-                  />
-                }>
-                <UIButton
-                  systemImage={pessoaId === null ? 'checkmark' : undefined}
-                  onPress={() => setPessoaId(null)}
-                  label="Todos"
-                />
-                {pessoas.map((p) => (
+          <View style={styles.headerSide} />
+          <Text style={styles.monthTitle}>
+            {MONTHS_LONG[calView.month]} {calView.year}
+          </Text>
+          <View style={styles.headerActions}>
+            <GlassView style={styles.filtroGlass} glassEffectStyle="regular" isInteractive>
+              <Host style={styles.filtroHost}>
+                <Menu
+                  label={
+                    <UIImage
+                      systemName="line.3.horizontal.decrease"
+                      size={20}
+                      color={pessoaId ? Kairon.primary : Kairon.text}
+                    />
+                  }>
                   <UIButton
-                    key={p.id}
-                    systemImage={pessoaId === p.id ? 'checkmark' : undefined}
-                    onPress={() => setPessoaId(p.id)}
-                    label={p.full_name || p.email || 'Sem nome'}
+                    systemImage={pessoaId === null ? 'checkmark' : undefined}
+                    onPress={() => setPessoaId(null)}
+                    label="Todos"
                   />
-                ))}
-              </Menu>
-            </Host>
-          </GlassView>
+                  {pessoas.map((p) => (
+                    <UIButton
+                      key={p.id}
+                      systemImage={pessoaId === p.id ? 'checkmark' : undefined}
+                      onPress={() => setPessoaId(p.id)}
+                      label={p.full_name || p.email || 'Sem nome'}
+                    />
+                  ))}
+                </Menu>
+              </Host>
+            </GlassView>
+            <Pressable onPress={() => setNovoVisible(true)} hitSlop={8}>
+              <GlassView style={styles.filtroGlass} glassEffectStyle="regular" isInteractive>
+                <Host matchContents>
+                  <UIImage systemName="plus" size={20} color={Kairon.text} />
+                </Host>
+              </GlassView>
+            </Pressable>
+          </View>
         </View>
+
+        {/* Espacamento de 3% entre a navigation bar e o calendario. */}
+        <View style={{ height: screenH * 0.03 }} />
 
         <MonthCalendar
           selectedIso={selectedIso}
           hojeIso={HOJE_ISO}
           markers={markers}
           onSelectDay={setSelectedIso}
+          view={calView}
+          onViewChange={setCalView}
         />
 
         <View style={styles.divider} />
@@ -195,17 +211,12 @@ export default function AgendaScreen() {
               {tarefasDoDia.length > 0 ? (
                 <View style={eventosDoDia.length > 0 && styles.secaoGap}>
                   <SecaoHeader label="Tarefas" count={tarefasDoDia.length} />
-                  {tarefasPorStatus.map(({ status, tarefas }, i) => (
-                    <View key={status} style={i > 0 && styles.statusSecaoGap}>
-                      <StatusHeader status={status} count={tarefas.length} />
-                      {tarefas.map((t) => (
-                        <TarefaRow
-                          key={t.id}
-                          tarefa={t}
-                          onPress={() => setEditando({ kind: 'tarefa', data: t })}
-                        />
-                      ))}
-                    </View>
+                  {tarefasOrdenadas.map((t) => (
+                    <TarefaRow
+                      key={t.id}
+                      tarefa={t}
+                      onPress={() => setEditando({ kind: 'tarefa', data: t })}
+                    />
                   ))}
                 </View>
               ) : null}
@@ -213,13 +224,6 @@ export default function AgendaScreen() {
           )}
         </Animated.View>
       </ScrollView>
-
-      {/* FAB logo acima da tab bar (lado direito) */}
-      <Pressable
-        onPress={() => setNovoVisible(true)}
-        style={[styles.fab, { bottom: insets.bottom + 24}]}>
-        <SymbolView name="plus" size={28} weight="semibold" tintColor="#fff" />
-      </Pressable>
 
       <NovoItemModal
         visible={novoVisible}
@@ -253,21 +257,11 @@ function EmptyRow({ text }: { text: string }) {
   );
 }
 
-function StatusHeader({ status, count }: { status: TarefaStatus; count: number }) {
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pendente;
-  return (
-    <View style={styles.statusHeader}>
-      <View style={[styles.statusDot, { backgroundColor: cfg.color }]} />
-      <Text style={[styles.statusTitle, { color: cfg.color }]}>{cfg.label}</Text>
-      <Text style={styles.statusCount}>{count}</Text>
-    </View>
-  );
-}
-
 function TarefaRow({ tarefa, onPress }: { tarefa: Tarefa; onPress: () => void }) {
   const concluida = tarefa.status === 'concluida';
   const prio = PRIORIDADE_CONFIG[tarefa.prioridade as TarefaPrioridade] ?? PRIORIDADE_CONFIG.media;
   const urgente = tarefa.prioridade === 'urgente';
+  const statusCfg = STATUS_CONFIG[tarefa.status as TarefaStatus] ?? STATUS_CONFIG.pendente;
   return (
     <Pressable style={styles.row} onPress={onPress}>
       <View style={[styles.dot, { backgroundColor: Kairon.red }]} />
@@ -281,6 +275,12 @@ function TarefaRow({ tarefa, onPress }: { tarefa: Tarefa; onPress: () => void })
           </Text>
           {tarefa.clientes?.nome ? ` · ${tarefa.clientes.nome}` : ''}
         </Text>
+        <View style={styles.statusBadge}>
+          <View style={[styles.statusDot, { backgroundColor: statusCfg.color }]} />
+          <Text style={[styles.statusBadgeText, { color: statusCfg.color }]}>
+            {STATUS_ABBR[tarefa.status as TarefaStatus] ?? statusCfg.label}
+          </Text>
+        </View>
       </View>
     </Pressable>
   );
@@ -322,16 +322,22 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
   },
-  bigTitle: { color: Kairon.text, fontSize: 34, fontWeight: '800', letterSpacing: -0.5 },
-  filtroSubRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  filtroSubDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Kairon.textMuted },
-  filtroSubDotActive: { backgroundColor: Kairon.primary },
-  filtroSub: { color: Kairon.textMuted, fontSize: 14, fontWeight: '600' },
+  headerSide: { width: 96 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  monthTitle: {
+    flex: 1,
+    textAlign: 'center',
+    color: Kairon.text,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    textTransform: 'capitalize',
+  },
   filtroGlass: {
     width: 44,
     height: 44,
@@ -357,7 +363,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginBottom: 4,
   },
-  secaoLabel: { color: Kairon.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
+  secaoLabel: { color: Kairon.text, fontSize: 20, fontWeight: '700', letterSpacing: -0.2 },
   secaoBadge: {
     minWidth: 20,
     paddingHorizontal: 6,
@@ -368,18 +374,9 @@ const styles = StyleSheet.create({
   },
   secaoBadgeText: { color: Kairon.textMuted, fontSize: 12, fontWeight: '700' },
 
-  statusSecaoGap: { marginTop: 24 },
-  statusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 4,
-  },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusTitle: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  statusCount: { color: Kairon.textMuted, fontSize: 10, fontWeight: '700' },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8, alignSelf: 'flex-start' },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusBadgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
 
   row: {
     flexDirection: 'row',
@@ -409,19 +406,4 @@ const styles = StyleSheet.create({
   horaFim: { color: Kairon.textMuted, fontSize: 11, marginTop: 2 },
   eventoBar: { width: 3, alignSelf: 'stretch', borderRadius: 2, backgroundColor: Kairon.blue },
 
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Kairon.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
 });
