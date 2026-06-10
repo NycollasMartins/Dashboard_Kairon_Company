@@ -153,16 +153,17 @@ export default function FinanceiroPage() {
     const novosSeries = novosClientesSeriesYear(clientes, year);
     const custoOpSeries = custoOperacionalSeriesYear(custos, year, now);
 
-    // Custos totais (ads + operacional) e ROI de NEGÓCIO = (receita − custos) / custos.
     const custosSeries = ads.spend.map((s, i) => s + custoOpSeries[i]);
-    const roiSeries = receitaSeries.map((rec, i) => (custosSeries[i] > 0 ? ((rec - custosSeries[i]) / custosSeries[i]) * 100 : 0));
+    // ROI Geral é baseado no CUSTO OPERACIONAL (aba Custos Operacionais), não no
+    // gasto em ads: ROI = (receita − custo operacional) / custo operacional.
+    const roiSeries = receitaSeries.map((rec, i) => (custoOpSeries[i] > 0 ? ((rec - custoOpSeries[i]) / custoOpSeries[i]) * 100 : 0));
 
     const receitaAno = sum(receitaSeries);
     const leadsAno = sum(leadsSeries);
     const gastoAno = sum(ads.spend);
     const custoOpAno = sum(custoOpSeries);
     const custosAno = gastoAno + custoOpAno;
-    const roiAno = custosAno > 0 ? ((receitaAno - custosAno) / custosAno) * 100 : 0;
+    const roiAno = custoOpAno > 0 ? ((receitaAno - custoOpAno) / custoOpAno) * 100 : 0;
 
     const mrrMes = mrrSeries[cm];
     const mrrAno = sum(mrrSeries);
@@ -177,9 +178,10 @@ export default function FinanceiroPage() {
     const tcvMes = tcvDoMes(clientes, year, cm);
     const receitaClientes = mrrClientes + tcvMes;
     const nClientesContrato = clientesComContrato(clientes);
-    // ROI do mês = (Receita do mês − Gasto do mês) / Gasto do mês.
+    // ROI do mês = (Receita do mês − Custo Operacional do mês) / Custo Operacional do mês.
     const gastoMes = custosSeries[cm];
-    const roiMesClientes = gastoMes > 0 ? ((receitaClientes - gastoMes) / gastoMes) * 100 : 0;
+    const custoOpMes = custoOpSeries[cm];
+    const roiMesClientes = custoOpMes > 0 ? ((receitaClientes - custoOpMes) / custoOpMes) * 100 : 0;
 
     // Ticket médio período-consistente: MRR do mês de referência ÷ nº de
     // clientes com MRR ativo nesse mês. No ano corrente, ref = mês atual; em
@@ -225,7 +227,7 @@ export default function FinanceiroPage() {
       receitaSeries, mrrSeries, leadsSeries, ads, novosSeries, custoOpSeries, roiSeries,
       receitaAno, leadsAno, gastoAno, custoOpAno, custosAno, roiAno, margemAno,
       mrrMes, mrrAno, pontualAno, roasMes, roasAno,
-      mrrClientes, tcvMes, receitaClientes, nClientesContrato, gastoMes, roiMesClientes,
+      mrrClientes, tcvMes, receitaClientes, nClientesContrato, gastoMes, custoOpMes, roiMesClientes,
       clientesAtivos: clientesAtivos.length, ticketMedio, custosMes, margemMes,
       gastoPlat, topMrr, aVencer,
     };
@@ -264,8 +266,8 @@ export default function FinanceiroPage() {
       key: 'roi', icon: TrendingUp, accent: 'red',
       label: isCurrentYear ? 'ROI Geral (mês)' : `ROI Geral · ${year}`,
       value: isCurrentYear ? fmtPct(calc.roiMesClientes) : fmtPct(calc.roiAno),
-      sub: isCurrentYear ? `Receita ${formatBRL(calc.receitaClientes)} · Gasto ${formatBRL(calc.gastoMes)}` : `Custos no ano: ${formatBRL(calc.custosAno)}`,
-      modal: { title: 'ROI Geral', icon: TrendingUp, accent: 'red', format: fmtPct, series: calc.roiSeries, chartType: 'bar', annualLabel: `ROI no ano (${year})`, annualValue: calc.roiAno, subtitle: 'ROI % mês a mês = (receita − custos) / custos' },
+      sub: isCurrentYear ? `Receita ${formatBRL(calc.receitaClientes)} · Custo op. ${formatBRL(calc.custoOpMes)}` : `Custo op. no ano: ${formatBRL(calc.custoOpAno)}`,
+      modal: { title: 'ROI Geral', icon: TrendingUp, accent: 'red', format: fmtPct, series: calc.roiSeries, chartType: 'bar', annualLabel: `ROI no ano (${year})`, annualValue: calc.roiAno, subtitle: 'ROI % mês a mês = (receita − custo operacional) / custo operacional' },
     },
     {
       key: 'mrr', icon: Wallet, accent: 'purple',
