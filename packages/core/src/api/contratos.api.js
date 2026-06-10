@@ -63,10 +63,14 @@ export function getContratoAtivo(contratos) {
   return contratos.find((c) => c.status === 'ativo') ?? null;
 }
 
+// MRR do cliente = soma de TODOS os contratos MRR ativos, independente da ordem
+// da lista. (Antes usava getContratoAtivo, que pega o PRIMEIRO contrato ativo; se
+// houvesse um TCV ativo mais recente, o MRR era perdido e a função retornava 0.)
 export function mrrDoCliente(contratos) {
-  const ativo = getContratoAtivo(contratos);
-  if (!ativo || ativo.tipo !== 'MRR') return 0;
-  return Number(ativo.valor) || 0;
+  if (!Array.isArray(contratos)) return 0;
+  return contratos
+    .filter((c) => c.status === 'ativo' && c.tipo === 'MRR')
+    .reduce((soma, c) => soma + (Number(c.valor) || 0), 0);
 }
 
 // Para contratos ja encerrados (cancelado/expirado/renovado) usa o
