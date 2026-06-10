@@ -17,6 +17,7 @@ import { leadsApi } from '@/features/comercial/api/leads.api';
 import { mrrDoCliente, contratosApi } from '@/features/clientes/api/contratos.api';
 import { formatBRL } from '@/features/clientes/utils/contrato.format';
 import { financeiroApi, custosApi } from '@/features/financeiro/api/financeiro.api';
+import { adsIsMock } from '@/lib/adsService';
 import { queryKeys } from '@/entities/query-keys';
 import MetricaModal from '@/features/financeiro/components/MetricaModal';
 import CustosOperacionais from '@/features/financeiro/components/CustosOperacionais';
@@ -63,7 +64,7 @@ function KpiCard({ icon: Icon, label, value, sub, accent = 'red', onClick }) {
   );
 }
 
-function MiniKpi({ icon: Icon, label, value, accent = 'red', hint }) {
+function MiniKpi({ icon: Icon, label, value, accent = 'red', hint, badge }) {
   const a = ACCENTS[accent] ?? ACCENTS.red;
   return (
     <div className={`glass-card rounded-2xl border border-white/5 p-4 ${hint ? 'cursor-help' : ''}`} title={hint || undefined}>
@@ -72,7 +73,12 @@ function MiniKpi({ icon: Icon, label, value, accent = 'red', hint }) {
           <Icon className={`w-4 h-4 ${a.text}`} />
         </div>
         <div className="min-w-0">
-          <p className="text-[11px] text-muted-foreground">{label}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-[11px] text-muted-foreground">{label}</p>
+            {badge && (
+              <span className="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/25">{badge}</span>
+            )}
+          </div>
           <p className="text-lg font-semibold text-white tracking-tight truncate tabular-nums">{value}</p>
         </div>
       </div>
@@ -370,8 +376,8 @@ export default function FinanceiroPage() {
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <MiniKpi icon={PiggyBank} label={isCurrentYear ? 'Margem do mês (receita − custos)' : `Margem ${year} (receita − custos)`} value={formatBRL(isCurrentYear ? calc.margemMes : calc.margemAno)} accent={(isCurrentYear ? calc.margemMes : calc.margemAno) >= 0 ? 'emerald' : 'red'} />
         <MiniKpi icon={Receipt} label={isCurrentYear ? 'Custo operacional (mês)' : `Custo operacional (${year})`} value={formatBRL(isCurrentYear ? calc.custoOpSeries[cm] : calc.custoOpAno)} accent="purple" />
-        <MiniKpi icon={BadgeDollarSign} label={isCurrentYear ? 'Gasto em ads (mês)' : `Gasto em ads (${year})`} value={formatBRL(isCurrentYear ? calc.ads.spend[cm] : calc.gastoAno)} accent="red" />
-        <MiniKpi icon={TrendingUp} label={isCurrentYear ? 'ROAS estimado (mês)' : `ROAS estimado (${year})`} value={`${(isCurrentYear ? calc.roasMes : calc.roasAno).toFixed(1).replace('.', ',')}×`} accent="emerald" hint={`Estimado: R$ ${RECEITA_POR_CONVERSAO}/conversão. Proxy de ROAS — ainda sem receita real atribuída a mídia.`} />
+        <MiniKpi icon={BadgeDollarSign} label={isCurrentYear ? 'Gasto em ads (mês)' : `Gasto em ads (${year})`} value={formatBRL(isCurrentYear ? calc.ads.spend[cm] : calc.gastoAno)} accent="red" badge={adsIsMock ? 'simulado' : undefined} hint={adsIsMock ? 'Dados de mídia simulados (modo mock).' : undefined} />
+        <MiniKpi icon={TrendingUp} label={isCurrentYear ? 'ROAS estimado (mês)' : `ROAS estimado (${year})`} value={`${(isCurrentYear ? calc.roasMes : calc.roasAno).toFixed(1).replace('.', ',')}×`} accent="emerald" badge={adsIsMock ? 'simulado' : undefined} hint={`${adsIsMock ? 'Dados de mídia simulados (modo mock). ' : ''}Estimado: R$ ${RECEITA_POR_CONVERSAO}/conversão — proxy de ROAS, ainda sem receita real atribuída a mídia.`} />
         <MiniKpi icon={UserPlus} label="Ticket médio (MRR/cliente)" value={formatBRL(calc.ticketMedio)} accent="blue" />
       </div>
 

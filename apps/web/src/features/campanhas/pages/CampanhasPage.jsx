@@ -22,7 +22,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import ConfirmArchiveDialog from '@/shared/ui/ConfirmArchiveDialog';
 import CampanhaForm from '@/features/campanhas/components/CampanhaForm';
 import { campanhasApi } from '@/features/campanhas/api/campanhas.api';
-import { getAdsService } from '@/lib/adsService';
+import { getAdsService, adsIsMock } from '@/lib/adsService';
 import {
   statusConfig,
   platformConfig,
@@ -306,6 +306,12 @@ export default function CampanhasPage({ onVerCampanha }) {
           <p className="text-sm text-muted-foreground mt-2">
             Gerencie e acompanhe suas campanhas de Meta Ads e Google Ads — orçamento, status e métricas de performance.
           </p>
+          {adsIsMock && (
+            <div className="mt-3 inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              Dados de mídia simulados (modo mock) — gasto, ROAS e conversões são exemplos, não dados reais das plataformas.
+            </div>
+          )}
         </div>
       </div>
 
