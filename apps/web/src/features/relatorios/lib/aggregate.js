@@ -94,10 +94,12 @@ export function montarResumo({
   // ---------- Metas & Vendas ----------
   const metaGlobal = metas.find((m) => !m.usuario_id && m.competencia === competencia) || null;
   const metaValor = num(metaGlobal?.valor_meta);
-  const vendasNovas = vendas.filter((v) => !(v.tipo === 'MRR' && v.contrato_id));
-  const totalNovas = vendasNovas.reduce((s, v) => s + num(v.valor), 0);
-  const feito = num(mrrBase) + totalNovas;
-  const { porCloser } = calcularSupermeta(vendasNovas, metaValor, num(mrrBase));
+  // Feito da meta = Receita do mês (MRR ativo + TCV ativo do mês) + vendas avulsas.
+  const totalCloser = vendas.filter((v) => v.closer_id).reduce((s, v) => s + num(v.valor), 0);
+  const totalAvulsas = vendas.filter((v) => !v.contrato_id).reduce((s, v) => s + num(v.valor), 0);
+  const feito = receitaMes + totalAvulsas;
+  const baseSupermeta = Math.max(0, feito - totalCloser);
+  const { porCloser } = calcularSupermeta(vendas.filter((v) => v.closer_id), metaValor, baseSupermeta);
   const supermetaTotal = Array.from(porCloser.values()).reduce((s, v) => s + v, 0);
   const ranking = montarRanking({ closers, vendas, metas, competencia }).map((e) => ({
     nome: e.nome, total: round(e.total), vendas: e.count, meta: round(e.meta),

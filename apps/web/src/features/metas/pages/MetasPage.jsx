@@ -33,8 +33,10 @@ export default function MetasPage() {
   const { data: metas = [] } = useQuery({ queryKey: queryKeys.metas.all, queryFn: metasApi.listMetas });
   const { data: vendas = [] } = useQuery({ queryKey: queryKeys.metas.vendas(competencia), queryFn: () => metasApi.listVendasDoMes(competencia) });
   const { data: closers = [] } = useQuery({ queryKey: queryKeys.metas.closers, queryFn: metasApi.listClosers });
-  // Receita recorrente já garantida do mês (MRR ativo = "MRR do mês" do Financeiro).
+  // Receita do mês (= "Receita do mês" do Financeiro), via RPCs SECURITY DEFINER:
+  // MRR ativo + TCV (pontual) dos contratos ativos iniciados neste mês.
   const { data: mrrBase = 0 } = useQuery({ queryKey: queryKeys.metas.mrrBase, queryFn: metasApi.mrrBase });
+  const { data: tcvBase = 0 } = useQuery({ queryKey: queryKeys.metas.tcvBase, queryFn: metasApi.tcvMesBase });
 
   const refreshing = useIsFetching({ predicate: (q) => q.queryKey?.[0] === 'metas' }) > 0;
   const refresh = () => {
@@ -42,6 +44,7 @@ export default function MetasPage() {
     qc.invalidateQueries({ queryKey: queryKeys.metas.vendas(competencia) });
     qc.invalidateQueries({ queryKey: queryKeys.metas.closers });
     qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase });
+    qc.invalidateQueries({ queryKey: queryKeys.metas.tcvBase });
   };
 
   // Tempo real: vendas e metas atualizam ao vivo. Como criar contrato gera uma
@@ -52,10 +55,14 @@ export default function MetasPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vendas' }, () => {
         qc.invalidateQueries({ queryKey: queryKeys.metas.vendas(competencia) });
         qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase });
+        qc.invalidateQueries({ queryKey: queryKeys.metas.tcvBase });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'metas' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.all }))
-      // MRR base muda quando um contrato é criado/cancelado/expira (sem mexer em vendas).
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase }))
+      // Receita do mês muda quando um contrato é criado/cancelado/expira (sem mexer em vendas).
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, () => {
+        qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase });
+        qc.invalidateQueries({ queryKey: queryKeys.metas.tcvBase });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [qc, competencia]);
@@ -67,19 +74,24 @@ export default function MetasPage() {
   );
   const metaGlobalValor = Number(metaGlobal?.valor_meta) || 0;
   const mrrBaseValor = Number(mrrBase) || 0;
+  const tcvBaseValor = Number(tcvBase) || 0;
+  // Receita do mês (igual ao Financeiro): MRR ativo + TCV ativo iniciado no mês.
+  const receitaMes = mrrBaseValor + tcvBaseValor;
   // Vendas do mês com closer (entram no ranking + lista) e sem closer (só meta).
   const vendasComCloser = useMemo(() => vendas.filter((v) => v.closer_id), [vendas]);
+  const totalCloser = useMemo(() => vendasComCloser.reduce((s, v) => s + (Number(v.valor) || 0), 0), [vendasComCloser]);
   const totalDiretas = useMemo(
     () => vendas.filter((v) => !v.closer_id).reduce((s, v) => s + (Number(v.valor) || 0), 0),
     [vendas],
   );
-  // Vendas que NÃO duplicam a base de MRR: um contrato MRR já entra no MRR base,
-  // então sua venda não soma de novo. O que soma por cima é o novo pontual (TCV),
-  // vendas avulsas e MRR manual (sem contrato).
-  const vendasNovas = useMemo(() => vendas.filter((v) => !(v.tipo === 'MRR' && v.contrato_id)), [vendas]);
-  const totalNovas = useMemo(() => vendasNovas.reduce((s, v) => s + (Number(v.valor) || 0), 0), [vendasNovas]);
-  // Feito da meta = receita recorrente já garantida (MRR ativo) + novas vendas do mês.
-  const feito = mrrBaseValor + totalNovas;
+  // Vendas avulsas (registradas à mão, sem contrato): somam por cima da receita,
+  // pois não estão refletidas no MRR/TCV (que vêm dos contratos).
+  const totalAvulsas = useMemo(
+    () => vendas.filter((v) => !v.contrato_id).reduce((s, v) => s + (Number(v.valor) || 0), 0),
+    [vendas],
+  );
+  // Feito da meta = Receita do mês (MRR + TCV do mês) + vendas avulsas sem contrato.
+  const feito = receitaMes + totalAvulsas;
   const pct = progressoPct(feito, metaGlobalValor);
   const pctClamp = Math.min(100, Math.max(0, pct));
   const falta = faltaParaMeta(feito, metaGlobalValor);
@@ -87,11 +99,13 @@ export default function MetasPage() {
   const temMeta = metaGlobalValor > 0;
   const excedente = Math.max(0, feito - metaGlobalValor);
 
-  // Supermeta = tudo que passa da meta. Cada closer que vende depois de bater
-  // a meta ganha comissão dobrada (2×).
+  // Supermeta = tudo que passa da meta. A receita que NÃO veio de closer preenche
+  // a meta primeiro; as vendas de closer entram por cima e a parte acima da meta
+  // vale comissão dobrada (2×) para cada closer.
+  const baseSupermeta = Math.max(0, feito - totalCloser);
   const { porCloser: superPorCloser } = useMemo(
-    () => calcularSupermeta(vendasNovas, metaGlobalValor, mrrBaseValor),
-    [vendasNovas, metaGlobalValor, mrrBaseValor],
+    () => calcularSupermeta(vendasComCloser, metaGlobalValor, baseSupermeta),
+    [vendasComCloser, metaGlobalValor, baseSupermeta],
   );
   const superDireto = superPorCloser.get('__direto__') || 0;
 
@@ -260,7 +274,9 @@ export default function MetasPage() {
               <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Feito da meta</p>
                 <p className="text-2xl font-semibold text-white tabular-nums mt-1">{formatBRL(feito)}</p>
-                <p className="text-[10px] text-muted-foreground mt-1">Recorrente (MRR) {formatBRL(mrrBaseValor)} + Novas vendas {formatBRL(totalNovas)}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  MRR {formatBRL(mrrBaseValor)} + TCV do mês {formatBRL(tcvBaseValor)}{totalAvulsas > 0 ? ` + avulsas ${formatBRL(totalAvulsas)}` : ''}
+                </p>
               </div>
               <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
                 <p className="text-[11px] text-muted-foreground">Falta da meta</p>

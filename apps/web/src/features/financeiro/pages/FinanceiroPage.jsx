@@ -14,7 +14,7 @@ import { supabase } from '@/infrastructure/supabase/client';
 import RestrictedAccessCard from '@/shared/components/RestrictedAccessCard';
 import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { leadsApi } from '@/features/comercial/api/leads.api';
-import { mrrDoCliente } from '@/features/clientes/api/contratos.api';
+import { mrrDoCliente, contratosApi } from '@/features/clientes/api/contratos.api';
 import { formatBRL } from '@/features/clientes/utils/contrato.format';
 import { financeiroApi, custosApi } from '@/features/financeiro/api/financeiro.api';
 import { queryKeys } from '@/entities/query-keys';
@@ -114,6 +114,16 @@ export default function FinanceiroPage() {
     qc.invalidateQueries({ queryKey: queryKeys.financeiro.metrics });
     qc.invalidateQueries({ queryKey: queryKeys.financeiro.custos });
   };
+
+  // Ao abrir o Financeiro, expira contratos cujo prazo já passou (status ativo →
+  // expirado). Assim, contratos finalizados deixam de contar no MRR/Receita de
+  // forma automática; o realtime propaga a mudança para todas as abas.
+  useEffect(() => {
+    if (user?.role !== 'admin') return;
+    contratosApi.expirarVencidos()
+      .then((n) => { if (n) qc.invalidateQueries({ queryKey: queryKeys.clientes.all }); })
+      .catch(() => { /* sem permissão / falha de rede: ignora */ });
+  }, [user?.role, qc]);
 
   // Tempo real: invalida as queries assim que algo muda no banco.
   useEffect(() => {

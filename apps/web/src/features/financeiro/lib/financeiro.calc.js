@@ -88,6 +88,8 @@ export function receitaSeriesYear(contratos, year, now = new Date()) {
   const arr = mrrSeriesYear(contratos, year, now).slice();
   for (const ct of contratos) {
     if (ct.tipo !== 'TCV') continue;
+    // TCV cancelado não é receita — não entra na série (corrige receita inflada).
+    if (ct.status === 'cancelado') continue;
     const d = parseDateLocal(ct.data_inicio);
     if (!d || d.getFullYear() !== year) continue;
     const val = ct.status === 'ativo' ? num(ct.valor) : num(ct.total_recebido || ct.valor);
@@ -147,6 +149,9 @@ export function tcvDoMes(clientes, year, month) {
     if (c.status === 'churn') continue;
     for (const ct of c.contratos || []) {
       if (ct.tipo !== 'TCV') continue;
+      // Só TCV ATIVO conta como receita do mês. TCV cancelado/encerrado não entra
+      // (era o bug: contratos TCV removidos seguiam somando na Receita do mês).
+      if (ct.status !== 'ativo') continue;
       const d = parseDateLocal(ct.data_inicio);
       if (!d || d.getFullYear() !== year || d.getMonth() !== month) continue;
       total += num(ct.valor);

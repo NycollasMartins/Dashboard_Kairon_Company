@@ -90,6 +90,15 @@ export const metasApi = {
     return Number(data) || 0;
   },
 
+  // TCV (pontual) dos contratos ATIVOS cujo início cai no mês corrente — o
+  // "TCV do mês" do Financeiro. Via RPC SECURITY DEFINER (closer/TV não acessam
+  // contratos/clientes). Compõe a Receita do mês usada como "Feito da meta".
+  tcvMesBase: async () => {
+    const { data, error } = await supabase.rpc('tcv_mes_ativo');
+    if (error) throw error;
+    return Number(data) || 0;
+  },
+
   // ---- Closers (para ranking e metas individuais) ----
   listClosers: () =>
     supabase
