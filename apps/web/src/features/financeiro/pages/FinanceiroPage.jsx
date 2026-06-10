@@ -25,7 +25,7 @@ import {
   MES_LABELS, RECEITA_POR_CONVERSAO, flattenContratos, receitaSeriesYear, mrrSeriesYear,
   leadsSeriesYear, adsSeriesYear, novosClientesSeriesYear, contratosAVencer,
   custoOperacionalSeriesYear, mrrClientCountSeriesYear, parseDateLocal, sum,
-  mrrAtual, tcvDoMes, clientesComContrato,
+  mrrAtual, tcvDoMes, clientesComContrato, cortarMesesFuturos,
 } from '@/features/financeiro/lib/financeiro.calc';
 
 const fmtInt = (v) => Math.round(Number(v) || 0).toLocaleString('pt-BR');
@@ -152,12 +152,15 @@ export default function FinanceiroPage() {
 
   const calc = useMemo(() => {
     const contratos = flattenContratos(clientes);
-    const receitaSeries = receitaSeriesYear(contratos, year, now);
-    const mrrSeries = mrrSeriesYear(contratos, year, now);
+    // No ano corrente, receita e custo são cortados no mês atual (não projetam
+    // meses futuros), para roiAno/margemAno compararem realizado x realizado.
+    const corta = (s) => cortarMesesFuturos(s, year, now);
+    const receitaSeries = corta(receitaSeriesYear(contratos, year, now));
+    const mrrSeries = corta(mrrSeriesYear(contratos, year, now));
     const leadsSeries = leadsSeriesYear(leads, year);
     const ads = adsSeriesYear(metrics, year);
     const novosSeries = novosClientesSeriesYear(clientes, year);
-    const custoOpSeries = custoOperacionalSeriesYear(custos, year, now);
+    const custoOpSeries = corta(custoOperacionalSeriesYear(custos, year, now));
 
     const custosSeries = ads.spend.map((s, i) => s + custoOpSeries[i]);
     // ROI Geral é baseado no CUSTO OPERACIONAL (aba Custos Operacionais), não no

@@ -179,6 +179,17 @@ export function toChartSeries(series) {
 
 export const sum = (arr) => (arr || []).reduce((a, b) => a + b, 0);
 
+// No ANO CORRENTE, zera os meses FUTUROS (índices > mês atual) de uma série, para
+// que receita e custo fiquem ambos "realizado até agora". Sem isso, o custo
+// recorrente projeta até dezembro enquanto a receita só conta o realizado, o que
+// distorcia ROI e Margem anuais (realizado vs projetado). Em anos fechados,
+// retorna a série cheia.
+export function cortarMesesFuturos(series, year, now = new Date()) {
+  if (year !== now.getFullYear()) return (series || []).slice();
+  const cm = now.getMonth();
+  return (series || []).map((v, i) => (i > cm ? 0 : v));
+}
+
 // Clientes novos (created_at) por mês do ano.
 export function novosClientesSeriesYear(clientes, year) {
   const arr = new Array(12).fill(0);
