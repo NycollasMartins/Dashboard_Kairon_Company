@@ -12,6 +12,7 @@ import VisaoGeralPage from '@/features/dashboard/pages/VisaoGeralPage';
 import CalendarioPageWrapper from '@/features/calendario/pages/CalendarioPageWrapper';
 import MetasPage from '@/features/metas/pages/MetasPage';
 import FinanceiroPage from '@/features/financeiro/pages/FinanceiroPage';
+import RelatoriosPage from '@/features/relatorios/pages/RelatoriosPage';
 import AdministrativoPage from '@/features/administrativo/pages/AdministrativoPage';
 import ClientesPageWrapper from '@/features/clientes/pages/ClientesPageWrapper';
 import MinhasTarefasPage from '@/features/tarefas/pages/MinhasTarefasPage';
@@ -56,6 +57,7 @@ function AppContent() {
               <Route path="metas" element={<MetasPage />} />
               <Route path="administrativo" element={<AdministrativoPage />} />
               <Route path="financeiro" element={<FinanceiroPage />} />
+              <Route path="relatorios" element={<RelatoriosPage />} />
               <Route path="clientes/*" element={<ClientesPageWrapper />} />
               <Route path="tarefas" element={<MinhasTarefasPage />} />
               <Route path="squads/*" element={<SquadsPageWrapper />} />
