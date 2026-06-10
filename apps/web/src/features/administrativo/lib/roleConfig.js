@@ -1,4 +1,4 @@
-import { Crown, Briefcase, Edit2, User, UserCheck, Star, Palette, HeartHandshake, Code2, Tv } from 'lucide-react';
+import { Crown, Briefcase, Edit2, User, UserCheck, Star, Palette, HeartHandshake, Code2, Tv, Video } from 'lucide-react';
 
 export const roleConfig = {
   admin: {
@@ -77,6 +77,13 @@ export const roleConfig = {
     color: 'text-slate-300',
     bg: 'bg-slate-500/10 border-slate-500/20',
     desc: 'Painel de Metas — somente leitura',
+  },
+  filmaker: {
+    label: 'Filmaker',
+    icon: Video,
+    color: 'text-indigo-300',
+    bg: 'bg-indigo-500/10 border-indigo-500/20',
+    desc: 'Produção de vídeo — Visão Geral, Calendário, Tarefas e Squads que participa',
   },
 };
 

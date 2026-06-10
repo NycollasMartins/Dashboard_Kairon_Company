@@ -35,6 +35,9 @@ function AppContent() {
   // Papel "TV": acesso somente à aba Metas (leitura). Qualquer outra rota
   // redireciona para /metas.
   const isTv = user?.role === 'tv';
+  // Papel "Filmaker": apenas Visão Geral, Calendário, Tarefas e Squads (os que
+  // participa). Demais rotas redirecionam para a Visão Geral.
+  const isFilmaker = user?.role === 'filmaker';
 
   return (
     <Routes>
@@ -49,6 +52,14 @@ function AppContent() {
             <>
               <Route path="metas" element={<MetasPage />} />
               <Route path="*" element={<Navigate to="/metas" replace />} />
+            </>
+          ) : isFilmaker ? (
+            <>
+              <Route index element={<VisaoGeralPage />} />
+              <Route path="calendario" element={<CalendarioPageWrapper />} />
+              <Route path="tarefas" element={<MinhasTarefasPage />} />
+              <Route path="squads/*" element={<SquadsPageWrapper />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </>
           ) : (
             <>
