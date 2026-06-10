@@ -63,10 +63,10 @@ function KpiCard({ icon: Icon, label, value, sub, accent = 'red', onClick }) {
   );
 }
 
-function MiniKpi({ icon: Icon, label, value, accent = 'red' }) {
+function MiniKpi({ icon: Icon, label, value, accent = 'red', hint }) {
   const a = ACCENTS[accent] ?? ACCENTS.red;
   return (
-    <div className="glass-card rounded-2xl border border-white/5 p-4">
+    <div className={`glass-card rounded-2xl border border-white/5 p-4 ${hint ? 'cursor-help' : ''}`} title={hint || undefined}>
       <div className="flex items-center gap-3">
         <div className={`w-10 h-10 rounded-xl ${a.bg} flex items-center justify-center shrink-0`}>
           <Icon className={`w-4 h-4 ${a.text}`} />
@@ -371,7 +371,7 @@ export default function FinanceiroPage() {
         <MiniKpi icon={PiggyBank} label={isCurrentYear ? 'Margem do mês (receita − custos)' : `Margem ${year} (receita − custos)`} value={formatBRL(isCurrentYear ? calc.margemMes : calc.margemAno)} accent={(isCurrentYear ? calc.margemMes : calc.margemAno) >= 0 ? 'emerald' : 'red'} />
         <MiniKpi icon={Receipt} label={isCurrentYear ? 'Custo operacional (mês)' : `Custo operacional (${year})`} value={formatBRL(isCurrentYear ? calc.custoOpSeries[cm] : calc.custoOpAno)} accent="purple" />
         <MiniKpi icon={BadgeDollarSign} label={isCurrentYear ? 'Gasto em ads (mês)' : `Gasto em ads (${year})`} value={formatBRL(isCurrentYear ? calc.ads.spend[cm] : calc.gastoAno)} accent="red" />
-        <MiniKpi icon={TrendingUp} label={isCurrentYear ? 'ROAS de mídia (mês)' : `ROAS de mídia (${year})`} value={`${(isCurrentYear ? calc.roasMes : calc.roasAno).toFixed(1).replace('.', ',')}×`} accent="emerald" />
+        <MiniKpi icon={TrendingUp} label={isCurrentYear ? 'ROAS estimado (mês)' : `ROAS estimado (${year})`} value={`${(isCurrentYear ? calc.roasMes : calc.roasAno).toFixed(1).replace('.', ',')}×`} accent="emerald" hint={`Estimado: R$ ${RECEITA_POR_CONVERSAO}/conversão. Proxy de ROAS — ainda sem receita real atribuída a mídia.`} />
         <MiniKpi icon={UserPlus} label="Ticket médio (MRR/cliente)" value={formatBRL(calc.ticketMedio)} accent="blue" />
       </div>
 

@@ -4,11 +4,13 @@
 // ====================================================================
 
 import { mrrDoCliente, getContratoAtivo } from '@/features/clientes/api/contratos.api';
+import { RECEITA_POR_CONVERSAO } from '@/lib/adsConfig';
 
 export const MES_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-// Valor estimado por conversão de anúncio (mesmo critério já usado em Campanhas).
-export const RECEITA_POR_CONVERSAO = 80;
+// Re-export do valor estimado por conversão (fonte única em @/lib/adsConfig),
+// para os imports existentes (FinanceiroPage, relatórios) seguirem funcionando.
+export { RECEITA_POR_CONVERSAO };
 
 const num = (v) => {
   const n = Number(v);
