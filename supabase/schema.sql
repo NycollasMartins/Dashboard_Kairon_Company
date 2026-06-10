@@ -526,6 +526,11 @@ ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_status_check;
 ALTER TABLE public.leads ADD CONSTRAINT leads_status_check
   CHECK (status IN ('pendente', 'em_atendimento', 'follow_up', 'reuniao_marcada', 'perdido'));
 
+-- Origens válidas (inclui 'inbound', usado pelo webhook da LP e pelo modal Nova Lead).
+ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_origem_check;
+ALTER TABLE public.leads ADD CONSTRAINT leads_origem_check
+  CHECK (origem IN ('inbound', 'outbound', 'landing_page', 'manual', 'indicacao', 'google_ads', 'instagram', 'facebook', 'outro'));
+
 CREATE INDEX IF NOT EXISTS idx_leads_status      ON public.leads (status);
 CREATE INDEX IF NOT EXISTS idx_leads_responsavel ON public.leads (responsavel_id);
 
@@ -664,7 +669,7 @@ CREATE OR REPLACE FUNCTION public.create_lead_from_webhook(
   p_telefone           text DEFAULT NULL,
   p_momento_empresa    text DEFAULT NULL,
   p_objetivo_principal text DEFAULT NULL,
-  p_origem             text DEFAULT 'landing_page',
+  p_origem             text DEFAULT 'inbound',
   p_faturamento_mensal text DEFAULT NULL
 )
 RETURNS uuid
@@ -690,7 +695,7 @@ BEGIN
     NULLIF(trim(coalesce(p_momento_empresa, '')), ''),
     NULLIF(trim(coalesce(p_objetivo_principal, '')), ''),
     NULLIF(trim(coalesce(p_faturamento_mensal, '')), ''),
-    coalesce(p_origem, 'landing_page'),
+    coalesce(p_origem, 'inbound'),
     'pendente'
   )
   RETURNING id INTO new_id;

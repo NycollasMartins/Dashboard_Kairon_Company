@@ -28,6 +28,7 @@ const ALLOWED_ROLES = [
   'head',
   'dev',
   'tv',
+  'Filmmaker',
 ];
 
 Deno.serve(async (req) => {

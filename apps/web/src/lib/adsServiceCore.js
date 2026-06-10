@@ -1,4 +1,5 @@
 import { supabase } from '@/infrastructure/supabase/client';
+import { RECEITA_POR_CONVERSAO } from '@/lib/adsConfig';
 
 // ====================================================================
 // Núcleo compartilhado dos serviços de anúncios (Meta Ads / Google Ads).
@@ -54,7 +55,7 @@ function buildMockMetrics(seed, days = 14) {
     const ctr = impressions > 0 ? Math.round((clicks / impressions) * 10000) / 100 : 0;
     const cpc = clicks > 0 ? Math.round((spend / clicks) * 100) / 100 : 0;
     const cpa = conversions > 0 ? Math.round((spend / conversions) * 100) / 100 : 0;
-    const roas = spend > 0 ? Math.round(((conversions * 80) / spend) * 100) / 100 : 0;
+    const roas = spend > 0 ? Math.round(((conversions * RECEITA_POR_CONVERSAO) / spend) * 100) / 100 : 0;
     rows.push({
       date: d.toISOString().slice(0, 10),
       spend,

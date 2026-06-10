@@ -4,11 +4,13 @@
 // ====================================================================
 
 import { mrrDoCliente, getContratoAtivo } from '@/features/clientes/api/contratos.api';
+import { RECEITA_POR_CONVERSAO } from '@/lib/adsConfig';
 
 export const MES_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-// Valor estimado por conversão de anúncio (mesmo critério já usado em Campanhas).
-export const RECEITA_POR_CONVERSAO = 80;
+// Re-export do valor estimado por conversão (fonte única em @/lib/adsConfig),
+// para os imports existentes (FinanceiroPage, relatórios) seguirem funcionando.
+export { RECEITA_POR_CONVERSAO };
 
 const num = (v) => {
   const n = Number(v);
@@ -88,6 +90,8 @@ export function receitaSeriesYear(contratos, year, now = new Date()) {
   const arr = mrrSeriesYear(contratos, year, now).slice();
   for (const ct of contratos) {
     if (ct.tipo !== 'TCV') continue;
+    // TCV cancelado não é receita — não entra na série (corrige receita inflada).
+    if (ct.status === 'cancelado') continue;
     const d = parseDateLocal(ct.data_inicio);
     if (!d || d.getFullYear() !== year) continue;
     const val = ct.status === 'ativo' ? num(ct.valor) : num(ct.total_recebido || ct.valor);
@@ -147,6 +151,9 @@ export function tcvDoMes(clientes, year, month) {
     if (c.status === 'churn') continue;
     for (const ct of c.contratos || []) {
       if (ct.tipo !== 'TCV') continue;
+      // Só TCV ATIVO conta como receita do mês. TCV cancelado/encerrado não entra
+      // (era o bug: contratos TCV removidos seguiam somando na Receita do mês).
+      if (ct.status !== 'ativo') continue;
       const d = parseDateLocal(ct.data_inicio);
       if (!d || d.getFullYear() !== year || d.getMonth() !== month) continue;
       total += num(ct.valor);
@@ -171,6 +178,17 @@ export function toChartSeries(series) {
 }
 
 export const sum = (arr) => (arr || []).reduce((a, b) => a + b, 0);
+
+// No ANO CORRENTE, zera os meses FUTUROS (índices > mês atual) de uma série, para
+// que receita e custo fiquem ambos "realizado até agora". Sem isso, o custo
+// recorrente projeta até dezembro enquanto a receita só conta o realizado, o que
+// distorcia ROI e Margem anuais (realizado vs projetado). Em anos fechados,
+// retorna a série cheia.
+export function cortarMesesFuturos(series, year, now = new Date()) {
+  if (year !== now.getFullYear()) return (series || []).slice();
+  const cm = now.getMonth();
+  return (series || []).map((v, i) => (i > cm ? 0 : v));
+}
 
 // Clientes novos (created_at) por mês do ano.
 export function novosClientesSeriesYear(clientes, year) {

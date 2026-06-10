@@ -91,6 +91,7 @@ export function NotificationsProvider({ children }) {
   const markRead = useCallback(async (id) => { await notificationsApi.markRead(id); invalidate(); }, [invalidate]);
   const markTypeRead = useCallback(async (type) => { await notificationsApi.markTypeRead(type); invalidate(); }, [invalidate]);
   const remove = useCallback(async (id) => { await notificationsApi.remove(id); invalidate(); }, [invalidate]);
+  const removeAll = useCallback(async () => { await notificationsApi.removeAll(); invalidate(); }, [invalidate]);
 
   const { unreadCount, leadUnreadCount } = useMemo(() => {
     let unread = 0;
@@ -112,6 +113,7 @@ export function NotificationsProvider({ children }) {
     markRead,
     markTypeRead,
     remove,
+    removeAll,
     requestPermission: requestNotificationPermission,
   };
 
@@ -133,7 +135,7 @@ export function useNotifications() {
   const ctx = useContext(NotificationsContext);
   return ctx ?? {
     notifications: [], unreadCount: 0, leadUnreadCount: 0,
-    markAllRead: () => {}, markRead: () => {}, markTypeRead: () => {}, remove: () => {},
+    markAllRead: () => {}, markRead: () => {}, markTypeRead: () => {}, remove: () => {}, removeAll: () => {},
     requestPermission: () => {},
   };
 }

@@ -3,18 +3,18 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Shield, Briefcase, Users, CheckSquare,
-  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar, DollarSign, Goal,
+  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar, DollarSign, Goal, FileText,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useNotifications } from '@/features/notifications/NotificationsContext';
 
-const getNavItems = ({ isAdmin, isTv, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas }) => {
+const getNavItems = ({ isAdmin, isTv, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas, podeVerMetas }) => {
   // Papel "TV": acesso somente à aba Metas.
   if (isTv) return [{ to: '/metas', label: 'Metas', icon: Goal }];
   return [
   { to: '/', label: 'Visão Geral', icon: LayoutDashboard, end: true },
   { to: '/calendario', label: 'Calendário', icon: Calendar },
-  { to: '/metas', label: 'Metas', icon: Goal },
+  ...(podeVerMetas ? [{ to: '/metas', label: 'Metas', icon: Goal }] : []),
   ...(podeUsarCrm
     ? [{
         label: 'Comercial', icon: Target,
@@ -40,6 +40,7 @@ const getNavItems = ({ isAdmin, isTv, podeVerTarefas, podeUsarClientesSquads, po
         children: [
           { to: '/administrativo', label: 'Membros', icon: Shield },
           { to: '/financeiro', label: 'Financeiro', icon: DollarSign },
+          { to: '/relatorios', label: 'Relatórios', icon: FileText },
         ],
       }]
     : []),
@@ -57,13 +58,14 @@ export default function Sidebar({
   podeUsarCrm = false,
   podeUsarSquads = false,
   podeVerCampanhas = false,
+  podeVerMetas = false,
   mobileOpen,
   setMobileOpen,
 }) {
   const [openGroups, setOpenGroups] = useState({ Comercial: true, Operacional: true });
   const toggleGroup = (label) =>
     setOpenGroups((s) => ({ ...s, [label]: !s[label] }));
-  const navItems = getNavItems({ isAdmin, isTv, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas });
+  const navItems = getNavItems({ isAdmin, isTv, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas, podeVerMetas });
   const { logout } = useAuth();
   const { leadUnreadCount } = useNotifications();
   const navigate = useNavigate();

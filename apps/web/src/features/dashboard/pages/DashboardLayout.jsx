@@ -18,11 +18,14 @@ export default function DashboardLayout() {
   const isCs = role === 'cs';
   const isDev = role === 'dev';
   const isTv = role === 'tv'; // TV: somente a aba Metas, apenas leitura
-  const podeVerTarefas = !isTv && ['admin', 'social media', 'editor', 'designer', 'head', 'cs', 'dev'].includes(role);
+  // Filmmaker: Visão Geral, Calendário, Tarefas e Squads (só os que participa).
+  const isFilmmaker = role === 'Filmmaker';
+  const podeVerTarefas = !isTv && ['admin', 'social media', 'editor', 'designer', 'head', 'cs', 'dev', 'Filmmaker'].includes(role);
   const podeUsarClientesSquads = !isTv && ['admin', 'social media', 'head', 'cs', 'dev'].includes(role);
   const podeUsarCrm = !isTv && ['admin', 'closer', 'sdr', 'bdr', 'dev'].includes(role);
-  const podeUsarSquads = !isTv && (isAdmin || isHead || isCs || isDev);
+  const podeUsarSquads = !isTv && (isAdmin || isHead || isCs || isDev || isFilmmaker);
   const podeVerCampanhas = isAdmin; // Campanhas: somente admin
+  const podeVerMetas = !isTv && !isFilmmaker; // Metas: todos menos Filmmaker (TV tem rota própria)
 
   return (
     <div className="min-h-screen bg-background font-inter">
@@ -34,6 +37,7 @@ export default function DashboardLayout() {
         podeUsarCrm={podeUsarCrm}
         podeUsarSquads={podeUsarSquads}
         podeVerCampanhas={podeVerCampanhas}
+        podeVerMetas={podeVerMetas}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
       />

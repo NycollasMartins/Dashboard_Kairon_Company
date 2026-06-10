@@ -12,6 +12,7 @@ import VisaoGeralPage from '@/features/dashboard/pages/VisaoGeralPage';
 import CalendarioPageWrapper from '@/features/calendario/pages/CalendarioPageWrapper';
 import MetasPage from '@/features/metas/pages/MetasPage';
 import FinanceiroPage from '@/features/financeiro/pages/FinanceiroPage';
+import RelatoriosPage from '@/features/relatorios/pages/RelatoriosPage';
 import AdministrativoPage from '@/features/administrativo/pages/AdministrativoPage';
 import ClientesPageWrapper from '@/features/clientes/pages/ClientesPageWrapper';
 import MinhasTarefasPage from '@/features/tarefas/pages/MinhasTarefasPage';
@@ -34,6 +35,9 @@ function AppContent() {
   // Papel "TV": acesso somente à aba Metas (leitura). Qualquer outra rota
   // redireciona para /metas.
   const isTv = user?.role === 'tv';
+  // Papel "Filmmaker": apenas Visão Geral, Calendário, Tarefas e Squads (os que
+  // participa). Demais rotas redirecionam para a Visão Geral.
+  const isFilmmaker = user?.role === 'Filmmaker';
 
   return (
     <Routes>
@@ -49,6 +53,14 @@ function AppContent() {
               <Route path="metas" element={<MetasPage />} />
               <Route path="*" element={<Navigate to="/metas" replace />} />
             </>
+          ) : isFilmmaker ? (
+            <>
+              <Route index element={<VisaoGeralPage />} />
+              <Route path="calendario" element={<CalendarioPageWrapper />} />
+              <Route path="tarefas" element={<MinhasTarefasPage />} />
+              <Route path="squads/*" element={<SquadsPageWrapper />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </>
           ) : (
             <>
               <Route index element={<VisaoGeralPage />} />
@@ -56,6 +68,7 @@ function AppContent() {
               <Route path="metas" element={<MetasPage />} />
               <Route path="administrativo" element={<AdministrativoPage />} />
               <Route path="financeiro" element={<FinanceiroPage />} />
+              <Route path="relatorios" element={<RelatoriosPage />} />
               <Route path="clientes/*" element={<ClientesPageWrapper />} />
               <Route path="tarefas" element={<MinhasTarefasPage />} />
               <Route path="squads/*" element={<SquadsPageWrapper />} />

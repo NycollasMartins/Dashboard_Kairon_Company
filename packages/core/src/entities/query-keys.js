@@ -56,5 +56,6 @@ export const queryKeys = {
     vendas: (competencia) => ['metas', 'vendas', competencia],
     closers: ['metas', 'closers'],
     mrrBase: ['metas', 'mrr-base'],
+    tcvBase: ['metas', 'tcv-mes-base'],
   },
 };
