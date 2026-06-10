@@ -13,7 +13,7 @@ import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { mrrDoCliente } from '@/features/clientes/api/contratos.api';
 import { queryKeys } from '@/entities/query-keys';
 
-// `apenasMeus`: modo leitura do filmaker — só os squads que ele participa,
+// `apenasMeus`: modo leitura do Filmmaker — só os squads que ele participa,
 // sem gestão e sem dados financeiros (MRR/clientes).
 export default function SquadsPage({ onVerSquad, apenasMeus = false }) {
   const [showForm, setShowForm] = useState(false);
@@ -34,7 +34,7 @@ export default function SquadsPage({ onVerSquad, apenasMeus = false }) {
     return ordenados.filter((s) => (s.squad_membros || []).some((m) => m.profile_id === user?.id));
   }, [squadsRaw, apenasMeus, user?.id]);
 
-  // Dados financeiros/usuários só no modo gestão (filmaker não vê MRR/clientes).
+  // Dados financeiros/usuários só no modo gestão (Filmmaker não vê MRR/clientes).
   const { data: clientes = [] } = useQuery({
     queryKey: queryKeys.clientes.all,
     queryFn: clientesApi.list,

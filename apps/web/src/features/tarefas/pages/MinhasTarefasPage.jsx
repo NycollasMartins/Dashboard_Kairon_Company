@@ -721,7 +721,7 @@ function applySort(list, sort) {
   }
 }
 
-const TAREFAS_ROLES = ['admin', 'social media', 'editor', 'designer', 'head', 'cs', 'filmaker'];
+const TAREFAS_ROLES = ['admin', 'social media', 'editor', 'designer', 'head', 'cs', 'Filmmaker'];
 
 export default function MinhasTarefasPage() {
   const { user } = useAuth();

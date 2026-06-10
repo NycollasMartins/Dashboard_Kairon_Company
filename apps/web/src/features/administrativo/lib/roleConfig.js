@@ -78,8 +78,8 @@ export const roleConfig = {
     bg: 'bg-slate-500/10 border-slate-500/20',
     desc: 'Painel de Metas — somente leitura',
   },
-  filmaker: {
-    label: 'Filmaker',
+  Filmmaker: {
+    label: 'Filmmaker',
     icon: Video,
     color: 'text-indigo-300',
     bg: 'bg-indigo-500/10 border-indigo-500/20',

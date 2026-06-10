@@ -6,7 +6,7 @@ import SquadDetalhePage from '@/features/squads/pages/SquadDetalhePage';
 
 function SquadsListaRoute({ apenasMeus }) {
   const navigate = useNavigate();
-  // Filmaker vê só os squads que participa, em leitura (sem abrir o detalhe).
+  // Filmmaker vê só os squads que participa, em leitura (sem abrir o detalhe).
   return <SquadsPage apenasMeus={apenasMeus} onVerSquad={apenasMeus ? undefined : (id) => navigate(`/squads/${id}`)} />;
 }
 
@@ -25,10 +25,10 @@ function SquadDetalheRoute() {
 export default function SquadsPageWrapper() {
   const { user } = useAuth();
   const role = user?.role;
-  const isFilmaker = role === 'filmaker';
+  const isFilmmaker = role === 'Filmmaker';
 
-  // Admin/head/dev gerenciam; filmaker tem acesso de leitura só aos seus squads.
-  if (!['admin', 'head', 'dev', 'filmaker'].includes(role)) {
+  // Admin/head/dev gerenciam; Filmmaker tem acesso de leitura só aos seus squads.
+  if (!['admin', 'head', 'dev', 'Filmmaker'].includes(role)) {
     return (
       <RestrictedAccessCard
         description="Apenas usuários com perfil admin, head ou dev podem gerenciar Squads."
@@ -38,9 +38,9 @@ export default function SquadsPageWrapper() {
 
   return (
     <Routes>
-      <Route index element={<SquadsListaRoute apenasMeus={isFilmaker} />} />
-      {/* Filmaker não acessa o detalhe (que tem dados financeiros/clientes). */}
-      <Route path=":squadId" element={isFilmaker ? <Navigate to="/squads" replace /> : <SquadDetalheRoute />} />
+      <Route index element={<SquadsListaRoute apenasMeus={isFilmmaker} />} />
+      {/* Filmmaker não acessa o detalhe (que tem dados financeiros/clientes). */}
+      <Route path=":squadId" element={isFilmmaker ? <Navigate to="/squads" replace /> : <SquadDetalheRoute />} />
     </Routes>
   );
 }

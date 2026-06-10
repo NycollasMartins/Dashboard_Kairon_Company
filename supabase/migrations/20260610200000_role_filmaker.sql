@@ -1,7 +1,7 @@
 -- ==================================================================
--- Adiciona o papel 'filmaker' ao CHECK da coluna profiles.role.
+-- Adiciona o papel 'Filmmaker' ao CHECK da coluna profiles.role.
 --
--- Filmaker = produção de vídeo. Acesso (controlado no frontend): Visão Geral,
+-- Filmmaker = produção de vídeo. Acesso (controlado no frontend): Visão Geral,
 -- Calendário, Tarefas (dos squads que participa) e Squads (somente leitura,
 -- só os que participa). A RLS existente já comporta o papel: não é crm-only
 -- nem own-tasks-only, então cai no acesso por squad (private.get_user_squad_ids).
@@ -9,4 +9,4 @@
 -- ==================================================================
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
-  CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr', 'head', 'editor', 'dev', 'tv', 'filmaker'));
+  CHECK (role IN ('admin', 'social media', 'closer', 'sdr', 'bdr', 'head', 'editor', 'dev', 'tv', 'Filmmaker'));
