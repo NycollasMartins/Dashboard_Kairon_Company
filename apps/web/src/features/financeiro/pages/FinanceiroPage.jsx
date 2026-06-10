@@ -377,7 +377,7 @@ export default function FinanceiroPage() {
 
       {/* KPIs secundários (mês para ano atual, ano para anos fechados) */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <MiniKpi icon={PiggyBank} label={isCurrentYear ? 'Margem do mês (receita − custos)' : `Margem ${year} (receita − custos)`} value={formatBRL(isCurrentYear ? calc.margemMes : calc.margemAno)} accent={(isCurrentYear ? calc.margemMes : calc.margemAno) >= 0 ? 'emerald' : 'red'} />
+        <MiniKpi icon={PiggyBank} label={isCurrentYear ? 'Margem do mês (receita − operacional − ads)' : `Margem ${year} (receita − operacional − ads)`} value={formatBRL(isCurrentYear ? calc.margemMes : calc.margemAno)} accent={(isCurrentYear ? calc.margemMes : calc.margemAno) >= 0 ? 'emerald' : 'red'} />
         <MiniKpi icon={Receipt} label={isCurrentYear ? 'Custo operacional (mês)' : `Custo operacional (${year})`} value={formatBRL(isCurrentYear ? calc.custoOpSeries[cm] : calc.custoOpAno)} accent="purple" />
         <MiniKpi icon={BadgeDollarSign} label={isCurrentYear ? 'Gasto em ads (mês)' : `Gasto em ads (${year})`} value={formatBRL(isCurrentYear ? calc.ads.spend[cm] : calc.gastoAno)} accent="red" badge={adsIsMock ? 'simulado' : undefined} hint={adsIsMock ? 'Dados de mídia simulados (modo mock).' : undefined} />
         <MiniKpi icon={TrendingUp} label={isCurrentYear ? 'ROAS estimado (mês)' : `ROAS estimado (${year})`} value={`${(isCurrentYear ? calc.roasMes : calc.roasAno).toFixed(1).replace('.', ',')}×`} accent="emerald" badge={adsIsMock ? 'simulado' : undefined} hint={`${adsIsMock ? 'Dados de mídia simulados (modo mock). ' : ''}Estimado: R$ ${RECEITA_POR_CONVERSAO}/conversão — proxy de ROAS, ainda sem receita real atribuída a mídia.`} />
