@@ -381,7 +381,7 @@ export default function FinanceiroPage() {
         <MiniKpi icon={Receipt} label={isCurrentYear ? 'Custo operacional (mês)' : `Custo operacional (${year})`} value={formatBRL(isCurrentYear ? calc.custoOpSeries[cm] : calc.custoOpAno)} accent="purple" />
         <MiniKpi icon={BadgeDollarSign} label={isCurrentYear ? 'Gasto em ads (mês)' : `Gasto em ads (${year})`} value={formatBRL(isCurrentYear ? calc.ads.spend[cm] : calc.gastoAno)} accent="red" badge={adsIsMock ? 'simulado' : undefined} hint={adsIsMock ? 'Dados de mídia simulados (modo mock).' : undefined} />
         <MiniKpi icon={TrendingUp} label={isCurrentYear ? 'ROAS estimado (mês)' : `ROAS estimado (${year})`} value={`${(isCurrentYear ? calc.roasMes : calc.roasAno).toFixed(1).replace('.', ',')}×`} accent="emerald" badge={adsIsMock ? 'simulado' : undefined} hint={`${adsIsMock ? 'Dados de mídia simulados (modo mock). ' : ''}Estimado: R$ ${RECEITA_POR_CONVERSAO}/conversão — proxy de ROAS, ainda sem receita real atribuída a mídia.`} />
-        <MiniKpi icon={UserPlus} label="Ticket médio (MRR/cliente)" value={formatBRL(calc.ticketMedio)} accent="blue" />
+        <MiniKpi icon={UserPlus} label="Ticket médio (MRR/cliente)" value={formatBRL(calc.ticketMedio)} accent="blue" hint="Ticket médio = MRR vigente do mês ÷ clientes com MRR vigente no mês. Não usa o MRR snapshot nem o total de clientes com contrato (que inclui TCV)." />
       </div>
 
       {/* Hero: receita mês a mês + composição/gasto */}
