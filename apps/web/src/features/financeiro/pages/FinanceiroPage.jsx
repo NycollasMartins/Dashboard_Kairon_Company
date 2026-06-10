@@ -232,8 +232,19 @@ export default function FinanceiroPage() {
 
     const margemAno = receitaAno - custosAno;
 
+    // Séries para os GRÁFICOS: no ano corrente, o mês atual usa o SNAPSHOT
+    // (mrrAtual / receita snapshot) — mesma fonte do card — para que card e ponto
+    // do mês do gráfico batam (ITEM 4). As séries acima (realizado/vigente) seguem
+    // alimentando ROI, Margem e os totais do ano (ITEM 3), sem mistura.
+    const receitaSeriesChart = receitaSeries.slice();
+    const mrrSeriesChart = mrrSeries.slice();
+    if (isCY) {
+      receitaSeriesChart[cm] = receitaClientes;
+      mrrSeriesChart[cm] = mrrClientes;
+    }
+
     return {
-      receitaSeries, mrrSeries, leadsSeries, ads, novosSeries, custoOpSeries, roiSeries,
+      receitaSeries, mrrSeries, receitaSeriesChart, mrrSeriesChart, leadsSeries, ads, novosSeries, custoOpSeries, roiSeries,
       receitaAno, leadsAno, gastoAno, custoOpAno, custosAno, roiAno, margemAno,
       mrrMes, mrrAno, pontualAno, roasMes, roasAno,
       mrrClientes, tcvMes, receitaClientes, nClientesContrato, gastoMes, custoOpMes, roiMesClientes,
@@ -262,7 +273,7 @@ export default function FinanceiroPage() {
       label: isCurrentYear ? 'Receita do mês' : `Receita · ${year}`,
       value: isCurrentYear ? formatBRL(calc.receitaClientes) : formatBRL(calc.receitaAno),
       sub: isCurrentYear ? `MRR ${formatBRL(calc.mrrClientes)} + TCV do mês ${formatBRL(calc.tcvMes)}` : `Média/mês: ${formatBRL(calc.receitaAno / 12)}`,
-      modal: { title: 'Receita', icon: DollarSign, accent: 'emerald', format: formatBRL, series: calc.receitaSeries, chartType: 'area', annualLabel: `Receita no ano (${year})`, annualValue: calc.receitaAno },
+      modal: { title: 'Receita', icon: DollarSign, accent: 'emerald', format: formatBRL, series: calc.receitaSeriesChart, chartType: 'area', annualLabel: `Receita no ano (${year})`, annualValue: calc.receitaAno },
     },
     {
       key: 'leads', icon: Users, accent: 'blue',
@@ -283,11 +294,11 @@ export default function FinanceiroPage() {
       label: isCurrentYear ? 'MRR do mês' : `MRR total · ${year}`,
       value: isCurrentYear ? formatBRL(calc.mrrClientes) : formatBRL(calc.mrrAno),
       sub: isCurrentYear ? `${calc.nClientesContrato} clientes com contrato` : `Média/mês: ${formatBRL(calc.mrrAno / 12)}`,
-      modal: { title: 'MRR', icon: Wallet, accent: 'purple', format: formatBRL, series: calc.mrrSeries, chartType: 'area', annualLabel: `MRR total no ano (${year})`, annualValue: calc.mrrAno, subtitle: 'MRR recorrente mês a mês' },
+      modal: { title: 'MRR', icon: Wallet, accent: 'purple', format: formatBRL, series: calc.mrrSeriesChart, chartType: 'area', annualLabel: `MRR total no ano (${year})`, annualValue: calc.mrrAno, subtitle: 'MRR recorrente mês a mês' },
     },
   ];
 
-  const receitaData = calc.receitaSeries.map((valor, i) => ({ mes: MES_LABELS[i], valor }));
+  const receitaData = calc.receitaSeriesChart.map((valor, i) => ({ mes: MES_LABELS[i], valor }));
   const receitaTipoTotal = calc.mrrAno + calc.pontualAno || 1;
   const gastoTotalPlat = calc.gastoPlat.meta + calc.gastoPlat.google || 1;
 
