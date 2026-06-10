@@ -33,12 +33,15 @@ export default function MetasPage() {
   const { data: metas = [] } = useQuery({ queryKey: queryKeys.metas.all, queryFn: metasApi.listMetas });
   const { data: vendas = [] } = useQuery({ queryKey: queryKeys.metas.vendas(competencia), queryFn: () => metasApi.listVendasDoMes(competencia) });
   const { data: closers = [] } = useQuery({ queryKey: queryKeys.metas.closers, queryFn: metasApi.listClosers });
+  // Receita recorrente já garantida do mês (MRR ativo = "MRR do mês" do Financeiro).
+  const { data: mrrBase = 0 } = useQuery({ queryKey: queryKeys.metas.mrrBase, queryFn: metasApi.mrrBase });
 
   const refreshing = useIsFetching({ predicate: (q) => q.queryKey?.[0] === 'metas' }) > 0;
   const refresh = () => {
     qc.invalidateQueries({ queryKey: queryKeys.metas.all });
     qc.invalidateQueries({ queryKey: queryKeys.metas.vendas(competencia) });
     qc.invalidateQueries({ queryKey: queryKeys.metas.closers });
+    qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase });
   };
 
   // Tempo real: vendas e metas atualizam ao vivo. Como criar contrato gera uma
@@ -46,8 +49,13 @@ export default function MetasPage() {
   useEffect(() => {
     const channel = supabase
       .channel('metas-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'vendas' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.vendas(competencia) }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vendas' }, () => {
+        qc.invalidateQueries({ queryKey: queryKeys.metas.vendas(competencia) });
+        qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase });
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'metas' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.all }))
+      // MRR base muda quando um contrato é criado/cancelado/expira (sem mexer em vendas).
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, () => qc.invalidateQueries({ queryKey: queryKeys.metas.mrrBase }))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [qc, competencia]);
@@ -58,15 +66,20 @@ export default function MetasPage() {
     [metas, competencia],
   );
   const metaGlobalValor = Number(metaGlobal?.valor_meta) || 0;
+  const mrrBaseValor = Number(mrrBase) || 0;
   // Vendas do mês com closer (entram no ranking + lista) e sem closer (só meta).
   const vendasComCloser = useMemo(() => vendas.filter((v) => v.closer_id), [vendas]);
-  const totalCloser = useMemo(() => vendasComCloser.reduce((s, v) => s + (Number(v.valor) || 0), 0), [vendasComCloser]);
   const totalDiretas = useMemo(
     () => vendas.filter((v) => !v.closer_id).reduce((s, v) => s + (Number(v.valor) || 0), 0),
     [vendas],
   );
-  // Feito da meta = todas as vendas do mês (closers + sem responsável).
-  const feito = totalCloser + totalDiretas;
+  // Vendas que NÃO duplicam a base de MRR: um contrato MRR já entra no MRR base,
+  // então sua venda não soma de novo. O que soma por cima é o novo pontual (TCV),
+  // vendas avulsas e MRR manual (sem contrato).
+  const vendasNovas = useMemo(() => vendas.filter((v) => !(v.tipo === 'MRR' && v.contrato_id)), [vendas]);
+  const totalNovas = useMemo(() => vendasNovas.reduce((s, v) => s + (Number(v.valor) || 0), 0), [vendasNovas]);
+  // Feito da meta = receita recorrente já garantida (MRR ativo) + novas vendas do mês.
+  const feito = mrrBaseValor + totalNovas;
   const pct = progressoPct(feito, metaGlobalValor);
   const pctClamp = Math.min(100, Math.max(0, pct));
   const falta = faltaParaMeta(feito, metaGlobalValor);
@@ -77,8 +90,8 @@ export default function MetasPage() {
   // Supermeta = tudo que passa da meta. Cada closer que vende depois de bater
   // a meta ganha comissão dobrada (2×).
   const { porCloser: superPorCloser } = useMemo(
-    () => calcularSupermeta(vendas, metaGlobalValor),
-    [vendas, metaGlobalValor],
+    () => calcularSupermeta(vendasNovas, metaGlobalValor, mrrBaseValor),
+    [vendasNovas, metaGlobalValor, mrrBaseValor],
   );
   const superDireto = superPorCloser.get('__direto__') || 0;
 
@@ -247,7 +260,7 @@ export default function MetasPage() {
               <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Feito da meta</p>
                 <p className="text-2xl font-semibold text-white tabular-nums mt-1">{formatBRL(feito)}</p>
-                <p className="text-[10px] text-muted-foreground mt-1">Closers {formatBRL(totalCloser)} + Sem resp. {formatBRL(totalDiretas)}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Recorrente (MRR) {formatBRL(mrrBaseValor)} + Novas vendas {formatBRL(totalNovas)}</p>
               </div>
               <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
                 <p className="text-[11px] text-muted-foreground">Falta da meta</p>
