@@ -64,7 +64,7 @@ function KpiCard({ icon: Icon, label, value, sub, accent = 'red', onClick }) {
   );
 }
 
-function MiniKpi({ icon: Icon, label, value, accent = 'red', hint, badge }) {
+function MiniKpi({ icon: Icon, label, value, accent = 'red', hint = '', badge = '' }) {
   const a = ACCENTS[accent] ?? ACCENTS.red;
   return (
     <div className={`glass-card rounded-2xl border border-white/5 p-4 ${hint ? 'cursor-help' : ''}`} title={hint || undefined}>
