@@ -3,10 +3,11 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Shield, Briefcase, Users, CheckSquare,
-  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar, DollarSign, Goal, FileText,
+  ChevronDown, X, Layers, LogOut, Target, TrendingUp, Settings, Megaphone, Calendar, DollarSign, Goal, FileText, Smartphone,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useNotifications } from '@/features/notifications/NotificationsContext';
+import { APP_DOWNLOAD_URL } from '@/shared/config/app';
 
 const getNavItems = ({ isAdmin, isTv, podeVerTarefas, podeUsarClientesSquads, podeUsarCrm, podeUsarSquads, podeVerCampanhas, podeVerMetas }) => {
   // Papel "TV": acesso somente à aba Metas.
@@ -183,6 +184,16 @@ export default function Sidebar({
       </nav>
 
       <div className="mt-4 space-y-2">
+        <a
+          href={APP_DOWNLOAD_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => setMobileOpen(false)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-white hover:bg-white/5 transition-colors border border-transparent"
+        >
+          <Smartphone className="w-4 h-4 shrink-0" />
+          <span className="font-medium">Baixar app</span>
+        </a>
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-white hover:bg-white/5 transition-colors border border-transparent"
