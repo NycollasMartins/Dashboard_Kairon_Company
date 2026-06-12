@@ -22,6 +22,8 @@ const ALLOWED_ROLES = [
   'admin',
   'social media',
   'editor',
+  'designer',
+  'cs',
   'closer',
   'sdr',
   'bdr',
