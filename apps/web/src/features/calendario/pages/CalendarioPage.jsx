@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { addMonths, subMonths, format, isSameMonth, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  CalendarDays, ChevronLeft, ChevronRight, Plus, RefreshCw, Link2, CheckCircle2,
+  CalendarDays, ChevronLeft, ChevronRight, Plus, RefreshCw, Link2, Unlink, CheckCircle2,
   CalendarClock, CalendarRange, Users as UsersIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -137,6 +137,16 @@ export default function CalendarioPage() {
       toast({ variant: 'destructive', title: 'Falha ao sincronizar', description: err?.message }),
   });
 
+  const desconectar = useMutation({
+    mutationFn: googleCalendarApi.disconnect,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.calendario.googleStatus });
+      toast({ title: 'Google Calendar desconectado', description: 'Clique em "Conectar Google Calendar" para reconectar.' });
+    },
+    onError: (err) =>
+      toast({ variant: 'destructive', title: 'Falha ao desconectar', description: err?.message }),
+  });
+
   const handleSave = (form) => {
     if (editando) {
       atualizar.mutate({ id: editando.id, data: form, google_event_id: editando.google_event_id });
@@ -231,6 +241,17 @@ export default function CalendarioPage() {
                     <RefreshCw className={`w-4 h-4 mr-1.5 ${sincronizar.isPending ? 'animate-spin' : ''}`} />
                     Sincronizar
                   </Button>
+                  {isAdmin && (
+                    <Button
+                      onClick={() => desconectar.mutate()}
+                      disabled={desconectar.isPending}
+                      variant="outline"
+                      title="Desconectar para reconectar a conta Google"
+                      className="border-white/10 bg-transparent text-muted-foreground hover:text-white hover:bg-white/5 h-9"
+                    >
+                      <Unlink className="w-4 h-4 mr-1.5" /> Desconectar
+                    </Button>
+                  )}
                 </>
               ) : isAdmin ? (
                 <Button
