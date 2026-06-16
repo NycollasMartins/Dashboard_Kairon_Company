@@ -1,16 +1,17 @@
 import { supabase } from '@/infrastructure/supabase/client';
 
 // Extrai a mensagem de erro retornada pela Edge Function (body { error }).
+// No supabase-js, em erro HTTP o corpo vem em `error.context` (que já é a
+// Response); algumas versões aninham em `error.context.response`. Tratamos os
+// dois casos para não cair na mensagem genérica "non-2xx status code".
 async function unwrapInvoke({ data, error }) {
   if (error) {
-    try {
-      const response = error.context?.response;
-      if (response) {
-        const body = await response.json();
-        if (body?.error) throw new Error(body.error);
-      }
-    } catch (e) {
-      if (e instanceof Error && e.message) throw e;
+    const resp = typeof error?.context?.json === 'function'
+      ? error.context
+      : error?.context?.response;
+    if (resp && typeof resp.json === 'function') {
+      const body = await resp.json().catch(() => null);
+      if (body?.error) throw new Error(body.error);
     }
     throw error;
   }

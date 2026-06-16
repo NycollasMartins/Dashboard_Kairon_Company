@@ -60,7 +60,15 @@ async function ensureAccessToken(admin: ReturnType<typeof serviceClient>) {
       grant_type: 'refresh_token',
     }),
   });
-  if (!res.ok) throw new Error(`Falha ao renovar token do Google (${res.status}).`);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    // invalid_grant = refresh_token expirado/revogado (comum em apps OAuth em
+    // modo "Testing", que perdem o refresh_token a cada 7 dias).
+    if (res.status === 400 || /invalid_grant/i.test(errBody)) {
+      throw new Error('A conexão com o Google Calendar expirou ou foi revogada. Reconecte a conta clicando em "Conectar Google Calendar".');
+    }
+    throw new Error(`Falha ao renovar token do Google (${res.status}).`);
+  }
   const t = await res.json();
   const expiresAt = new Date(Date.now() + (t.expires_in ?? 3600) * 1000).toISOString();
   await admin
