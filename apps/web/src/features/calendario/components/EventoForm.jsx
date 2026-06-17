@@ -40,7 +40,9 @@ function FieldLabel({ icon: Icon, children, required }) {
 }
 
 // Defaults: início na data sugerida (ou agora arredondado) e fim 1h depois.
-function buildInitialState(event, initialDate) {
+// `prefill` permite abrir o formulário (novo evento) já com alguns campos
+// preenchidos — ex.: ao agendar uma reunião a partir do Pipeline de Leads.
+function buildInitialState(event, initialDate, prefill) {
   if (event) {
     const start = new Date(event.start_at);
     const end = new Date(event.end_at);
@@ -67,24 +69,24 @@ function buildInitialState(event, initialDate) {
   const end = new Date(base);
   end.setHours(end.getHours() + 1);
   return {
-    title: '',
-    type: 'meeting',
+    title: prefill?.title ?? '',
+    type: prefill?.type ?? 'meeting',
     all_day: false,
     startDateTime: toLocalDateTimeInput(base),
     endDateTime: toLocalDateTimeInput(end),
     startDate: toLocalDateInput(base),
     endDate: toLocalDateInput(base),
-    location: '',
-    description: '',
+    location: prefill?.location ?? '',
+    description: prefill?.description ?? '',
     audience_type: 'all',
     squad_id: '',
     assignee_ids: [],
   };
 }
 
-export default function EventoForm({ onClose, onSave, event, initialDate, isSaving }) {
+export default function EventoForm({ onClose, onSave, event, initialDate, prefill, isSaving }) {
   const isEdit = !!event;
-  const [form, setForm] = useState(() => buildInitialState(event, initialDate));
+  const [form, setForm] = useState(() => buildInitialState(event, initialDate, prefill));
   const [submitted, setSubmitted] = useState(false);
   const [erroData, setErroData] = useState('');
   const [peopleSearch, setPeopleSearch] = useState('');

@@ -6,10 +6,32 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { supabase } from '@/infrastructure/supabase/client';
 import { leadsApi } from '@/features/comercial/api/leads.api';
 import { usersApi } from '@/features/administrativo/api/users.api';
+import { calendarioApi } from '@/features/calendario/api/calendario.api';
+import { googleCalendarApi } from '@/features/calendario/api/googleCalendar.api';
 import { queryKeys } from '@/entities/query-keys';
+import EventoForm from '@/features/calendario/components/EventoForm';
 import LeadCard from './LeadCard';
 import LeadDetalheModal from './LeadDetalheModal';
 import ConverterLeadModal from './ConverterLeadModal';
+
+// Monta os dados iniciais da reunião a partir do lead, para abrir o
+// formulário de Calendário já preenchido ao mover para "Reunião Marcada".
+function buildReuniaoPrefill(lead) {
+  const linhas = [];
+  if (lead.empresa) linhas.push(`Empresa: ${lead.empresa}`);
+  if (lead.email) linhas.push(`E-mail: ${lead.email}`);
+  if (lead.telefone) linhas.push(`Telefone: ${lead.telefone}`);
+  if (lead.objetivo_principal) linhas.push(`Objetivo: ${lead.objetivo_principal}`);
+  if (lead.momento_empresa) linhas.push(`Momento da empresa: ${lead.momento_empresa}`);
+  if (lead.faturamento_mensal) linhas.push(`Faturamento mensal: ${lead.faturamento_mensal}`);
+  if (lead.notas) linhas.push(`\nNotas: ${lead.notas}`);
+  return {
+    title: lead.empresa ? `Reunião — ${lead.nome} (${lead.empresa})` : `Reunião — ${lead.nome}`,
+    type: 'meeting',
+    description: linhas.join('\n'),
+    location: '',
+  };
+}
 
 const columns = [
   { id: 'pendente',        label: 'Pendente',         color: 'text-slate-300',   dot: 'bg-slate-400',   border: 'border-slate-500/20',   empty: 'Sem leads pendentes' },
@@ -21,10 +43,13 @@ const columns = [
 export default function LeadsKanban() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  // Apenas closer e admin podem agendar a reunião no calendário (RLS).
+  const canAgendarReuniao = user?.role === 'closer' || user?.role === 'admin';
   const { toast } = useToast();
   const qc = useQueryClient();
   const [leadAberto, setLeadAberto] = useState(null);
   const [leadParaConverter, setLeadParaConverter] = useState(null);
+  const [leadParaReuniao, setLeadParaReuniao] = useState(null);
 
   const { data: leads = [], isLoading } = useQuery({
     queryKey: queryKeys.leads.all,
@@ -35,6 +60,15 @@ export default function LeadsKanban() {
     queryKey: queryKeys.usuarios.all,
     queryFn: usersApi.list,
   });
+
+  // Status do Google só retorna conectado para admin/head; usamos para
+  // empurrar a reunião ao Google de forma best-effort quando há conexão.
+  const { data: googleStatus } = useQuery({
+    queryKey: queryKeys.calendario.googleStatus,
+    queryFn: googleCalendarApi.status,
+    enabled: canAgendarReuniao,
+  });
+  const googleConnected = !!googleStatus?.connected;
 
   useEffect(() => {
     const channel = supabase
@@ -122,6 +156,32 @@ export default function LeadsKanban() {
     },
   });
 
+  const criarReuniao = useMutation({
+    mutationFn: async (payload) => {
+      const created = await calendarioApi.create(payload);
+      if (googleConnected) {
+        try {
+          await googleCalendarApi.push(created);
+        } catch {
+          // Sincronização com o Google é best-effort: o evento já está salvo.
+        }
+      }
+      return created;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.calendario.all });
+      setLeadParaReuniao(null);
+      toast({ title: 'Reunião adicionada ao calendário.' });
+    },
+    onError: (err) => {
+      toast({
+        variant: 'destructive',
+        title: 'Não foi possível criar a reunião',
+        description: err?.message ?? 'Tente novamente em instantes.',
+      });
+    },
+  });
+
   const deletar = useMutation({
     mutationFn: leadsApi.delete,
     onSuccess: () => {
@@ -160,6 +220,12 @@ export default function LeadsKanban() {
     }
 
     atualizar.mutate({ id: draggableId, data: payload });
+
+    // Ao mover para "Reunião Marcada", closer/admin agendam a reunião no
+    // calendário já com os dados do lead preenchidos.
+    if (newStatus === 'reuniao_marcada' && canAgendarReuniao && lead) {
+      setLeadParaReuniao(lead);
+    }
   };
 
   if (isLoading) {
@@ -244,6 +310,15 @@ export default function LeadsKanban() {
                 : extras,
             })
           }
+        />
+      )}
+
+      {leadParaReuniao && (
+        <EventoForm
+          prefill={buildReuniaoPrefill(leadParaReuniao)}
+          isSaving={criarReuniao.isPending}
+          onClose={() => setLeadParaReuniao(null)}
+          onSave={(form) => criarReuniao.mutate(form)}
         />
       )}
     </>
