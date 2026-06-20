@@ -32,3 +32,7 @@ dist-ssr
 
 .env
 .vite
+
+# Database dumps / backups (nunca versionar — podem conter dados/segredos)
+backup_*.sql
+*.dump
