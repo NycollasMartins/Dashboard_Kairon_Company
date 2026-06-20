@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Wallet, AlertTriangle, Clock, PiggyBank, Check, Undo2, Search, Landmark, Info,
+  Wallet, AlertTriangle, Clock, PiggyBank, Check, Undo2, Search, Landmark, Info, Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
+import ConfirmArchiveDialog from '@/shared/ui/ConfirmArchiveDialog';
 import { parcelasApi, financeConfigApi } from '@/features/financeiro/api/financeiro.api';
 import { formatBRL } from '@/features/clientes/utils/contrato.format';
 import { queryKeys } from '@/entities/query-keys';
@@ -26,10 +28,12 @@ function statusVisual(p, now) {
 
 export default function RecebiveisSection({ parcelas = [], config, custos = [], metrics = [], year }) {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const now = new Date();
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState('todas'); // todas | abertas | vencidas | pagas
   const [saldoEdit, setSaldoEdit] = useState(null); // string em edição
+  const [excluindo, setExcluindo] = useState(null); // parcela em confirmação de exclusão
 
   const invalidar = () => {
     qc.invalidateQueries({ queryKey: queryKeys.financeiro.parcelas });
@@ -47,6 +51,11 @@ export default function RecebiveisSection({ parcelas = [], config, custos = [], 
   const mutSaldo = useMutation({
     mutationFn: (saldo_inicial) => financeConfigApi.update({ saldo_inicial, saldo_inicial_data: config?.saldo_inicial_data || hojeISO() }),
     onSuccess: () => { invalidar(); setSaldoEdit(null); },
+  });
+  const mutExcluir = useMutation({
+    mutationFn: (id) => parcelasApi.remove(id),
+    onSuccess: () => { invalidar(); setExcluindo(null); toast({ title: 'Parcela removida.' }); },
+    onError: (err) => toast({ variant: 'destructive', title: 'Não foi possível remover', description: err?.message }),
   });
 
   const calc = useMemo(() => {
@@ -214,12 +223,29 @@ export default function RecebiveisSection({ parcelas = [], config, custos = [], 
                       </Button>
                     ))}
                   </div>
+                  <button type="button" onClick={() => setExcluindo(p)} title="Remover parcela"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-red-300 hover:bg-red-500/10 transition-colors shrink-0">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               );
             })}
           </div>
         )}
       </Painel>
+
+      {excluindo && (
+        <ConfirmArchiveDialog
+          title="Remover esta parcela?"
+          description={`${excluindo.cliente?.nome || 'Cliente'} · ${formatBRL(excluindo.valor)} · venc. ${new Date(excluindo.vencimento).toLocaleDateString('pt-BR')}. A parcela será removida permanentemente.`}
+          confirmLabel="Remover"
+          loadingLabel="Removendo..."
+          tone="danger"
+          onConfirm={() => mutExcluir.mutate(excluindo.id)}
+          onCancel={() => setExcluindo(null)}
+          isLoading={mutExcluir.isPending}
+        />
+      )}
     </div>
   );
 }

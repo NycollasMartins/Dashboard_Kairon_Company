@@ -71,6 +71,12 @@ export const parcelasApi = {
       .select('*')
       .single()
       .then(unwrap),
+
+  // Remove uma parcela (ex.: cobrança que não existe de fato).
+  remove: async (id) => {
+    const { error } = await supabase.from(PARCELAS).delete().eq('id', id);
+    if (error) throw error;
+  },
 };
 
 // ------------------------------------------------------------------
