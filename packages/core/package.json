@@ -9,7 +9,8 @@
     "./entities/query-keys": "./src/entities/query-keys.js",
     "./lib/query-client": "./src/lib/query-client.js",
     "./auth/session": "./src/auth/session.js",
-    "./api/*": "./src/api/*.js"
+    "./api/*": "./src/api/*.js",
+    "./finance/*": "./src/finance/*.js"
   },
   "peerDependencies": {
     "@supabase/supabase-js": "^2.49.4",

@@ -4,7 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 import {
-  DollarSign, Users, TrendingUp, Wallet, ChevronRight, PiggyBank, Receipt,
+  DollarSign, Users, TrendingUp, Wallet, PiggyBank, Receipt,
   UserPlus, BadgeDollarSign, AlertTriangle, Megaphone, Landmark, RefreshCw, CalendarRange,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,99 +16,40 @@ import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { leadsApi } from '@/features/comercial/api/leads.api';
 import { mrrDoCliente, contratosApi } from '@/features/clientes/api/contratos.api';
 import { formatBRL } from '@/features/clientes/utils/contrato.format';
-import { financeiroApi, custosApi } from '@/features/financeiro/api/financeiro.api';
+import { financeiroApi, custosApi, parcelasApi, financeConfigApi, vendasFinApi } from '@/features/financeiro/api/financeiro.api';
 import { adsIsMock } from '@/lib/adsService';
 import { queryKeys } from '@/entities/query-keys';
 import MetricaModal from '@/features/financeiro/components/MetricaModal';
 import CustosOperacionais from '@/features/financeiro/components/CustosOperacionais';
+import RecebiveisSection from '@/features/financeiro/components/RecebiveisSection';
+import RecorrenciaSection from '@/features/financeiro/components/RecorrenciaSection';
+import DreProjecaoSection from '@/features/financeiro/components/DreProjecaoSection';
+import { KpiCard, MiniKpi, Painel, fmtInt, fmtPct } from '@/features/financeiro/components/financeUi';
 import {
   MES_LABELS, RECEITA_POR_CONVERSAO, flattenContratos, receitaSeriesYear, mrrSeriesYear,
   leadsSeriesYear, adsSeriesYear, novosClientesSeriesYear, contratosAVencer,
   custoOperacionalSeriesYear, mrrClientCountSeriesYear, parseDateLocal, sum,
   mrrAtual, tcvDoMes, clientesComContrato, cortarMesesFuturos,
+  receitaDoMes, vendasAvulsasDoMes,
 } from '@/features/financeiro/lib/financeiro.calc';
 
-const fmtInt = (v) => Math.round(Number(v) || 0).toLocaleString('pt-BR');
-const fmtPct = (v) => `${(Number(v) || 0).toFixed(1)}%`;
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-
-const ACCENTS = {
-  emerald: { text: 'text-emerald-300', bg: 'bg-emerald-500/10', hex: '#34d399' },
-  blue: { text: 'text-blue-300', bg: 'bg-blue-500/10', hex: '#60a5fa' },
-  red: { text: 'text-[#EA3935]', bg: 'bg-[#EA3935]/10', hex: '#EA3935' },
-  purple: { text: 'text-purple-300', bg: 'bg-purple-500/10', hex: '#a78bfa' },
-};
-
-function KpiCard({ icon: Icon, label, value, sub, accent = 'red', onClick }) {
-  const a = ACCENTS[accent] ?? ACCENTS.red;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group text-left glass-card rounded-2xl border border-white/5 p-6 hover:border-white/10 hover:bg-white/[0.02] transition-colors"
-    >
-      <div className="flex items-start justify-between">
-        <p className="text-[13px] text-muted-foreground">{label}</p>
-        <div className={`w-9 h-9 rounded-xl ${a.bg} flex items-center justify-center shrink-0`}>
-          <Icon className={`w-4 h-4 ${a.text}`} />
-        </div>
-      </div>
-      <p className="text-4xl font-semibold text-white tracking-tight leading-none tabular-nums mt-3">{value}</p>
-      <div className="flex items-center justify-between mt-2">
-        <p className="text-xs text-muted-foreground">{sub}</p>
-        <span className="text-[11px] text-muted-foreground/60 group-hover:text-muted-foreground inline-flex items-center gap-0.5">
-          ver detalhes <ChevronRight className="w-3 h-3" />
-        </span>
-      </div>
-    </button>
-  );
-}
-
-function MiniKpi({ icon: Icon, label, value, accent = 'red', hint = '', badge = '' }) {
-  const a = ACCENTS[accent] ?? ACCENTS.red;
-  return (
-    <div className={`glass-card rounded-2xl border border-white/5 p-4 ${hint ? 'cursor-help' : ''}`} title={hint || undefined}>
-      <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-xl ${a.bg} flex items-center justify-center shrink-0`}>
-          <Icon className={`w-4 h-4 ${a.text}`} />
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <p className="text-[11px] text-muted-foreground">{label}</p>
-            {badge && (
-              <span className="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/25">{badge}</span>
-            )}
-          </div>
-          <p className="text-lg font-semibold text-white tracking-tight truncate tabular-nums">{value}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Painel({ title, children, action }) {
-  return (
-    <div className="glass-card rounded-2xl border border-white/5 overflow-hidden">
-      <div className="px-5 py-3 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
-        <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{title}</p>
-        {action}
-      </div>
-      {children}
-    </div>
-  );
-}
 
 export default function FinanceiroPage() {
   const { user } = useAuth();
   const [metrica, setMetrica] = useState(null);
-  const [view, setView] = useState('visao'); // 'visao' | 'custos'
+  const [view, setView] = useState('visao'); // 'visao' | 'recorrencia' | 'recebiveis' | 'dre' | 'custos'
   const [year, setYear] = useState(() => new Date().getFullYear());
+  const [modoTcv, setModoTcv] = useState('caixa'); // 'caixa' (padrão) | 'linear' (competência)
 
   const isAdmin = user?.role === 'admin';
   const { data: clientes = [] } = useQuery({ queryKey: queryKeys.clientes.all, queryFn: clientesApi.list, enabled: isAdmin });
   const { data: leads = [] } = useQuery({ queryKey: queryKeys.leads.all, queryFn: leadsApi.list, enabled: isAdmin });
   const { data: metrics = [] } = useQuery({ queryKey: queryKeys.financeiro.metrics, queryFn: financeiroApi.listCampaignMetrics, enabled: isAdmin });
   const { data: custos = [] } = useQuery({ queryKey: queryKeys.financeiro.custos, queryFn: custosApi.list, enabled: isAdmin });
+  const { data: parcelas = [] } = useQuery({ queryKey: queryKeys.financeiro.parcelas, queryFn: parcelasApi.list, enabled: isAdmin });
+  const { data: financeConfig = null } = useQuery({ queryKey: queryKeys.financeiro.config, queryFn: financeConfigApi.get, enabled: isAdmin });
+  const { data: vendas = [] } = useQuery({ queryKey: queryKeys.financeiro.vendas, queryFn: vendasFinApi.list, enabled: isAdmin });
 
   const qc = useQueryClient();
   const refreshing = useIsFetching({
@@ -119,6 +60,9 @@ export default function FinanceiroPage() {
     qc.invalidateQueries({ queryKey: queryKeys.leads.all });
     qc.invalidateQueries({ queryKey: queryKeys.financeiro.metrics });
     qc.invalidateQueries({ queryKey: queryKeys.financeiro.custos });
+    qc.invalidateQueries({ queryKey: queryKeys.financeiro.parcelas });
+    qc.invalidateQueries({ queryKey: queryKeys.financeiro.config });
+    qc.invalidateQueries({ queryKey: queryKeys.financeiro.vendas });
   };
 
   // Ao abrir o Financeiro, expira contratos cujo prazo já passou (status ativo →
@@ -136,11 +80,17 @@ export default function FinanceiroPage() {
     if (user?.role !== 'admin') return undefined;
     const channel = supabase
       .channel('financeiro-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, () => qc.invalidateQueries({ queryKey: queryKeys.clientes.all }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, () => {
+        qc.invalidateQueries({ queryKey: queryKeys.clientes.all });
+        qc.invalidateQueries({ queryKey: queryKeys.financeiro.parcelas });
+        qc.invalidateQueries({ queryKey: queryKeys.financeiro.vendas });
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, () => qc.invalidateQueries({ queryKey: queryKeys.clientes.all }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => qc.invalidateQueries({ queryKey: queryKeys.leads.all }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'campaign_metrics' }, () => qc.invalidateQueries({ queryKey: queryKeys.financeiro.metrics }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'operational_costs' }, () => qc.invalidateQueries({ queryKey: queryKeys.financeiro.custos }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contrato_parcelas' }, () => qc.invalidateQueries({ queryKey: queryKeys.financeiro.parcelas }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_config' }, () => qc.invalidateQueries({ queryKey: queryKeys.financeiro.config }))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user?.role, qc]);
@@ -155,7 +105,7 @@ export default function FinanceiroPage() {
     // No ano corrente, receita e custo são cortados no mês atual (não projetam
     // meses futuros), para roiAno/margemAno compararem realizado x realizado.
     const corta = (s) => cortarMesesFuturos(s, year, now);
-    const receitaSeries = corta(receitaSeriesYear(contratos, year, now));
+    const receitaSeries = corta(receitaSeriesYear(contratos, year, now, modoTcv));
     const mrrSeries = corta(mrrSeriesYear(contratos, year, now));
     const leadsSeries = leadsSeriesYear(leads, year);
     const ads = adsSeriesYear(metrics, year);
@@ -181,11 +131,12 @@ export default function FinanceiroPage() {
     // MRR do mês = valor de contrato MRR atribuído a cada cliente não-churn
     // (snapshot). Só muda quando entra um novo contrato ou um contrato encerra.
     const mrrClientes = mrrAtual(clientes);
-    // Receita do mês = MRR do mês + TCV (pontual) fechado NESTE mês. Reinicia
-    // todo mês: no início do mês não há TCV novo, então Receita = MRR; sobe a
-    // cada novo cliente TCV fechado no mês corrente.
+    // Receita do mês = MRR do mês + TCV (pontual) fechado NESTE mês + vendas
+    // AVULSAS do mês (sem contrato). Inclui avulsas para bater EXATAMENTE com o
+    // "feito" da aba Metas (mrr_base + tcv_mes + avulsas).
     const tcvMes = tcvDoMes(clientes, year, cm);
-    const receitaClientes = mrrClientes + tcvMes;
+    const avulsasMes = vendasAvulsasDoMes(vendas, year, cm);
+    const receitaClientes = mrrClientes + tcvMes + avulsasMes;
     const nClientesContrato = clientesComContrato(clientes);
     // ROI do mês = (Receita do mês − Custo Operacional do mês) / Custo Operacional do mês.
     const gastoMes = custosSeries[cm];
@@ -239,19 +190,22 @@ export default function FinanceiroPage() {
     const receitaSeriesChart = receitaSeries.slice();
     const mrrSeriesChart = mrrSeries.slice();
     if (isCY) {
-      receitaSeriesChart[cm] = receitaClientes;
       mrrSeriesChart[cm] = mrrClientes;
+      // No regime caixa o mês atual usa o snapshot (mesma fonte do card). No
+      // regime linear mantém a série diluída para não misturar regimes.
+      if (modoTcv === 'caixa') receitaSeriesChart[cm] = receitaClientes;
     }
 
     return {
+      contratos,
       receitaSeries, mrrSeries, receitaSeriesChart, mrrSeriesChart, leadsSeries, ads, novosSeries, custoOpSeries, roiSeries,
       receitaAno, leadsAno, gastoAno, custoOpAno, custosAno, roiAno, margemAno,
       mrrMes, mrrAno, pontualAno, roasMes, roasAno,
-      mrrClientes, tcvMes, receitaClientes, nClientesContrato, gastoMes, custoOpMes, roiMesClientes,
+      mrrClientes, tcvMes, avulsasMes, receitaClientes, nClientesContrato, gastoMes, custoOpMes, roiMesClientes,
       clientesAtivos: clientesAtivos.length, ticketMedio, custosMes, margemMes,
       gastoPlat, topMrr, aVencer,
     };
-  }, [clientes, leads, metrics, custos, year, cm, now]);
+  }, [clientes, leads, metrics, custos, vendas, year, cm, now, modoTcv]);
 
   const anosDisponiveis = useMemo(() => {
     const set = new Set([currentYear]);
@@ -272,7 +226,7 @@ export default function FinanceiroPage() {
       key: 'receita', icon: DollarSign, accent: 'emerald',
       label: isCurrentYear ? 'Receita do mês' : `Receita · ${year}`,
       value: isCurrentYear ? formatBRL(calc.receitaClientes) : formatBRL(calc.receitaAno),
-      sub: isCurrentYear ? `MRR ${formatBRL(calc.mrrClientes)} + TCV do mês ${formatBRL(calc.tcvMes)}` : `Média/mês: ${formatBRL(calc.receitaAno / 12)}`,
+      sub: isCurrentYear ? `MRR ${formatBRL(calc.mrrClientes)} + TCV ${formatBRL(calc.tcvMes)}${calc.avulsasMes ? ` + avulsas ${formatBRL(calc.avulsasMes)}` : ''}` : `Média/mês: ${formatBRL(calc.receitaAno / 12)}`,
       modal: { title: 'Receita', icon: DollarSign, accent: 'emerald', format: formatBRL, series: calc.receitaSeriesChart, chartType: 'area', annualLabel: `Receita no ano (${year})`, annualValue: calc.receitaAno },
     },
     {
@@ -360,7 +314,13 @@ export default function FinanceiroPage() {
 
       {/* Sub-abas */}
       <div className="flex items-center gap-6 border-b border-white/10">
-        {[{ id: 'visao', label: 'Visão Geral' }, { id: 'custos', label: 'Custos Operacionais' }].map((t) => {
+        {[
+          { id: 'visao', label: 'Visão Geral' },
+          { id: 'recorrencia', label: 'Recorrência' },
+          { id: 'recebiveis', label: 'Recebíveis' },
+          { id: 'dre', label: 'DRE & Projeção' },
+          { id: 'custos', label: 'Custos Operacionais' },
+        ].map((t) => {
           const active = view === t.id;
           return (
             <button
@@ -375,10 +335,32 @@ export default function FinanceiroPage() {
         })}
       </div>
 
-      {view === 'custos' ? (
-        <CustosOperacionais year={year} />
-      ) : (
+      {view === 'custos' && <CustosOperacionais year={year} />}
+      {view === 'recorrencia' && (
+        <RecorrenciaSection contratos={calc.contratos} clientes={clientes} custos={custos} metrics={metrics} year={year} />
+      )}
+      {view === 'recebiveis' && (
+        <RecebiveisSection parcelas={parcelas} config={financeConfig} custos={custos} metrics={metrics} year={year} />
+      )}
+      {view === 'dre' && (
+        <DreProjecaoSection contratos={calc.contratos} custos={custos} metrics={metrics} year={year} modoTcv={modoTcv} />
+      )}
+      {view === 'visao' && (
       <div className="space-y-6">
+      {/* Toggle de reconhecimento de TCV (caixa x competência/linear) */}
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] text-muted-foreground">Reconhecimento de TCV:</span>
+        <div className="inline-flex rounded-lg border border-white/10 overflow-hidden">
+          {[{ id: 'caixa', label: 'Caixa (no fechamento)' }, { id: 'linear', label: 'Linear (competência)' }].map((o) => (
+            <button key={o.id} type="button" onClick={() => setModoTcv(o.id)}
+              className={`text-[11px] px-3 py-1.5 transition-colors ${modoTcv === o.id ? 'bg-white/10 text-white' : 'text-muted-foreground hover:text-white'}`}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-[10px] text-muted-foreground/60">{modoTcv === 'caixa' ? 'TCV 100% no mês do fechamento (padrão).' : 'TCV diluído pela vigência do contrato.'}</span>
+      </div>
+
       {/* 4 KPIs principais (clicáveis) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((c) => (
