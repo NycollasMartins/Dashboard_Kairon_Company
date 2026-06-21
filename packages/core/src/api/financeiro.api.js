@@ -101,3 +101,39 @@ export const vendasFinApi = {
   list: () =>
     supabase.from('vendas').select('id, valor, tipo, contrato_id, data_venda').then(unwrap),
 };
+
+// ------------------------------------------------------------------
+// Contas a pagar (custo_pagamentos) — pagamento dos custos MENSAIS.
+// Modelo esparso: marcar = insert; desmarcar = delete.
+// ------------------------------------------------------------------
+const PAGAMENTOS = 'custo_pagamentos';
+
+export const pagamentosApi = {
+  list: () =>
+    supabase.from(PAGAMENTOS).select('*').then(unwrap),
+
+  // Marca um custo recorrente como pago numa competência (mês). Idempotente
+  // por (custo_id, competencia) via upsert.
+  marcar: ({ custo_id, competencia, valor, pago_em = null, metodo_pagamento = null }) =>
+    supabase
+      .from(PAGAMENTOS)
+      .upsert(
+        {
+          custo_id,
+          competencia,
+          valor,
+          pago_em: pago_em || new Date().toISOString().slice(0, 10),
+          metodo_pagamento,
+        },
+        { onConflict: 'custo_id,competencia' },
+      )
+      .select('*')
+      .single()
+      .then(unwrap),
+
+  // Desfaz o pagamento (remove o registro do mês).
+  desmarcar: async (id) => {
+    const { error } = await supabase.from(PAGAMENTOS).delete().eq('id', id);
+    if (error) throw error;
+  },
+};

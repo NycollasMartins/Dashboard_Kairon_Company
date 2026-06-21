@@ -16,12 +16,13 @@ import { clientesApi } from '@/features/clientes/api/clientes.api';
 import { leadsApi } from '@/features/comercial/api/leads.api';
 import { mrrDoCliente, contratosApi } from '@/features/clientes/api/contratos.api';
 import { formatBRL } from '@/features/clientes/utils/contrato.format';
-import { financeiroApi, custosApi, parcelasApi, financeConfigApi, vendasFinApi } from '@/features/financeiro/api/financeiro.api';
+import { financeiroApi, custosApi, parcelasApi, financeConfigApi, vendasFinApi, pagamentosApi } from '@/features/financeiro/api/financeiro.api';
 import { adsIsMock } from '@/lib/adsService';
 import { queryKeys } from '@/entities/query-keys';
 import MetricaModal from '@/features/financeiro/components/MetricaModal';
 import CustosOperacionais from '@/features/financeiro/components/CustosOperacionais';
 import RecebiveisSection from '@/features/financeiro/components/RecebiveisSection';
+import ContasPagarSection from '@/features/financeiro/components/ContasPagarSection';
 import RecorrenciaSection from '@/features/financeiro/components/RecorrenciaSection';
 import DreProjecaoSection from '@/features/financeiro/components/DreProjecaoSection';
 import { KpiCard, MiniKpi, Painel, fmtInt, fmtPct } from '@/features/financeiro/components/financeUi';
@@ -50,6 +51,7 @@ export default function FinanceiroPage() {
   const { data: parcelas = [] } = useQuery({ queryKey: queryKeys.financeiro.parcelas, queryFn: parcelasApi.list, enabled: isAdmin });
   const { data: financeConfig = null } = useQuery({ queryKey: queryKeys.financeiro.config, queryFn: financeConfigApi.get, enabled: isAdmin });
   const { data: vendas = [] } = useQuery({ queryKey: queryKeys.financeiro.vendas, queryFn: vendasFinApi.list, enabled: isAdmin });
+  const { data: pagamentos = [] } = useQuery({ queryKey: queryKeys.financeiro.pagamentos, queryFn: pagamentosApi.list, enabled: isAdmin });
 
   const qc = useQueryClient();
   const refreshing = useIsFetching({
@@ -63,6 +65,7 @@ export default function FinanceiroPage() {
     qc.invalidateQueries({ queryKey: queryKeys.financeiro.parcelas });
     qc.invalidateQueries({ queryKey: queryKeys.financeiro.config });
     qc.invalidateQueries({ queryKey: queryKeys.financeiro.vendas });
+    qc.invalidateQueries({ queryKey: queryKeys.financeiro.pagamentos });
   };
 
   // Ao abrir o Financeiro, expira contratos cujo prazo já passou (status ativo →
@@ -89,6 +92,7 @@ export default function FinanceiroPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => qc.invalidateQueries({ queryKey: queryKeys.leads.all }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'campaign_metrics' }, () => qc.invalidateQueries({ queryKey: queryKeys.financeiro.metrics }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'operational_costs' }, () => qc.invalidateQueries({ queryKey: queryKeys.financeiro.custos }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'custo_pagamentos' }, () => qc.invalidateQueries({ queryKey: queryKeys.financeiro.pagamentos }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'contrato_parcelas' }, () => qc.invalidateQueries({ queryKey: queryKeys.financeiro.parcelas }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_config' }, () => qc.invalidateQueries({ queryKey: queryKeys.financeiro.config }))
       .subscribe();
@@ -318,6 +322,7 @@ export default function FinanceiroPage() {
           { id: 'visao', label: 'Visão Geral' },
           { id: 'recorrencia', label: 'Recorrência' },
           { id: 'recebiveis', label: 'Recebíveis' },
+          { id: 'pagar', label: 'Contas a Pagar' },
           { id: 'dre', label: 'DRE & Projeção' },
           { id: 'custos', label: 'Custos Operacionais' },
         ].map((t) => {
@@ -341,6 +346,9 @@ export default function FinanceiroPage() {
       )}
       {view === 'recebiveis' && (
         <RecebiveisSection parcelas={parcelas} config={financeConfig} custos={custos} metrics={metrics} year={year} />
+      )}
+      {view === 'pagar' && (
+        <ContasPagarSection custos={custos} pagamentos={pagamentos} />
       )}
       {view === 'dre' && (
         <DreProjecaoSection contratos={calc.contratos} custos={custos} metrics={metrics} year={year} modoTcv={modoTcv} />

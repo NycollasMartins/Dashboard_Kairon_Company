@@ -50,6 +50,7 @@ export const queryKeys = {
     parcelas: ['financeiro', 'contrato-parcelas'],
     config: ['financeiro', 'finance-config'],
     vendas: ['financeiro', 'vendas'],
+    pagamentos: ['financeiro', 'custo-pagamentos'],
   },
   notifications: {
     all: ['notifications'],
