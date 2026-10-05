@@ -85,6 +85,7 @@ Cada colaborador vê apenas o que o seu papel permite. A regra vale tanto na int
 | `sdr`, `bdr`, `closer` | Comercial: pipeline de leads e metas |
 | `Filmmaker` | Visão Geral, Calendário, Tarefas e Squads de que participa |
 | `tv` | Somente a tela de Metas, em modo leitura (painel de escritório) |
+| `pendente` | Nenhum acesso: conta criada sem convite, aguardando um admin definir o papel |
 
 ## Stack
 
@@ -315,7 +316,7 @@ Mais fluxos (calendário, campanhas, relatórios, arquivos) em [docs/frontend.md
 | Google Calendar | `google-calendar-oauth`, `google-calendar-sync` | Um calendário único da empresa. OAuth com tokens guardados no banco (só `service_role`) |
 | Meta Marketing API | `meta-ads` | ✅ Lista campanhas e métricas, pausa, retoma e encerra. `createCampaign` desabilitado (501) |
 | Google Ads API | `google-ads` | 🚧 Só o esqueleto: autenticação pronta, todas as ações retornam 501 |
-| Anthropic (Claude) | `generate-report` | Relatório executivo em blocos (texto, KPIs, gráficos, tabelas) |
+| Anthropic (Claude) | `generate-report` | Relatório executivo em blocos (texto, KPIs, gráficos, tabelas). Somente admin |
 | Expo Push | `push-fanout` | Disparado por trigger via `pg_net` |
 | Landing page | RPC `create_lead_from_webhook` | Entrada de leads inbound |
 
@@ -358,6 +359,7 @@ Guia completo em [docs/contributing.md](docs/contributing.md).
 | Sintoma | Causa provável | Solução |
 |---|---|---|
 | Tela em branco com o erro "Supabase não inicializado" ou "faltam url/anonKey" | `.env.local` ausente ou sem as variáveis `VITE_*` | Crie `apps/web/.env.local` e reinicie o Vite |
+| Depois do login aparece "Aguardando aprovação" | Conta com papel `pendente` (criada sem convite) | Um admin define o papel em **Membros** |
 | Login funciona, mas o usuário aparece como `sdr` sem dados | Falha ao ler `profiles` (RLS ou linha ausente) | Verifique a linha em `profiles` e o trigger `on_auth_user_created` |
 | O link do convite cai em `localhost` ou dá erro | Redirect URL não cadastrada | Adicione a origem em Auth → URL Configuration |
 | Campanhas exibem dados falsos | Modo mock ativo (`VITE_ADS_USE_MOCK` ≠ `false`) | Defina `false` e configure os secrets |
@@ -370,9 +372,11 @@ Lista completa em [docs/troubleshooting.md](docs/troubleshooting.md).
 
 Riscos conhecidos, documentados para quem for manter o sistema (detalhes em [docs/security.md](docs/security.md) e [docs/decisions.md](docs/decisions.md)):
 
-- 🔴 **Escalada de privilégio via `profiles.role`.** A policy `profiles: self update` (`schema.sql`) permite que o usuário atualize a própria linha sem restringir colunas, e nenhum trigger impede a troca de `role`. Pelo SQL versionado, qualquer usuário logado pode se promover a `admin`. Confirme no banco de produção e corrija com prioridade (veja [docs/security.md](docs/security.md#1-escalada-de-privilégio-via-profilesrole)).
-- 🔴 **`generate-report` não valida o papel de quem chama.** Qualquer JWT válido, inclusive a anon key pública, consegue disparar chamadas pagas à Anthropic.
-- 🔴 **Cadastro aberto precisa de validação manual.** Todo usuário novo recebe `role = 'sdr'` (trigger `handle_new_user`), com acesso de leitura a leads. Se "Allow new users to sign up" estiver ligado no Supabase, ou se Google/Apple OAuth aceitar qualquer conta, qualquer pessoa entra no sistema.
+> **Correções de segurança de outubro/2026:** o código já foi corrigido, mas **elas só valem em produção depois de aplicar as migrations `20261005000000` e `20261005000100` e redeployar `generate-report`**. Veja [docs/security.md](docs/security.md).
+
+- ✅ **Escalada de privilégio via `profiles.role`:** qualquer usuário logado podia se promover a `admin`. O trigger `profiles_identity_guard` bloqueia isso.
+- ✅ **Cadastro aberto com papel padrão `sdr`:** novos usuários entram como `pendente` e não acessam dados até um admin aprovar. Mesmo assim, recomenda-se desligar o signup público no Supabase.
+- ✅ **`generate-report` sem verificação de papel:** agora exige `admin`.
 - 🟠 **A RPC `create_lead_from_webhook` é liberada para `anon`**, sem rate limit nem captcha.
 - 🟠 **Há valores fixos ligados ao ambiente** em SQL versionado: URL e anon key em `push_tokens.sql`, e-mail de um colaborador em `onboarding_on_cliente.sql`.
 - 🟡 **O bootstrap do banco é manual**: `schema.sql` mais migrations, fora do fluxo `supabase db push`.

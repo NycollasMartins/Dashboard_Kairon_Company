@@ -81,6 +81,7 @@ As funções importam `@supabase/supabase-js@2.39.7` via `esm.sh`, sem `deno.jso
 - [ ] Nenhum `.env` real, token ou chave `service_role` no diff (`git diff --cached`)
 
 **Banco**
+- [ ] Migrations de segurança `20261005000000` e `20261005000100` aplicadas (uma vez)
 - [ ] Migrations novas são idempotentes e já foram testadas em um projeto de dev
 - [ ] Toda tabela nova tem RLS e policies
 - [ ] A ordem de aplicação está documentada (migration antes do deploy do front que depende dela)

@@ -48,7 +48,7 @@ Ordenados por severidade.
 
 ### 1. Escalada de privilégio via `profiles.role`
 
-🔴 **Crítico** · validar em produção
+✅ **Corrigido no código** · 🔴 era crítico · **aplicar a migration em produção**
 
 `supabase/schema.sql`:
 
@@ -60,33 +60,57 @@ CREATE POLICY "profiles: self update"
   WITH CHECK (id = auth.uid());
 ```
 
-O comentário diz "non-role fields", mas a policy não restringe colunas. O trigger `profiles_archive_guard` só bloqueia três coisas: alterar `archived_at`, trocar o papel de um usuário arquivado e remover o último admin. Ele **não impede** um usuário ativo de executar:
+O comentário dizia "non-role fields", mas a policy não restringe colunas, e o trigger `profiles_archive_guard` só cuidava de `archived_at`, de usuários arquivados e do último admin. Qualquer usuário ativo podia executar:
 
 ```js
 supabase.from('profiles').update({ role: 'admin' }).eq('id', '<meu-id>')
 ```
 
-**Correção sugerida** (nova migration): um trigger `BEFORE UPDATE` que rejeite `NEW.role IS DISTINCT FROM OLD.role` quando `NOT private.is_strict_admin()` e `auth.uid() IS NOT NULL`. Outra opção é `REVOKE UPDATE (role) ON public.profiles FROM authenticated`, mantendo a troca de papel apenas pelas Edge Functions e RPCs admin.
+**Correção:** `migrations/20261005000000_profiles_bloqueia_troca_de_papel.sql` cria o trigger `profiles_identity_guard` (`BEFORE UPDATE`). Ele só permite trocar `role` ou `email` quando o chamador é admin (`private.is_strict_admin()`) ou quando a operação vem de contexto de sistema (`auth.uid() IS NULL`: `service_role`, SQL Editor, cron). Convites, a tela Membros e o `manage-user` continuam funcionando.
+
+**Validado** em Postgres local com o schema completo aplicado. Sem o trigger, um `sdr` virava `admin`. Com o trigger, a operação falha com `42501`, e o admin continua trocando papéis.
+
+**Depois de aplicar**, audite quem é admin hoje: `SELECT id, email, created_at FROM public.profiles WHERE role = 'admin';`
 
 ### 2. Cadastro aberto e papel padrão `sdr`
 
-🔴 **Crítico** · validar em produção
+✅ **Mitigado no código** · 🔴 era crítico · **aplicar a migration e revisar o painel**
 
-- O trigger `handle_new_user` cria **todo** usuário novo em `auth.users` com `role = 'sdr'`.
-- `sdr` lê **todos** os leads (`leads: actor select`) e pode atualizar leads `pendente`. Os leads contêm nome, e-mail, telefone e faturamento: dados pessoais.
-- O login web oferece **Google e Apple OAuth** (`LoginPage.jsx`), e `auth.signUp` pode ser chamado direto com a anon key.
+O problema era este:
 
-Se **Authentication → Providers → "Allow new users to sign up"** estiver ligado, ou se os providers OAuth aceitarem qualquer conta, qualquer pessoa na internet ganha acesso a esses dados. Combinado com o item 1, ganha acesso de admin.
+- o trigger `handle_new_user` criava **todo** usuário novo com `role = 'sdr'`;
+- `sdr` lê **todos** os leads (nome, e-mail, telefone, faturamento);
+- o login web oferece Google e Apple OAuth, e `auth.signUp` é chamável com a anon key.
 
-**Correção:** desligar o signup público (o fluxo oficial é por convite, via `invite-user`) e/ou mudar o papel padrão para um papel sem acesso a dados até um admin aprovar.
+Com o signup habilitado, qualquer pessoa ganhava acesso a esses dados.
+
+**Correção:** `migrations/20261005000100_papel_pendente_novos_usuarios.sql`
+
+- Cria o papel **`pendente`**, que passa a ser o default de `profiles.role` e de `handle_new_user`. O convite não muda: o `invite-user` grava o papel real logo em seguida.
+- Cria o helper `private.is_member()`, verdadeiro para papel ≠ `pendente` e usuário não arquivado.
+- As policies que liberavam dados a **qualquer autenticado** passam a exigir `is_member()`: `profiles` (o próprio perfil continua legível), `squads`, `squad_membros`, `calendar_events`, `event_attendees`, `metas`, `vendas`, `client_folders`, `client_files` e o bucket `client-files`.
+- A `user_invites_view`, que roda como owner e ignora o RLS, passa a filtrar por `is_member()`.
+- No web, quem é `pendente` vê só a tela "Aguardando aprovação" (`AguardandoAprovacaoPage`). O admin aprova em Membros, trocando o papel.
+
+**Validado** em Postgres local: um usuário `pendente` lê apenas o próprio perfil (0 leads, 0 arquivos, 0 perfis de terceiros) e não consegue gravar em `client_folders` nem no bucket.
+
+**Ainda recomendado:** desligar **Authentication → Providers → "Allow new users to sign up"** (o fluxo oficial é por convite). Depois de aplicar, procure contas criadas sem convite:
+
+```sql
+SELECT p.id, p.email, p.role, u.created_at, u.raw_app_meta_data->>'provider' AS provider
+FROM public.profiles p JOIN auth.users u ON u.id = p.id
+WHERE u.invited_at IS NULL ORDER BY u.created_at DESC;
+```
+
+> No **mobile**, um usuário `pendente` não tem tela dedicada. Ele vê as abas Hoje e Calendário vazias, porque o RLS não devolve dados, e não vê a aba Leads.
 
 ### 3. `generate-report` sem autenticação de papel
 
-🔴 **Alto** · confirmado no código
+✅ **Corrigido no código** · 🔴 era alto · **fazer redeploy da função**
 
-`supabase/functions/generate-report/index.ts` não chama `auth.getUser()` nem verifica `profiles.role`. O `verify_jwt` padrão aceita a própria anon key como JWT. Na prática, qualquer pessoa pode fazer POST e gerar chamadas pagas à Anthropic (`max_tokens: 16000`).
+A função não chamava `auth.getUser()` nem verificava `profiles.role`, e o `verify_jwt` padrão aceita a própria anon key como JWT. Qualquer pessoa podia gerar chamadas pagas à Anthropic.
 
-**Correção:** aplicar o mesmo bloco de validação das outras funções (admin only, igual à tela de Relatórios).
+**Correção:** `supabase/functions/generate-report/index.ts` agora valida o JWT e exige `role = 'admin'` (a mesma regra da tela Relatórios), seguindo o padrão das outras funções. Também rejeita métodos que não sejam `POST`. Para valer em produção, rode `supabase functions deploy generate-report`.
 
 ### 4. RPC `create_lead_from_webhook` liberada para `anon`
 
@@ -117,7 +141,7 @@ A função usa a `service_role` e reenvia o push de uma notificação existente 
 
 🟡 **Médio (decisão de negócio)**
 
-A migration `20260601200000_client_files_open_access.sql` liberou ver, enviar e **apagar** arquivos e pastas de **qualquer** cliente para qualquer usuário autenticado, substituindo a regra por squad. Isso inclui papéis como `sdr` e `tv`. Confirme se é intencional.
+A migration `20260601200000_client_files_open_access.sql` liberou ver, enviar e **apagar** arquivos e pastas de **qualquer** cliente para qualquer usuário, substituindo a regra por squad. Desde `20261005000100`, isso vale só para **membros** (não `pendente`), mas continua incluindo papéis como `sdr` e `tv`. Confirme se é intencional.
 
 ### 8. Divergência entre UI e RLS
 
@@ -138,6 +162,7 @@ Use antes de cada release e ao subir um ambiente novo.
 - [ ] Signup público desligado no Supabase Auth (ou papel padrão sem acesso)
 - [ ] Providers OAuth (Google/Apple) restritos ao necessário
 - [ ] Redirect URLs do Auth contêm apenas domínios próprios
+- [ ] Migrations `20261005000000` e `20261005000100` aplicadas
 - [ ] Usuário comum não consegue alterar `profiles.role` (teste com um usuário `sdr`)
 - [ ] Todas as Edge Functions validam o chamador (inclusive `generate-report`)
 - [ ] Nenhum `.env` real versionado (`git ls-files | grep -E '\.env($|\.)' | grep -v example`)

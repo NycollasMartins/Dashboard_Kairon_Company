@@ -19,7 +19,7 @@
 | Caminho | Conteúdo |
 |---|---|
 | `supabase/schema.sql` | Schema base: `profiles`, `squads`, `clientes`, `projetos`, `tarefas`, `leads`, `contratos`, `campaigns`, helpers `private.*`, RPCs e policies. Escrito para ser **idempotente** |
-| `supabase/migrations/` | 28 migrations incrementais (maio a junho/2026), nomeadas `YYYYMMDDHHMMSS_descricao.sql` e todas idempotentes |
+| `supabase/migrations/` | 30 migrations incrementais (maio a outubro/2026), nomeadas `YYYYMMDDHHMMSS_descricao.sql` e todas idempotentes |
 | `supabase/triggers/` | Triggers de criação de cliente (projetos Onboarding e Backlog) |
 | `supabase/cron/` | Agendamento `pg_cron` de expiração de contratos |
 | `supabase/config.toml` | Config do Supabase CLI (`project_id` e `verify_jwt` por função) |
@@ -27,6 +27,8 @@
 > **Precisa de validação manual:** o histórico indica que os scripts são aplicados **pelo SQL Editor**, não por `supabase db push`. A pasta `migrations/` não contém o schema base, então um `supabase db reset` a partir só das migrations falharia. Confirme em produção qual é o estado aplicado (`supabase_migrations.schema_migrations`, se existir).
 
 ## Bootstrap de um ambiente novo
+
+> Em outubro/2026 essa sequência foi **validada** num Postgres 17 local, com um stub mínimo de `auth`, `storage`, `cron` e `net`: todos os arquivos aplicam sem erro, nesta ordem, num banco vazio.
 
 1. **Extensões:** em Database → Extensions, habilite `pg_cron` e `pg_net`.
 2. **Ajustes de ambiente** (os arquivos têm valores de produção fixos):
@@ -38,7 +40,7 @@
    3. `triggers/onboarding_on_cliente.sql` e depois `triggers/backlog_on_cliente.sql`
    4. `cron/expirar_contratos.sql`
 4. **Auth:** configure Site URL e Redirect URLs (incluindo `<origem>/aceitar-convite`) e revise o signup público (veja [security.md](security.md#2-cadastro-aberto-e-papel-padrão-sdr)).
-5. **Primeiro admin:** `UPDATE public.profiles SET role = 'admin' WHERE email = '<email>';`
+5. **Primeiro admin:** crie o usuário (Auth → Users → Add user). Ele nasce `pendente`. Depois rode `UPDATE public.profiles SET role = 'admin' WHERE email = '<email>';` no SQL Editor.
 
 > `migrations/20260619000200_contrato_parcelas_backfill.sql` é um passo de **dados** (gera parcelas para contratos já existentes). Em um banco vazio ele não faz nada, mas leia o arquivo antes de reaplicá-lo em produção.
 
@@ -77,7 +79,7 @@ Todas as 24 tabelas de `public` têm **RLS habilitado**.
 
 | Tabela | Domínio | Colunas principais | Observações |
 |---|---|---|---|
-| `profiles` | Usuários | `id` (= `auth.users.id`), `email`, `full_name`, `role`, `archived_at` | Criada pelo trigger `on_auth_user_created`. `role` tem `CHECK` com os 12 papéis |
+| `profiles` | Usuários | `id` (= `auth.users.id`), `email`, `full_name`, `role`, `archived_at` | Criada pelo trigger `on_auth_user_created`. `role` tem `CHECK` com 13 papéis (inclui `pendente`, o default). `role`/`email` protegidos por `profiles_identity_guard` |
 | `squads` / `squad_membros` | Times | `nome`, `descricao` / (`squad_id`, `profile_id`) | |
 | `clientes` | Carteira | `nome`, `empresa`, `status` (`ativo`/`churn`), `origem` (`manual`/`lead`), `squad_id`, `responsavel_id`, `churned_at` | Churn bloqueado se houver contrato ativo |
 | `projetos` | Entrega | `nome`, `status` (`ativo`/`pausado`/`concluido`), `cliente_id`, `prazo` | |
@@ -93,12 +95,12 @@ Todas as 24 tabelas de `public` têm **RLS habilitado**.
 | `campaigns` / `campaign_metrics` | Mídia | `platform`, `objective`, `status` (`active`/`paused`/`ended`), `budget`, `external_id` / `date`, `spend`, `clicks`, `conversions`, `roas` | Admin only (`is_strict_admin`) |
 | `calendar_events` / `event_attendees` | Calendário | `type` (`meeting`/`activity`/`delivery`), `start_at`, `end_at`, `audience_type` (`all`/`squad`/`user`/`clevel`), `google_event_id`, `notified_24h_at`, `notified_20m_at` | |
 | `google_calendar_credentials` | Integração | `id = true` (linha única), `refresh_token`, `access_token`, `oauth_state` | `REVOKE ALL` para `anon` e `authenticated`. Só `service_role` acessa |
-| `client_folders` / `client_files` | Arquivos | `client_id`, `parent_id` (pastas aninhadas) / `storage_path`, `mime_type`, `size_bytes` | Acesso aberto a qualquer autenticado (veja security.md) |
+| `client_folders` / `client_files` | Arquivos | `client_id`, `parent_id` (pastas aninhadas) / `storage_path`, `mime_type`, `size_bytes` | Acesso aberto a qualquer **membro** (`is_member()`; veja security.md) |
 | `member_documents` | RH | `profile_id`, `storage_path`, `doc_type` | Admin only |
 | `notifications` | Notificações | `user_id`, `type`, `title`, `body`, `link`, `metadata`, `read_at` | Cada usuário vê só as próprias |
 | `push_tokens` | Mobile | `user_id`, `token`, `platform` | Upsert por token |
 
-**View:** `user_invites_view` (`security_invoker = true`) junta `profiles` e `auth.users` para distinguir convites pendentes (`last_sign_in_at IS NULL`).
+**View:** `user_invites_view` junta `profiles` e `auth.users` (status `active`/`pending`/`archived`). Ela roda como owner, porque precisa ler `auth.users`, e por isso **ignora o RLS**. Desde `20261005000100`, filtra por `private.is_member()`.
 
 ## RLS e helpers de autorização
 
@@ -115,6 +117,7 @@ Os helpers ficam no schema `private` (fora da Data API), são `SECURITY DEFINER`
 | `private.is_own_tasks_only()` | `editor`, `social media` |
 | `private.get_user_squad_ids()`, `can_access_cliente()`, `user_has_tarefa_for_*()` | Escopo por squad e por tarefa |
 | `private.count_active_admins()` | Proteção contra ficar sem admin |
+| `private.is_member()` | Todo papel ≠ `pendente`, com `archived_at IS NULL`. Usado nas policies de leitura compartilhada |
 
 > A lista acima reflete a **última definição** encontrada nos arquivos versionados. Para o estado real, rode `SELECT prosrc FROM pg_proc WHERE proname = '<helper>';` em produção.
 
@@ -141,7 +144,8 @@ Funções `public.*` chamadas pelo front via `supabase.rpc()`:
 
 | Trigger | Tabela | Efeito |
 |---|---|---|
-| `on_auth_user_created` | `auth.users` | Cria `profiles` com `role = 'sdr'` |
+| `on_auth_user_created` | `auth.users` | Cria `profiles` com `role = 'pendente'` (era `sdr` até `20261005000100`) |
+| `profiles_identity_guard` | `profiles` | Só admin ou contexto de sistema trocam `role`/`email` |
 | `profiles_archive_guard` | `profiles` | Impede autoarquivamento e mudança de papel de usuário arquivado, e garante ≥ 1 admin ativo |
 | `on_cliente_created_01_onboarding` | `clientes` | Cria o projeto "Onboarding" com tarefas iniciais |
 | `on_cliente_created_02_backlog` | `clientes` | Cria o projeto "Backlog" (o prefixo numérico garante a ordem) |

@@ -7,6 +7,7 @@ import { queryClientInstance } from '@/shared/lib/query-client';
 import ProtectedRoute from '@/shared/components/ProtectedRoute';
 import LoginPage from '@/features/auth/pages/LoginPage';
 import AcceptInvitePage from '@/features/auth/pages/AcceptInvitePage';
+import AguardandoAprovacaoPage from '@/features/auth/pages/AguardandoAprovacaoPage';
 import DashboardLayout from '@/features/dashboard/pages/DashboardLayout';
 import VisaoGeralPage from '@/features/dashboard/pages/VisaoGeralPage';
 import CalendarioPageWrapper from '@/features/calendario/pages/CalendarioPageWrapper';
@@ -29,6 +30,17 @@ function AppContent() {
       <div className="fixed inset-0 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
       </div>
+    );
+  }
+
+  // Papel "pendente": conta sem papel definido por um admin (ex.: login social
+  // sem convite). Não acessa nenhuma tela; o banco também não libera dados.
+  if (isAuthenticated && user?.role === 'pendente') {
+    return (
+      <Routes>
+        <Route path="/aceitar-convite" element={<AcceptInvitePage />} />
+        <Route path="*" element={<AguardandoAprovacaoPage />} />
+      </Routes>
     );
   }
 

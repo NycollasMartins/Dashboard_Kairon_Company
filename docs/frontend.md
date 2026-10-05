@@ -49,6 +49,7 @@ React 18 + Vite 6, em JavaScript (JSX), com `checkJs` via `jsconfig.json`. A UI 
 | `*` | `shared/components/PageNotFound` | |
 
 **Conjuntos de rotas por papel** (`App.jsx`):
+- `pendente`: só `AguardandoAprovacaoPage` (e `/aceitar-convite`).
 - `tv`: só `/metas`; qualquer outra rota redireciona para lá.
 - `Filmmaker`: `/`, `/calendario`, `/tarefas`, `/squads/*`; o resto redireciona para `/`.
 - Demais papéis: todas as rotas, com guardas dentro das páginas (`RestrictedAccessCard`).
@@ -76,7 +77,7 @@ features/<modulo>/
 
 | Módulo | Principais arquivos | Notas |
 |---|---|---|
-| **auth** | `LoginPage`, `AcceptInvitePage`, `AuthContext` | E-mail/senha, Google, Apple, "esqueci a senha", aviso de conta arquivada |
+| **auth** | `LoginPage`, `AcceptInvitePage`, `AguardandoAprovacaoPage`, `AuthContext` | E-mail/senha, Google, Apple, "esqueci a senha", aviso de conta arquivada |
 | **dashboard** | `VisaoGeralPage`, `KpiCard`, `LeadsChart`, `TeamPerformance`, `AtividadesRecentes` | Painel inicial a partir de tarefas, projetos e squads |
 | **calendario** | `CalendarioPage`, `CalendarMonthGrid`, `EventoForm`, `EventoDetalhe`, `googleCalendar.api` | Público do evento: todos, squad, pessoas ou C-level. Conexão e sincronização com Google (admin/head) |
 | **metas** | `MetasPage`, `VendaModal`, `MetaValorModal`, `CloserDetalheModal`, `MetaCelebrationModal`, `lib/metas.calc` | Realtime. Ranking de closers. Modo TV |

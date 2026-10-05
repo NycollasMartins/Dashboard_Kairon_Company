@@ -35,7 +35,7 @@ Registros curtos no formato ADR. A motivação vem dos comentários do próprio 
 ### ADR-006: Segredos de terceiros apenas em Edge Functions
 
 - **Decisão:** Google, Meta, Anthropic e `service_role` vivem só nos secrets das funções. Os tokens OAuth do Calendar ficam em uma tabela inacessível a `anon` e `authenticated`.
-- **Consequências:** cada função deve validar o chamador por conta própria (hoje `generate-report` não faz isso; veja [security.md](security.md)).
+- **Consequências:** cada função deve validar o chamador por conta própria (o `generate-report` passou a fazer isso em outubro/2026; veja [security.md](security.md)).
 
 ### ADR-007: Migrations idempotentes aplicadas pelo SQL Editor
 
@@ -61,7 +61,7 @@ Registros curtos no formato ADR. A motivação vem dos comentários do próprio 
 
 | # | Item | Impacto | Sugestão |
 |---|---|---|---|
-| 1 | **Riscos de segurança** de [security.md](security.md) (autoescalada de `role`, signup aberto, `generate-report` sem auth) | Crítico | Prioridade máxima |
+| 1 | **Riscos de segurança restantes** de [security.md](security.md): webhook de leads aberto a `anon`, `push-fanout` sem segredo, arquivos de clientes abertos a todos os membros. Os três críticos foram corrigidos no código e precisam ser aplicados em produção | Médio | Aplicar as migrations `20261005*`, depois tratar os itens 4 a 7 de security.md |
 | 2 | **ESLint inefetivo:** `apps/web/eslint.config.js` aplica regras só a `src/components/**`, `src/pages/**` e `src/Layout.jsx`, que não existem | Bugs passam sem aviso | Trocar os globs por `src/**/*.{js,jsx}` e ignorar `src/shared/ui/**` |
 | 3 | **Valores fixos de ambiente no SQL:** URL e anon key em `20260608000000_push_tokens.sql`, e-mail em `triggers/onboarding_on_cliente.sql` | Ambientes novos quebram ou apontam para produção. Expõe dado pessoal | Supabase Vault ou tabela de config |
 | 4 | **Bootstrap fora do Supabase CLI:** `schema.sql` não é uma migration | `supabase db reset` e branches de preview não funcionam | Gerar uma migration baseline (`supabase db dump`) e passar a usar `supabase db push` |

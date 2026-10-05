@@ -8,11 +8,17 @@
 // Body JSON: { summary: {...dados agregados}, periodo: "Junho de 2026" }
 // Resposta:  { resumo: string, blocks: Block[] }
 //
+// Acesso: somente admin (mesma regra da tela /relatorios). A função gera
+// chamadas pagas à Anthropic, então valida o JWT e o papel do chamador —
+// o verify_jwt da plataforma sozinho aceita a anon key pública.
+//
 // Secret esperado (configure com: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...):
 //   ANTHROPIC_API_KEY -> chave da API da Anthropic
+// Preenchidos automaticamente pela plataforma: SUPABASE_URL, SUPABASE_ANON_KEY
 //
 // Deploy: supabase functions deploy generate-report
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -63,6 +69,39 @@ function extrairJSON(texto: string): unknown {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
+  }
+  if (req.method !== 'POST') {
+    return jsonResponse({ error: 'Method not allowed' }, 405);
+  }
+
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+  const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return jsonResponse({ error: 'Server misconfigured.' }, 500);
+  }
+
+  // Valida o caller pelo JWT e exige role admin.
+  const authHeader = req.headers.get('Authorization') ?? '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return jsonResponse({ error: 'Missing auth token.' }, 401);
+  }
+  const callerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const {
+    data: { user: caller },
+    error: callerErr,
+  } = await callerClient.auth.getUser();
+  if (callerErr || !caller) {
+    return jsonResponse({ error: 'Invalid session.' }, 401);
+  }
+  const { data: profile } = await callerClient
+    .from('profiles')
+    .select('role')
+    .eq('id', caller.id)
+    .single();
+  if (!profile || profile.role !== 'admin') {
+    return jsonResponse({ error: 'Forbidden: admin only.' }, 403);
   }
 
   try {

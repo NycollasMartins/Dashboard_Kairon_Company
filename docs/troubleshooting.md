@@ -28,6 +28,7 @@
 | Sintoma | Causa | Solução |
 |---|---|---|
 | Login redireciona para `/login?reason=archived` | `profiles.archived_at` preenchido | Um admin restaura o usuário em Membros (`manage-user` → `unarchive`) |
+| Depois do login aparece só "Aguardando aprovação" | Papel `pendente` (conta criada sem convite, ou o convite falhou ao gravar o papel) | Admin define o papel em Membros |
 | O usuário loga, mas aparece como `sdr` e sem acesso | Falha ao ler `profiles` (linha ausente ou erro de rede). O `AuthContext` usa `sdr` como fallback | Confira se existe a linha em `profiles` para o `auth.users.id`, e o trigger `on_auth_user_created` |
 | O link do convite abre o domínio errado ou dá erro de redirect | Origem não cadastrada nas Redirect URLs | Adicione `<origem>/aceitar-convite` em Auth → URL Configuration. Confira `VITE_SITE_URL` e o secret `SITE_URL` |
 | "Missing auth token" / "Forbidden: admin only" ao convidar | Sessão expirada, ou o usuário não é `admin` | Faça login de novo. Só `admin` (não `dev`) convida |

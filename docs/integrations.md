@@ -65,7 +65,7 @@ Princípio: **nenhum segredo de terceiros chega ao front.** Toda integração pa
 - **Função:** `generate-report` envia o resumo à Messages API com um system prompt que exige usar **só** os números fornecidos, e devolve `{ resumo, blocks }`.
 - **Modelo:** definido na constante `MODEL` de `supabase/functions/generate-report/index.ts`, com `max_tokens: 16000`.
 - **Export:** PDF no cliente (jsPDF + html2canvas).
-- ⚠️ A função **não valida o papel do chamador**. Veja [security.md #3](security.md#3-generate-report-sem-autenticação-de-papel).
+- **Acesso:** somente admin. A função valida JWT e papel, como as demais ([security.md #3](security.md#3-generate-report-sem-autenticação-de-papel)).
 
 ---
 

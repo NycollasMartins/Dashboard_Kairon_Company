@@ -52,7 +52,7 @@ Antes, habilite as extensões `pg_cron` e `pg_net` em **Database → Extensions*
 ## 4. Primeiro usuário admin
 
 1. Crie o usuário em **Authentication → Users → Add user** (ou pelo signup, se estiver habilitado).
-2. Promova esse usuário:
+2. O usuário nasce com o papel `pendente` (sem acesso). Promova-o:
 
    ```sql
    UPDATE public.profiles SET role = 'admin' WHERE email = '<seu-email>';

@@ -40,7 +40,7 @@ if (profile.role !== 'admin') return jsonResponse({ error: 'Forbidden' }, 403);
 | `google-calendar-sync` | admin, head | `googleCalendarApi.push/deleteRemote/pull` | `{ action: 'push', event }` · `{ action: 'delete', google_event_id }` · `{ action: 'pull' }` | Cria, atualiza e remove eventos no Google. `pull` importa eventos para `calendar_events`. Renova o access token automaticamente |
 | `meta-ads` | admin | `metaAdsService` (`lib/adsServiceCore.js`) | `{ action, platform, ...payload }` | `listCampaigns`, `getMetrics`, `pauseCampaign`, `resumeCampaign`, `endCampaign`. `createCampaign` → 501 |
 | `google-ads` | admin | `googleAdsService` | `{ action, platform, ...payload }` | 🚧 **Todas as ações retornam 501** (TODO no código). Só a validação de auth e de secrets está implementada |
-| `generate-report` | ⚠️ **nenhuma** além de `verify_jwt` | `relatoriosApi.gerar` | `{ summary: {...}, periodo: string }` | Chama a Anthropic Messages API e devolve `{ resumo, blocks: Block[] }` |
+| `generate-report` | admin | `relatoriosApi.gerar` | `{ summary: {...}, periodo: string }` | Chama a Anthropic Messages API e devolve `{ resumo, blocks: Block[] }` |
 | `push-fanout` | ⚠️ qualquer JWT | Trigger `notifications_push_fanout` (`pg_net`) | `{ notification_id }` | Lê a notificação e os `push_tokens` do dono, envia pela Expo Push API e remove tokens `DeviceNotRegistered` |
 
 `verify_jwt` (em `supabase/config.toml`): `google-calendar-oauth = false` (o callback vem do Google), `google-calendar-sync = true`. As demais usam o padrão da plataforma (`true`).
