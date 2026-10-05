@@ -36,3 +36,9 @@ dist-ssr
 # Database dumps / backups (nunca versionar — podem conter dados/segredos)
 backup_*.sql
 *.dump
+
+# Supabase CLI — estado local do link com o projeto (ref, org, pooler). Não versionar.
+supabase/.temp/
+
+# Configurações locais/pessoais de ferramentas
+.claude/settings.local.json

@@ -1,4 +1,4 @@
-import { Crown, Briefcase, Edit2, User, UserCheck, Star, Palette, HeartHandshake, Code2, Tv, Video } from 'lucide-react';
+import { Crown, Briefcase, Edit2, User, UserCheck, Star, Palette, HeartHandshake, Code2, Tv, Video, Clock } from 'lucide-react';
 
 export const roleConfig = {
   admin: {
@@ -85,6 +85,19 @@ export const roleConfig = {
     bg: 'bg-indigo-500/10 border-indigo-500/20',
     desc: 'Produção de vídeo — Visão Geral, Calendário, Tarefas e Squads que participa',
   },
+  // Default do banco para contas criadas sem convite. Não é oferecido no
+  // convite (o convite já define o papel), mas aparece em Membros para o admin
+  // aprovar — ou para revogar o acesso de alguém.
+  pendente: {
+    label: 'Pendente',
+    icon: Clock,
+    color: 'text-zinc-400',
+    bg: 'bg-zinc-500/10 border-zinc-500/20',
+    desc: 'Sem acesso — aguardando um admin definir o papel',
+  },
 };
 
 export const ROLE_KEYS = Object.keys(roleConfig);
+
+// Papéis que podem ser atribuídos num convite (invite-user/ALLOWED_ROLES).
+export const INVITE_ROLE_KEYS = ROLE_KEYS.filter((k) => k !== 'pendente');

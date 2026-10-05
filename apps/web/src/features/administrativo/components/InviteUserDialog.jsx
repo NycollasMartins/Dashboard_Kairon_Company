@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { invitesApi } from '@/features/administrativo/api/invites.api';
-import { roleConfig } from '@/features/administrativo/lib/roleConfig';
+import { roleConfig, INVITE_ROLE_KEYS } from '@/features/administrativo/lib/roleConfig';
 import { queryKeys } from '@/entities/query-keys';
 
 const BRAND_FROM = '#EA3935';
@@ -119,9 +119,9 @@ export default function InviteUserDialog({ open, onOpenChange }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-[#1a1a2e] border-white/10">
-                {Object.entries(roleConfig).map(([key, cfg]) => (
+                {INVITE_ROLE_KEYS.map((key) => (
                   <SelectItem key={key} value={key}>
-                    {cfg.label}
+                    {roleConfig[key].label}
                   </SelectItem>
                 ))}
               </SelectContent>
